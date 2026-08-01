@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
-import { useReadContracts } from "wagmi";
-import type { Address } from "viem";
+import { useEffect, useMemo, useState } from "react";
+import { useReadContracts, usePublicClient } from "wagmi";
+import { parseAbiItem, type Address } from "viem";
 import { BONDING_CURVE_ABI } from "@/app/_lib/contracts/BondingCurve";
 import { IMMUTABLE_LAUNCH_TOKEN_ABI } from "@/app/_lib/contracts/ImmutableLaunchToken";
 import {
@@ -16,6 +16,11 @@ const LIVE_REFETCH_INTERVAL_MS = 8_000;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const ONE_TOKEN = 10n ** 18n;
 const Q96 = 2n ** 96n;
+
+/** Uniswap V3's pool swap event — amounts are signed, pool-relative. */
+const SWAP_EVENT = parseAbiItem(
+  "event Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)"
+);
 
 const GET_POOL_ABI = [
   {
@@ -264,6 +269,75 @@ export function useTokenMarketData(
     return map;
   }, [slot0Data, migratedPairs, poolAddresses]);
 
+  /**
+   * Post-migration pool volume, summed from Swap logs.
+   *
+   * A curve's `cumulativeVolume` counts buys and sells alike but stops the
+   * moment the token migrates, since a Uniswap swap never touches it — so a
+   * busy migrated pool otherwise showed its graduation-day total forever,
+   * and disagreed with the token detail page, which does span both venues.
+   *
+   * Scoped tightly to keep this affordable in a grid: only MIGRATED tokens
+   * are scanned (most are not), and only once per pool rather than on the
+   * 8-second price poll, since historical volume cannot change retroactively
+   * — new swaps simply add to it on the next mount.
+   */
+  const publicClient = usePublicClient();
+  const [poolVolumes, setPoolVolumes] = useState<Record<Address, bigint>>({});
+
+  const poolVolumeKey = useMemo(
+    () =>
+      migratedPairs
+        .map(({ curveAddress }) => `${curveAddress}:${poolAddresses[curveAddress] ?? ""}`)
+        .sort()
+        .join(","),
+    [migratedPairs, poolAddresses]
+  );
+
+  useEffect(() => {
+    if (!publicClient) return;
+    const entries = migratedPairs
+      .map((pair) => ({ ...pair, pool: poolAddresses[pair.curveAddress] }))
+      .filter((entry): entry is typeof entry & { pool: Address } => Boolean(entry.pool));
+    if (entries.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      const found: Record<Address, bigint> = {};
+      for (const { curveAddress, tokenAddress, pool } of entries) {
+        try {
+          const logs = await publicClient.getLogs({
+            address: pool,
+            event: SWAP_EVENT,
+            fromBlock: 0n,
+            toBlock: "latest",
+          });
+          const tokenIsToken0 = tokenAddress.toLowerCase() < WETH9_ADDRESS.toLowerCase();
+          let total = 0n;
+          for (const log of logs) {
+            const args = log.args as { amount0?: bigint; amount1?: bigint };
+            const ethDelta = tokenIsToken0 ? args.amount1 : args.amount0;
+            if (ethDelta === undefined) continue;
+            // Absolute value: the ETH leg is negative when it leaves the
+            // pool (a buy) and positive when it enters (a sell). Both are
+            // volume.
+            total += ethDelta < 0n ? -ethDelta : ethDelta;
+          }
+          found[curveAddress] = total;
+        } catch {
+          // Best-effort: a failed scan just leaves curve-only volume, which
+          // is what this showed before.
+        }
+      }
+      if (!cancelled) setPoolVolumes((prev) => ({ ...prev, ...found }));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [poolVolumeKey, publicClient]);
+
   const result = useMemo(() => {
     const map: Record<Address, MarketData | undefined> = {};
     for (const [curveAddress, entry] of Object.entries(stage1) as [Address, (typeof stage1)[Address]][]) {
@@ -274,11 +348,11 @@ export function useTokenMarketData(
         progressPct: entry.progressPct,
         graduated: entry.graduated,
         migrated: entry.migrated,
-        volumeWei: entry.volumeWei,
+        volumeWei: entry.volumeWei + (poolVolumes[curveAddress] ?? 0n),
       };
     }
     return map;
-  }, [stage1, poolPrices]);
+  }, [stage1, poolPrices, poolVolumes]);
 
   return { data: result, isLoading, refetch: () => refetch() };
 }

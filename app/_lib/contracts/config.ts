@@ -67,16 +67,26 @@ export const DEFAULT_GRADUATION_THRESHOLD_WEI = 4_200_000_000_000_000_000n; // 4
  * this same migrator; it seeds a full-range Uniswap V3 pool and burns the
  * resulting LP position permanently.
  */
-/// !! MUST BE REDEPLOYED AND UPDATED BEFORE THE NEXT LAUNCH !!
-/// The migrator's constructor gained a `swapRouter` parameter, and it now
-/// deploys a TokenFeeCollector and calls `setAmmPair` on the token at
-/// graduation. This address still points at the PREVIOUS migrator build.
+/// Redeployed 2026-08-02 from current source. The previous build
+/// (0x98d1f17E7D52353E71De8578F3aA299175940d9b) predated `TokenFeeCollector`
+/// entirely — it had no `swapRouter` and no `setAmmPair` call, so every
+/// token it migrated came out with `ammPair` and `feeCollector` left at
+/// zero and its post-graduation whale sell tax permanently disarmed. That
+/// is unfixable after the fact: `pairSetter` is immutable per token, so
+/// anything already minted against the old address (REKT included) stays
+/// wired to a migrator with no code to arm it. Only launches from here on
+/// get the tax.
 ///
-/// It is also the `pairSetter` baked into every token deployed from here,
-/// and that is immutable per token — so any token launched against a stale
-/// address can never have its post-graduation tax armed.
+/// This build also carries the security-audit fixes (see audit/
+/// AUDIT_REPORT.md): the H-02 pool-price tolerance check with
+/// `alignPoolPrice` as its permissionless escape hatch, and the leftover
+/// sweep that stops undeposited assets being stranded forever.
+///
+/// !! Redeploying this again means updating this constant BEFORE the next
+/// launch — it is baked into each token as `pairSetter` and cannot be
+/// changed once minted. !!
 export const GRADUATION_MIGRATOR_ADDRESS =
-  "0x98d1f17E7D52353E71De8578F3aA299175940d9b" as const;
+  "0x4A0d353fC6500AB82d7274B81928F091D7ccA492" as const;
 
 /**
  * Arbitrum Sepolia's real Chainlink-style ETH/USD price feed (verified

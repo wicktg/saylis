@@ -191,7 +191,13 @@ export default function TokenDetailPage() {
   const livePriceWei = useMemo(() => {
     if (graduated) {
       const lastPoolTrade = [...trades].reverse().find((trade) => trade.venue === "pool");
-      if (lastPoolTrade) return lastPoolTrade.priceWei;
+      // `spotPriceWei` (decoded from the swap's `sqrtPriceX96`), never
+      // `priceWei`. The latter is a slippage-inclusive average of one
+      // trade, so a single large sell would leave the header and market cap
+      // reading ABOVE the real market — and disagreeing with both the chart
+      // and the token grid, which price migrated tokens off the pool's
+      // marginal `slot0`. All three now report the same quantity.
+      if (lastPoolTrade?.spotPriceWei !== undefined) return lastPoolTrade.spotPriceWei;
     }
     return priceWei;
   }, [graduated, trades, priceWei]);
@@ -200,6 +206,28 @@ export default function TokenDetailPage() {
     livePriceWei !== undefined && totalSupplyWhole > 0n
       ? livePriceWei * totalSupplyWhole
       : undefined;
+
+  /**
+   * Lifetime traded volume across BOTH venues.
+   *
+   * The curve's own `cumulativeVolume` already counts buys and sells alike
+   * (`buy` adds `msg.value`, `sell` adds the gross ETH out — see
+   * BondingCurve), but it stops dead at migration: a Uniswap swap never
+   * touches the curve, so the figure froze at whatever it read the moment
+   * the token graduated, and a busy migrated pool still displayed its
+   * graduation-day total forever.
+   *
+   * Pool volume is summed from the same Swap logs the trade feed and chart
+   * are built from, so all three agree, and both sides of a swap count —
+   * `ethWei` is the ETH leg either way, in or out.
+   */
+  const totalVolumeWei = useMemo(() => {
+    const poolVolume = trades.reduce(
+      (sum, trade) => (trade.venue === "pool" ? sum + trade.ethWei : sum),
+      0n
+    );
+    return (volumeWei ?? 0n) + poolVolume;
+  }, [volumeWei, trades]);
 
   // Live ETH/USD price — the same feed every curve reads on-chain for its
   // whale-tax gating, refreshed periodically rather than a fixed constant.
@@ -219,9 +247,19 @@ export default function TokenDetailPage() {
   //
   // Pool trades can't use that: the reconstruction walks backwards through
   // the CURVE's reserves, and a Uniswap swap never touches them. Feeding
-  // pool trades into it would corrupt every historical price. Post-
-  // graduation the curve is frozen anyway, so those plot their realized
-  // price, which on a live pool is the market price.
+  // pool trades into it would corrupt every historical price. They instead
+  // use `spotPriceWei`, decoded from the Swap event's own `sqrtPriceX96` —
+  // the pool's MARGINAL price right after the swap, which is the direct
+  // analogue of the curve's reconstructed price and of the `slot0` read the
+  // token grid uses. Both venues therefore plot the same quantity.
+  //
+  // Plotting `priceWei` here instead (as this did) is what produced green
+  // candles on sells: a realized price is a slippage-inclusive AVERAGE, so
+  // it sits systematically ABOVE spot on a sell and BELOW it on a buy. A
+  // large sell would print a close above the previous candle's — a green
+  // bar on a trade that actually pushed the price down. `priceWei` remains
+  // the right number for the trade feed (it is what the trader really got);
+  // it is only wrong as a charted series.
   const spotPricesWei = useMemo(() => {
     const curveTrades = trades.filter((trade) => trade.venue === "curve");
     const curvePrices =
@@ -231,7 +269,9 @@ export default function TokenDetailPage() {
 
     let curveIndex = 0;
     return trades.map((trade) =>
-      trade.venue === "curve" ? (curvePrices[curveIndex++] ?? trade.priceWei) : trade.priceWei
+      trade.venue === "curve"
+        ? (curvePrices[curveIndex++] ?? trade.priceWei)
+        : (trade.spotPriceWei ?? trade.priceWei)
     );
   }, [trades, curveK, tokenReserve]);
 
@@ -336,7 +376,7 @@ export default function TokenDetailPage() {
             />
             <Stat
               label="Volume"
-              value={volumeWei !== undefined ? formatUsdCompact(volumeWei, ethUsd) : "..."}
+              value={volumeWei !== undefined ? formatUsdCompact(totalVolumeWei, ethUsd) : "..."}
             />
             <Stat label="Bonding" value={`${progressPct.toFixed(1)}%`} />
           </div>
