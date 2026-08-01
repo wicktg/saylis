@@ -71,6 +71,74 @@ function tweetTimestamp(tweet: RawTweet): number | null {
   return Number.isFinite(ms) ? ms : null;
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Does this post actually reference the campaign's token?
+ *
+ * A post counts if it mentions ANY of the campaign's identifiers — the
+ * ticker, the project's own X handle, or the contract address (see
+ * `campaignMatchTerms`). Any one is enough: people naturally write "$DOGE
+ * is pumping", "great thread from @dogeproject" or paste a CA, and all
+ * three are genuine promotion of the same token.
+ *
+ * Each term is accepted in two shapes:
+ *
+ *   - PREFIXED (`$term`, `#term`, `@term`) — unambiguous, so plain
+ *     containment is enough.
+ *   - BARE (`term`) — requires a word boundary. Plain `includes` was the
+ *     original behaviour and it false-positives badly on short or
+ *     dictionary-word tickers: `AI` matched "said", "chain" and "airdrop",
+ *     handing campaign rewards to entirely unrelated posts. The boundary
+ *     check is deliberately not `\b`, which treats `_` as a word character
+ *     and would match `foo_doge`.
+ */
+function mentionsCampaign(text: string, terms: string[]): boolean {
+  for (const term of terms) {
+    if (
+      text.includes(`$${term}`)
+      || text.includes(`#${term}`)
+      || text.includes(`@${term}`)
+    ) {
+      return true;
+    }
+
+    const bare = new RegExp(`(?<![a-z0-9_])${escapeRegExp(term)}(?![a-z0-9_])`);
+    if (bare.test(text)) return true;
+  }
+  return false;
+}
+
+/**
+ * Normalises a campaign's identifiers into the lowercase terms
+ * `fetchCampaignEngagement` searches tweet text for.
+ *
+ * Exported so the recompute job and its tests agree on exactly what counts,
+ * rather than each rebuilding the list.
+ *
+ * @param ticker Token ticker, e.g. `DOGE`.
+ * @param xHandle Project X handle from the creator's socials, already
+ *        reduced to a bare handle by `extractXHandle`.
+ * @param contractAddress The token's own address — people paste a CA far
+ *        more often than they use a cashtag, and it is the one identifier
+ *        that cannot be ambiguous.
+ */
+export function campaignMatchTerms(
+  ticker?: string,
+  xHandle?: string | null,
+  contractAddress?: string
+): string[] {
+  const terms = [ticker, xHandle, contractAddress]
+    .map((value) => value?.trim().toLowerCase().replace(/^[$@#]/, "") ?? "")
+    // A one-character term would match almost any post; the boundary check
+    // is not enough protection at that length.
+    .filter((value) => value.length >= 2);
+
+  return [...new Set(terms)];
+}
+
 /**
  * Fetches recent posts for `username` and totals engagement across those
  * that count for this campaign.
@@ -78,13 +146,15 @@ function tweetTimestamp(tweet: RawTweet): number | null {
  * @param joinedAtMs Scoring cutoff. Posts at or before this instant are
  *        ignored — joining should not retroactively credit content written
  *        before the participant opted in.
- * @param mustMention Optional cashtag/handle the post has to mention to
- *        count, so unrelated posts do not earn campaign rewards.
+ * @param matchTerms Campaign identifiers (ticker, project X handle, contract
+ *        address) from `campaignMatchTerms`. A post must mention at least
+ *        one to count, so unrelated posts do not earn campaign rewards. An
+ *        empty list disables the check and counts every original post.
  */
 export async function fetchCampaignEngagement(
   username: string,
   joinedAtMs: number,
-  mustMention?: string
+  matchTerms: string[] = []
 ): Promise<Engagement> {
   const apiKey = process.env.TWITTERAPI_IO_API_KEY;
   if (!apiKey) {
@@ -120,8 +190,6 @@ export async function fetchCampaignEngagement(
       ? raw.tweets
       : [];
 
-  const needle = mustMention?.toLowerCase().replace(/^[$@]/, "");
-
   const totals: Engagement = {
     views: 0,
     likes: 0,
@@ -136,11 +204,9 @@ export async function fetchCampaignEngagement(
     const ts = tweetTimestamp(tweet);
     if (ts === null || ts <= joinedAtMs) continue;
 
-    if (needle) {
+    if (matchTerms.length > 0) {
       const text = (tweet.text ?? "").toLowerCase();
-      if (!text.includes(`$${needle}`) && !text.includes(`#${needle}`) && !text.includes(needle)) {
-        continue;
-      }
+      if (!mentionsCampaign(text, matchTerms)) continue;
     }
 
     totals.views += num(tweet.viewCount, tweet.view_count);

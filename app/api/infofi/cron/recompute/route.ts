@@ -19,7 +19,9 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/app/_lib/supabaseAdmin";
 import { computeMindshare, type ParticipantInput } from "@/app/_lib/infofi/mindshare";
-import { fetchCampaignEngagement } from "@/app/_lib/infofi/xEngagement";
+import { campaignMatchTerms, fetchCampaignEngagement } from "@/app/_lib/infofi/xEngagement";
+import { extractXHandle } from "@/app/_lib/socialLinks";
+import type { TokenSocials } from "@/app/_lib/types";
 import { notify } from "@/app/_lib/infofi/notify";
 
 export const dynamic = "force-dynamic";
@@ -76,14 +78,26 @@ export async function POST(request: Request) {
       continue;
     }
 
-    // The ticker gates which posts count, so an unrelated viral post does
-    // not earn this campaign's tokens.
+    // What a post has to mention to count, so an unrelated viral post does
+    // not earn this campaign's tokens. Three identifiers, because people
+    // reference a token in three different ways and all of them are real
+    // promotion: the ticker ($DOGE), the project's own X handle (@dogeproj,
+    // taken from whatever the creator typed at mint), and the contract
+    // address — which is both the most commonly pasted and the only one
+    // that can never be ambiguous.
     const { data: tokenRow } = await admin
       .from("tokens")
-      .select("ticker")
+      .select("ticker, socials")
       .eq("contract_address", tokenAddress)
       .maybeSingle();
+
     const ticker = (tokenRow?.ticker as string | undefined) ?? undefined;
+    const socials = (tokenRow?.socials as TokenSocials | null) ?? null;
+    const matchTerms = campaignMatchTerms(
+      ticker,
+      extractXHandle(socials?.x),
+      tokenAddress
+    );
 
     const inputs: ParticipantInput[] = [];
     let failed = 0;
@@ -94,7 +108,7 @@ export async function POST(request: Request) {
         const engagement = await fetchCampaignEngagement(
           p.x_username as string,
           Number.isFinite(joinedAtMs) ? joinedAtMs : 0,
-          ticker
+          matchTerms
         );
         inputs.push({
           walletAddress: p.wallet_address as string,

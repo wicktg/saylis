@@ -33,6 +33,39 @@ function bareHandle(raw: string): string {
 }
 
 /**
+ * The bare X handle behind whatever a creator typed into the "X" field at
+ * mint, lowercased — or `null` if it cannot be read as one.
+ *
+ * The stored value is free text (see the header note above), so this has to
+ * cope with `@abc`, `abc`, `x.com/abc`, `https://twitter.com/abc?s=20` and
+ * friends, all of which should yield `abc`.
+ *
+ * Separate from `resolveSocialUrl` because the two want opposite things:
+ * that function builds a link to click, this one recovers the identifier to
+ * search tweet text for (see `app/_lib/infofi/xEngagement.ts`).
+ */
+export function extractXHandle(raw: string | undefined): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+
+  let candidate = value;
+
+  // Pull the first path segment out of anything URL-shaped, so
+  // `https://x.com/abc/status/1` and `twitter.com/abc?s=20` both give `abc`.
+  const urlMatch = value.match(
+    /^(?:https?:\/\/)?(?:www\.)?(?:x|twitter)\.com\/(?:#!\/)?([^/?#]+)/i
+  );
+  if (urlMatch) candidate = urlMatch[1];
+
+  const handle = bareHandle(candidate);
+  // X handles are letters, digits and underscore, max 15 — the same rule
+  // `resolveSocialUrl` applies before it will build a profile link.
+  if (!/^\w{1,15}$/.test(handle)) return null;
+
+  return handle.toLowerCase();
+}
+
+/**
  * Turns one stored social value into a URL, or `null` if it is empty or
  * cannot be made safe.
  */
