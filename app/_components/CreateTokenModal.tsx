@@ -121,6 +121,23 @@ export default function CreateTokenModal({
 
         if (cancelled) return;
 
+        // Mirror the on-chain campaign immediately, so a creator who just
+        // locked supply sees it on /campaigns the moment the launch lands
+        // rather than whenever the poke cron next happens to run. Only the
+        // service-role key may write that table, hence the route.
+        //
+        // Best-effort and deliberately not awaited into the failure path:
+        // the campaign is already real on-chain and the cron re-syncs it
+        // regardless, so a hiccup here must never fail an otherwise
+        // successful launch.
+        if (infoFiAllocation > 0) {
+          fetch("/api/campaigns/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tokenAddress: result.tokenAddress }),
+          }).catch(() => {});
+        }
+
         recordLaunchedToken(account, {
           tokenAddress: result.tokenAddress,
           curveAddress: result.curveAddress,
