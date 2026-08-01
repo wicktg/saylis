@@ -131,27 +131,68 @@ export default function TokenChart({
     };
   }, []);
 
-  // Push candle data. klinecharts expects millisecond timestamps.
+  /**
+   * Push candle data. klinecharts expects millisecond timestamps.
+   *
+   * `applyNewData` REPLACES the whole dataset and resets the visible range
+   * with it, so calling it on every update made the chart jump back to the
+   * latest bar and discard any zoom or pan the moment a trade landed —
+   * which, on an actively traded token, is constantly. `updateData` instead
+   * mutates the last bar in place (or appends, when the timestamp is newer)
+   * and leaves the viewport alone, which is what makes new trades animate
+   * into a chart the user is still looking at.
+   *
+   * A full reset is still correct when the series identity changes — a new
+   * timeframe rebuckets everything, and a backfill can prepend history — so
+   * this only takes the incremental path when the new array is recognisably
+   * the same series that has merely grown at the tail.
+   */
+  const appliedRef = useRef<{ count: number; firstTime: number } | null>(null);
+  const precisionRef = useRef<number | null>(null);
+
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
 
+    const toBar = (candle: Candle) => ({
+      timestamp: candle.time * 1000,
+      open: candle.open,
+      high: candle.high,
+      low: candle.low,
+      close: candle.close,
+      volume: candle.volume,
+    });
+
     // A freshly launched token prices in millionths of a dollar, so the
     // default 2-decimal precision would collapse every axis tick and
-    // tooltip to "0.00". Scale the precision to the data instead.
+    // tooltip to "0.00". Scale the precision to the data instead — but only
+    // when it actually changes, since re-applying it forces a redraw.
     const reference = candles.length > 0 ? candles[candles.length - 1].close : 0;
-    chart.setPriceVolumePrecision(pricePrecisionFor(reference), 4);
+    const precision = pricePrecisionFor(reference);
+    if (precision !== precisionRef.current) {
+      precisionRef.current = precision;
+      chart.setPriceVolumePrecision(precision, 4);
+    }
 
-    chart.applyNewData(
-      candles.map((candle) => ({
-        timestamp: candle.time * 1000,
-        open: candle.open,
-        high: candle.high,
-        low: candle.low,
-        close: candle.close,
-        volume: candle.volume,
-      }))
-    );
+    const prev = appliedRef.current;
+    const sameSeries =
+      prev !== null &&
+      candles.length >= prev.count &&
+      candles.length > 0 &&
+      candles[0].time === prev.firstTime;
+
+    if (sameSeries) {
+      // Re-send the previously-last bar (its close/high/low/volume keep
+      // moving while its bucket is open) plus anything appended since.
+      for (let i = Math.max(0, prev.count - 1); i < candles.length; i++) {
+        chart.updateData(toBar(candles[i]));
+      }
+    } else {
+      chart.applyNewData(candles.map(toBar));
+    }
+
+    appliedRef.current =
+      candles.length > 0 ? { count: candles.length, firstTime: candles[0].time } : null;
   }, [candles]);
 
   // Arming a tool creates the matching overlay; klinecharts then drives the
