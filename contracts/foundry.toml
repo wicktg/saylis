@@ -1,0 +1,43 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+test = "test"
+script = "script"
+
+# Match the deployed bytecode as closely as possible to what will actually
+# run on Arbitrum Orbit chains (Arbitrum Sepolia, Robinhood Chain).
+solc_version = "0.8.26"
+optimizer = true
+optimizer_runs = 200
+via_ir = true
+
+remappings = [
+    "forge-std/=lib/forge-std/src/",
+    "openzeppelin-contracts/=lib/openzeppelin-contracts/",
+]
+
+# We only ever import from openzeppelin-contracts/contracts/** — its own
+# test/fv/scripts/hardhat/certora directories are that dependency's OWN
+# test/tooling suite, not something this project needs to compile. Left
+# unskipped, forge pulls all ~500+ of those files into every build too,
+# some of which require newer solc versions than this project pins.
+skip = [
+    "lib/openzeppelin-contracts/test/**",
+    "lib/openzeppelin-contracts/fv/**",
+    "lib/openzeppelin-contracts/scripts/**",
+    "lib/openzeppelin-contracts/certora/**",
+    "lib/openzeppelin-contracts/hardhat/**",
+]
+
+[rpc_endpoints]
+# Also used by GraduationMigrator.t.sol to fork Arbitrum Sepolia's real,
+# officially-deployed Uniswap V3 testnet contracts (see that file's
+# NatSpec for the exact addresses and source).
+arbitrum_sepolia = "${ARBITRUM_SEPOLIA_RPC_URL}"
+
+[etherscan]
+# Arbiscan's Arbitrum Sepolia explorer, used by `forge verify-contract` / `--verify`.
+arbitrum_sepolia = { key = "${ARBISCAN_API_KEY}", chain = 421614, url = "https://api-sepolia.arbiscan.io/api" }
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

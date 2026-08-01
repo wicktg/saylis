@@ -1,0 +1,20 @@
+node_modules
+.next
+out
+.env*.local
+.superdesign
+.claude
+.agents
+
+# TypeScript build cache
+tsconfig.tsbuildinfo
+
+# Foundry (contracts/) — regeneratable build/dependency output
+contracts/lib
+contracts/out
+contracts/cache
+contracts/broadcast
+
+# Scratch testnet scripts + generated wallet keys — not part of the app
+contracts/_*.sh
+contracts/*.csv

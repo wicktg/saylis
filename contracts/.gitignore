@@ -1,0 +1,10 @@
+# Foundry
+cache/
+out/
+broadcast/*/*/run-latest.json
+
+# Secrets
+.env
+
+# Editors
+.vscode/

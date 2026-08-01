@@ -1,0 +1,441 @@
+@import url("https://fonts.cdnfonts.com/css/satoshi");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-main: #000000;
+  --bg-card: #000000;
+  --bg-sidebar: #000000;
+  --accent-lime: #ffffff;
+
+  /*
+   * Brand magenta. Three deliberate shades, not one:
+   *
+   *  --accent       the pure brand color. Use for anything drawn ON the
+   *                 black canvas — indicators, borders, focus rings, fills,
+   *                 progress. 5.27:1 against black, so fine for UI and text
+   *                 >=12px, but avoid it for the 9-10px labels on cards.
+   *  --accent-fill  a deeper shade for BUTTON BACKGROUNDS carrying white
+   *                 text. White on --accent is only 3.99:1 (below the 4.5:1
+   *                 AA threshold, and 12px bold is too small to qualify for
+   *                 the large-text exemption); white on this is 5.96:1.
+   *  --accent-soft  a lighter tint, for gradient ends and hover states.
+   */
+  --accent: #cf38dd;
+  --accent-fill: #a32baf;
+  --accent-fill-hover: #b731c4;
+  --accent-soft: #e879f9;
+  /* Pre-mixed low-alpha brand tint. Written out rather than composed with
+     Tailwind's `/10` opacity modifier, which does not reliably compile
+     against an arbitrary CSS variable in Tailwind v3. */
+  --accent-tint: rgba(207, 56, 221, 0.12);
+
+  /* Approximation of dexscreener's --chakra-colors-boost-500, which isn't
+     available to us outside their app — a bright boost orange. Used for the
+     ticker strip's gradient. */
+  --boost-500: #ffb347;
+
+  --text-muted: #a8a3c9;
+  --grain-bg: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='linear' slope='3.2' intercept='-0.35'/></feComponentTransfer></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+body {
+  font-family: "Satoshi", "Inter", sans-serif;
+  background-color: var(--bg-main);
+  color: white;
+  margin: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+/*
+ * Pixelated, minimalist branding: every rounded surface (buttons, inputs,
+ * pills, cards, modals) is squared off to a hard block edge instead of
+ * Tailwind's `rounded-*` curves — texture and color are untouched, only
+ * the corner shape changes. `!important` because this deliberately wins
+ * over every `rounded-*` utility class regardless of source order.
+ */
+button,
+input,
+textarea,
+select,
+[class*="rounded-"] {
+  border-radius: 0 !important;
+}
+
+/* Loading spinners are the deliberate exception to the square-everything
+ * rule above: a spinning ring reads as broken/wrong when squared off, and
+ * "loading" is the one shape in this UI that's supposed to look like every
+ * other spinner on the web. Named `.spinner-circle` specifically so it
+ * never matches the `[class*="rounded-"]` selector (a `rounded-full`
+ * class would, and lose to `!important` regardless of source order).
+ */
+.spinner-circle {
+  border-radius: 50%;
+}
+
+/* Raster art (token images, previews, the pixel-art logo mark) stays
+   crisp/blocky when scaled instead of being smoothed by the browser. */
+img {
+  image-rendering: pixelated;
+}
+
+/* Real photographs (X profile pictures, etc.) are the opposite case:
+   nearest-neighbor scaling makes them look blocky/low-quality rather than
+   crisp. Opt back into normal smooth scaling for these. */
+img.photo {
+  image-rendering: auto;
+}
+
+/*
+ * Film-grain texture overlay: a tiled SVG <feTurbulence> noise map painted
+ * fixed over the whole viewport, above the navy background but below all
+ * real content (z-index: 0 sits under every component, which all use
+ * position: relative/absolute with a natural stacking context above the
+ * page flow). blend-mode "overlay" + low opacity keeps it a subtle texture
+ * rather than visible static.
+ */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.9;
+  mix-blend-mode: overlay;
+  background-image: var(--grain-bg);
+  background-repeat: repeat;
+  background-size: 140px 140px;
+}
+
+/*
+ * Same navy + film-grain treatment as the page body, self-contained for
+ * floating surfaces (dropdowns, popovers) that need to visually read as
+ * "cut from the same background" rather than a distinct dark card. Relies
+ * on the element already being positioned (absolute/relative) via its own
+ * classes — deliberately NOT setting `position` here, since this rule
+ * loads after Tailwind's utilities and would silently win the cascade over
+ * a `position: absolute` utility class on the same element, breaking
+ * layout for anything floated (e.g. a dropdown).
+ *
+ * The pseudo-element clips its OWN background via `border-radius: inherit`
+ * rather than the parent using `overflow: hidden` — that would also clip
+ * any real child that needs to pop outside the box (e.g. a tooltip).
+ */
+.surface-grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.9;
+  mix-blend-mode: overlay;
+  background-image: var(--grain-bg);
+  background-repeat: repeat;
+  background-size: 140px 140px;
+}
+
+/* =================================================================
+ * PIXEL-ART UI KIT (8/16-bit RPG menu styling)
+ * =================================================================
+ *
+ * Every surface is drawn as a sprite rather than a CSS box: flat colour
+ * bands, no gradients or blur, and stair-stepped corners instead of a
+ * radius.
+ *
+ * Construction is deliberately just `box-shadow` on the element itself:
+ * four hard, blurless, OFFSET shadows (one per side). Because each is
+ * offset rather than spread, the corners are left uncovered — which is
+ * exactly the notched corner pixel art has. A fifth `inset` shadow paints
+ * the lighter top band that fakes a bevel.
+ *
+ * An earlier version drew this on a `::before` at `z-index: -1` with a
+ * `clip-path` silhouette. That is abandoned, for two concrete reasons:
+ * negative z-index is fragile — it slips behind ancestor backgrounds and
+ * takes content with it — and pseudo-elements do not render on replaced
+ * elements at all, so every `<input>` using it came out invisible.
+ * `box-shadow` paints outside the border box without participating in
+ * layout or stacking, so it can never occlude content and works directly
+ * on inputs.
+ *
+ * Note the outline is LIGHT, not the black of a pixel-art sprite sheet:
+ * those are drawn for light backgrounds, and black-on-black would be
+ * invisible here. Light-on-dark is what 16-bit RPG dialogue boxes
+ * actually use.
+ */
+:root {
+  /* Outline thickness, and equally the size of the corner notch. */
+  --pixel-unit: 3px;
+  --pixel-outline: rgba(255, 255, 255, 0.55);
+}
+
+.pixel-frame {
+  /* Deliberately does NOT set `position`. This rule loads after Tailwind's
+     utilities, so declaring `position: relative` here silently beat the
+     `absolute` on every floated surface using this class — dropping the
+     profile dropdown and the Advanced popover back into normal flow, which
+     shifted the page and pushed the popover far down. box-shadow needs no
+     positioning; anything that wants a containing block sets its own. */
+  border: 0;
+  background-color: var(--pixel-fill, transparent);
+  box-shadow:
+    0 calc(var(--pixel-unit) * -1) 0 0 var(--pixel-outline),
+    0 var(--pixel-unit) 0 0 var(--pixel-outline),
+    calc(var(--pixel-unit) * -1) 0 0 0 var(--pixel-outline),
+    var(--pixel-unit) 0 0 0 var(--pixel-outline),
+    inset 0 var(--pixel-highlight-size, 0) 0 0 var(--pixel-highlight, transparent);
+}
+
+/* ---- Primary action: brand fill, bright outline, lighter top band ---- */
+.pixel-btn {
+  --pixel-fill: var(--accent-fill);
+  --pixel-highlight: #c04ccc;
+  --pixel-highlight-size: 6px;
+  --pixel-outline: #ffffff;
+}
+.pixel-btn:hover:not(:disabled) {
+  --pixel-fill: var(--accent-fill-hover);
+  --pixel-highlight: #d264dd;
+}
+.pixel-btn:active:not(:disabled) {
+  /* Sprite "presses in": the bevel band drops away entirely. */
+  --pixel-highlight-size: 0;
+}
+.pixel-btn:disabled {
+  --pixel-fill: #2a2a2a;
+  --pixel-highlight: #333333;
+  --pixel-outline: rgba(255, 255, 255, 0.3);
+}
+
+/* ---- Secondary / neutral action ---- */
+.pixel-btn-ghost {
+  --pixel-fill: rgba(255, 255, 255, 0.07);
+  --pixel-highlight: rgba(255, 255, 255, 0.14);
+  --pixel-highlight-size: 5px;
+  --pixel-outline: rgba(255, 255, 255, 0.55);
+}
+.pixel-btn-ghost:hover:not(:disabled) {
+  --pixel-fill: rgba(255, 255, 255, 0.14);
+  --pixel-outline: #ffffff;
+}
+.pixel-btn-ghost:disabled {
+  --pixel-outline: rgba(255, 255, 255, 0.2);
+}
+
+/* ---- Modal / dropdown panel: the RPG dialogue box ---- */
+.pixel-panel {
+  --pixel-fill: #050505;
+  --pixel-outline: rgba(255, 255, 255, 0.75);
+  --pixel-unit: 4px;
+}
+
+/* ---- Token card ---- */
+.pixel-card {
+  --pixel-fill: rgba(255, 255, 255, 0.035);
+  --pixel-outline: rgba(255, 255, 255, 0.3);
+}
+.pixel-card:hover {
+  --pixel-fill: rgba(255, 255, 255, 0.07);
+  --pixel-outline: rgba(255, 255, 255, 0.7);
+}
+
+/* ---- Text input / search bar: recessed, no highlight band ---- */
+.pixel-input {
+  --pixel-fill: rgba(255, 255, 255, 0.05);
+  --pixel-highlight: rgba(0, 0, 0, 0.4);
+  --pixel-highlight-size: 4px;
+  --pixel-outline: rgba(255, 255, 255, 0.35);
+}
+.pixel-input:focus-within,
+.pixel-input:focus {
+  --pixel-outline: var(--accent);
+}
+
+/*
+ * Blocky "online" indicator — a plus-shaped sprite built from box-shadow
+ * steps rather than a circle, so it reads as a handful of lit pixels.
+ */
+.pixel-dot {
+  width: 4px;
+  height: 4px;
+  background: var(--accent);
+  box-shadow:
+    -4px 0 0 0 var(--accent),
+    4px 0 0 0 var(--accent),
+    0 -4px 0 0 var(--accent),
+    0 4px 0 0 var(--accent);
+}
+
+/* A newly-landed trade sliding into the top of the transactions feed. */
+@keyframes tx-row-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+    background-color: var(--accent-tint);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    background-color: transparent;
+  }
+}
+
+.tx-row-enter {
+  animation: tx-row-enter 0.9s ease-out 1;
+}
+
+/*
+ * Distinct from `.surface-grain`'s noise: a soft diagonal hairline weave,
+ * used for elevated modal surfaces that want their own tactile texture
+ * without visually reading as an extension of the page background.
+ */
+.surface-weave {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.05) 0px,
+    rgba(255, 255, 255, 0.05) 1px,
+    transparent 1px,
+    transparent 9px
+  );
+}
+
+/*
+ * Create Token modal's texture: a fine dot-grid (subtle "circuit board" /
+ * blueprint feel, fitting a launch/build flow) plus a soft radial glow
+ * seeping down from the top edge for depth. Distinct from both
+ * `.surface-grain` (noise) and `.surface-weave` (diagonal hairlines) so
+ * each elevated surface in the app reads as its own place.
+ */
+.surface-circuit {
+  background-color: var(--bg-main);
+  background-image: radial-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1px);
+  background-size: 18px 18px;
+  background-position: 0 0;
+}
+
+/*
+ * Fully custom range-input skin (Whale Sell Tax slider, etc.) — the bare
+ * `accent-color` utility only tints the native thumb/fill and leaves the
+ * unfilled track browser-default (usually light gray), which read as a
+ * mismatched native widget against the app's dark custom UI. The filled
+ * portion itself comes from an inline `background: linear-gradient(...)`
+ * set per-instance (computed from the current value), not from this class.
+ */
+.slider-clean {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 0;
+  cursor: pointer;
+  outline: none;
+}
+.slider-clean::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 0;
+  background: transparent;
+}
+.slider-clean::-moz-range-track {
+  height: 4px;
+  border-radius: 0;
+  background: transparent;
+}
+.slider-clean::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 0;
+  background: var(--accent);
+  border: 2px solid var(--bg-main);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.slider-clean::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--bg-main);
+  border-radius: 0;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.slider-clean:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/**
+ * Scrollbars are hidden everywhere — every scrollable surface in this app
+ * uses .custom-scrollbar or .pixel-scrollbar, so hiding the bar on both
+ * (rather than styling it) covers the whole site. Scrolling itself is
+ * completely unaffected; only the visible bar UI is gone.
+ */
+.custom-scrollbar,
+.pixel-scrollbar,
+.no-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* old Edge/IE */
+}
+.custom-scrollbar::-webkit-scrollbar,
+.pixel-scrollbar::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, new Edge */
+  width: 0;
+  height: 0;
+}
+
+.tag-pill {
+  background: #1a1a1a;
+  border: 1px solid #222;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 0;
+  background: #4ade80;
+}
+
+.price-up {
+  color: #22c55e;
+}
+.price-down {
+  color: #ef4444;
+}
+
+@keyframes rocket-launch {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-130px) scale(0.8);
+    opacity: 0;
+  }
+}
+
+@keyframes rocket-flame {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scaleY(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleY(1.15);
+  }
+}
+
+.animate-rocket-launch {
+  animation: rocket-launch 1.6s cubic-bezier(0.61, 0, 0.9, 0.45) infinite;
+}
+
+.animate-rocket-flame {
+  animation: rocket-flame 0.25s ease-in-out infinite;
+}
+
