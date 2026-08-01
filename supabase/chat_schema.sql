@@ -4,15 +4,12 @@
 --
 -- Run after schema.sql. Additive and idempotent.
 --
--- Chat itself is intentionally NOT a database table: messages broadcast
--- live over a Supabase Realtime channel (see /api/chat/send) and are never
--- written to persistent storage. A client only ever sees messages sent
--- while it was connected, capped at the last 50 in memory — there is no
--- server-side history to query, by design.
---
 -- This table exists purely to make the 30-second per-wallet send cooldown
 -- enforceable SERVER-SIDE (so refreshing the page can't reset it) — it is
 -- one row per wallet, always overwritten in place, never growing.
+--
+-- Message content itself lives separately, in chat_messages_schema.sql
+-- (capped at the last 50 rows) — see that file for why.
 
 create table if not exists public.chat_cooldowns (
   wallet_address text primary key,

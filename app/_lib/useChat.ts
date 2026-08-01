@@ -20,11 +20,15 @@ type BroadcastPayload = {
 };
 
 /**
- * Global live chat — purely a Supabase Realtime broadcast subscription, no
- * table backing the messages themselves. A client only ever sees messages
- * broadcast while it's connected, and only ever keeps the most recent 50 in
- * memory — scroll up past that and it's genuinely gone, by design (see
- * /api/chat/send for why: nothing is persisted server-side either).
+ * Global live chat. Two sources feed the same capped 50-message window:
+ *
+ *   - On mount, the last 50 rows are fetched from `chat_messages` (a public,
+ *     read-only table pruned by /api/chat/send) so a page refresh rehydrates
+ *     recent history instead of showing an empty box.
+ *   - From then on, new messages arrive live over Supabase Realtime's
+ *     `chat:global` broadcast channel. Both paths are id-deduped when
+ *     merged, since a message sent right around mount could otherwise show
+ *     up twice (once from the fetch, once from the broadcast).
  *
  * Sending goes through /api/chat/send, never a direct client broadcast —
  * that's what makes the 30s per-wallet cooldown actually enforceable
@@ -39,12 +43,51 @@ export function useChat(wallet: Address | undefined) {
   const [error, setError] = useState<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
+  const appendMessage = useCallback((incoming: ChatMessage) => {
+    setMessages((prev) => {
+      if (prev.some((m) => m.id === incoming.id)) return prev;
+      return [...prev, incoming].slice(-MAX_MESSAGES);
+    });
+  }, []);
+
+  // Hydrate recent history once on mount, so a refresh isn't a blank chat.
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from("chat_messages")
+      .select("id, wallet_address, message, created_at")
+      .order("created_at", { ascending: false })
+      .limit(MAX_MESSAGES)
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        const history: ChatMessage[] = data
+          .slice()
+          .reverse()
+          .map((row) => ({
+            id: row.id as string,
+            walletAddress: row.wallet_address as string,
+            message: row.message as string,
+            sentAt: row.created_at as string,
+          }));
+        setMessages((prev) => {
+          const merged = [...history];
+          for (const m of prev) {
+            if (!merged.some((h) => h.id === m.id)) merged.push(m);
+          }
+          return merged.slice(-MAX_MESSAGES);
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Subscribe once, for the life of the component — not per-wallet, since
   // anyone (connected or not) can read the chat, only sending requires one.
   useEffect(() => {
     const channel = supabase.channel(CHANNEL);
     channel.on("broadcast", { event: "message" }, ({ payload }: BroadcastPayload) => {
-      setMessages((prev) => [...prev, payload].slice(-MAX_MESSAGES));
+      appendMessage(payload);
     });
     channel.subscribe();
     channelRef.current = channel;
@@ -53,7 +96,7 @@ export function useChat(wallet: Address | undefined) {
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, []);
+  }, [appendMessage]);
 
   // Honest countdown across a refresh — check the server's own record of
   // this wallet's cooldown rather than assuming a fresh client means no

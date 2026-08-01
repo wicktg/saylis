@@ -9,6 +9,7 @@ import { SORT_OPTIONS, type SortOption } from "@/app/_lib/sort";
 export default function ExplorePage() {
   const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [sortOpen, setSortOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const sortRef = useRef<HTMLDivElement>(null);
   useOutsideClick(sortRef, () => setSortOpen(false));
 
@@ -27,6 +28,8 @@ export default function ExplorePage() {
               <iconify-icon icon="pixelarticons:search" className="text-white/30 text-sm shrink-0" />
               <input
                 type="text"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search tokens or paste ca..."
                 className="bg-transparent text-[11px] text-white focus:outline-none placeholder:text-white/30 w-full"
               />
@@ -69,7 +72,7 @@ export default function ExplorePage() {
           </div>
         </div>
 
-        <TokenGrid sortBy={sortBy} />
+        <TokenGrid sortBy={sortBy} search={search} />
       </div>
     </AppShell>
   );

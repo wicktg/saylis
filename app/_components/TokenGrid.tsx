@@ -9,7 +9,7 @@ import type { SortOption } from "@/app/_lib/sort";
 import type { TokenRecord } from "@/app/_lib/types";
 import type { Address } from "viem";
 
-export default function TokenGrid({ sortBy }: { sortBy: SortOption }) {
+export default function TokenGrid({ sortBy, search = "" }: { sortBy: SortOption; search?: string }) {
   const { tokens, loading } = useLiveTokens();
 
   const pairs = useMemo(
@@ -22,9 +22,22 @@ export default function TokenGrid({ sortBy }: { sortBy: SortOption }) {
   );
   const { data: marketData } = useTokenMarketData(pairs);
 
+  // Ticker, name, or a full/partial contract address — whatever the user
+  // actually has on hand when hunting for a specific token.
+  const searchedTokens = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return tokens;
+    return tokens.filter(
+      (t) =>
+        t.ticker.toLowerCase().includes(query) ||
+        t.name.toLowerCase().includes(query) ||
+        t.contract_address.toLowerCase().includes(query)
+    );
+  }, [tokens, search]);
+
   const sortedTokens = useMemo(
-    () => sortTokens(tokens, marketData, sortBy),
-    [tokens, marketData, sortBy]
+    () => sortTokens(searchedTokens, marketData, sortBy),
+    [searchedTokens, marketData, sortBy]
   );
 
   if (loading) {
@@ -35,6 +48,14 @@ export default function TokenGrid({ sortBy }: { sortBy: SortOption }) {
     return (
       <div className="text-xs text-white/30 py-16 text-center">
         No tokens launched yet.
+      </div>
+    );
+  }
+
+  if (search.trim() && searchedTokens.length === 0) {
+    return (
+      <div className="text-xs text-white/30 py-16 text-center">
+        No tokens match &quot;{search.trim()}&quot;.
       </div>
     );
   }
