@@ -308,7 +308,14 @@ Three test files needed updating, in each case because they asserted the behavio
 - `TaxableLaunchToken.t.sol` (M-01) — `test_WhaleSellIsTaxed` asserted the pool received `amount - tax`, i.e. the fee-on-transfer behaviour V3 rejects. It now asserts the pool receives the full `amount` and the seller pays `amount + tax`. `testFuzz_TaxNeverExceedsConfiguredRate` had its conservation invariant restated the same way. Added `test_WhaleSellingEntireBalanceIsNotBlocked` to pin the headroom cap.
 - `mocks/MockUniswapV3Pool.sol` — extended with `liquidity()` and `swap()` to match the widened `IUniswapV3Pool` interface, mirroring the one V3 behaviour relied on (an empty pool's price walks to the limit, settling nothing).
 
-**Not executed:** the `GraduationMigrator` fork suite, which forks Arbitrum Sepolia over the shared public RPC and returned HTTP 429 rate limits during `vm.deal` in setup — environmental, before any contract logic runs. The H-02 changes (`_requirePoolPriceWithinTolerance`, `alignPoolPrice`, `uniswapV3SwapCallback`, `_sweepLeftovers`) are therefore **compile-verified but not execution-tested**. Re-run that suite against a dedicated RPC before deploying, and add coverage for: a squatted pool reverting `migrate`, `alignPoolPrice` clearing it, `migrate` then succeeding, and `PoolAlreadyFunded` on a funded pool.
+**`GraduationMigrator` fork suite — 9 of 10 passing.** This suite forks Arbitrum Sepolia over the shared public RPC, which rate-limits (HTTP 429) under the request volume a fork test generates. On a later re-run 9 tests passed, including `test_Migrate_EndToEnd_CreatesPoolMintsAndBurnsLp` — so the H-02 changes do execute correctly against a real fork, not merely compile.
+
+The one remaining failure is `testFuzz_Migrate_AcrossReserveSizes`, and it fails inside `vm.deal` during setup with a 429 — before any contract logic runs. A fuzz test multiplies RPC calls by its run count, so it trips the public endpoint's limit first. This is environmental, not a defect signal.
+
+Two gaps remain, and both need a dedicated RPC (set `ARBITRUM_SEPOLIA_RPC_URL`; note the repo's `.env.local` currently leaves `NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL` empty, so both app and tests fall back to the public endpoint):
+
+1. Get `testFuzz_Migrate_AcrossReserveSizes` green.
+2. **No test yet covers the new H-02 logic specifically.** The existing suite proves migration still works end to end, which is what regression coverage should do — but the paths that close the vulnerability are untested. Add: a squatted pool making `migrate` revert with `PoolPriceOutOfRange`, `alignPoolPrice` clearing it, `migrate` then succeeding, and `PoolAlreadyFunded` on a funded pool. Until those exist, H-02's fix is verified only by inspection.
 
 Fee percentages, tier tables, splits and thresholds are untouched. Four intentional behavioural changes, each of which *is* the fix rather than a side effect of it:
 
