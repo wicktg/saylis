@@ -352,6 +352,22 @@ export async function POST(request: Request) {
       const txHash = await poker.client.writeContract(simulated);
       poked.push({ token, txHash, eligible: Boolean(result) });
 
+      // Fold the poke's own result back into the mirror.
+      //
+      // The upsert above ran BEFORE this transaction, so it recorded the
+      // PRE-poke state. Without this, a token that just became eligible
+      // kept showing as `registered` on the creator's Campaigns page until
+      // the next cron tick happened to re-read it — the state changed
+      // on-chain, the creator was notified it had changed, and the page
+      // still disagreed for another full interval.
+      if (result && campaign.state === "registered") {
+        const nowIso = new Date().toISOString();
+        await admin
+          .from("infofi_campaigns")
+          .update({ state: "eligible", eligible_at: nowIso, updated_at: nowIso })
+          .eq("token_address", token);
+      }
+
       // Notify the creator exactly on the registered -> eligible crossing,
       // not on every poke that merely confirms it is still eligible.
       if (result && campaign.state === "registered" && ownerWallet) {
