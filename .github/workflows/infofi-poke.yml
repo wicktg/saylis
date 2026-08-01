@@ -1,0 +1,33 @@
+name: InfoFi poke (hourly)
+
+# Vercel's native Cron only runs hourly on a Pro plan — on Hobby it gets
+# silently capped to once a day, which is too slow for `poke`: it's what
+# advances eligibility timers and triggers auto-migration, so it wants to
+# run far more often than the daily `recompute` job does. This workflow
+# is the free, plan-independent way to keep hitting it hourly regardless
+# of which Vercel plan the project is on.
+#
+# Required repo secrets (Settings -> Secrets and variables -> Actions):
+#   APP_URL      - the deployed app's base URL, e.g. https://saylis.vercel.app
+#   CRON_SECRET  - must match the CRON_SECRET env var set on the Vercel project
+
+on:
+  schedule:
+    - cron: "0 * * * *" # every hour, on the hour (UTC)
+  workflow_dispatch: {} # lets you trigger it manually from the Actions tab
+
+jobs:
+  poke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call /api/infofi/cron/poke
+        run: |
+          response=$(curl -sS -o /tmp/body.json -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/infofi/cron/poke")
+          echo "HTTP status: $response"
+          cat /tmp/body.json
+          if [ "$response" -ge 300 ]; then
+            echo "poke request failed"
+            exit 1
+          fi
