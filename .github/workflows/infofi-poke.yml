@@ -1,4 +1,4 @@
-name: InfoFi poke (hourly)
+name: InfoFi poke
 
 # Vercel's native Cron only runs hourly on a Pro plan — on Hobby it gets
 # silently capped to once a day, which is too slow for `poke`: it's what
@@ -13,7 +13,16 @@ name: InfoFi poke (hourly)
 
 on:
   schedule:
-    - cron: "0 * * * *" # every hour, on the hour (UTC)
+    # Every 10 minutes. This is the BACKSTOP, not the primary path: the
+    # token page calls /api/migrate directly the moment it sees a graduated
+    # curve (see app/token/[address]/page.tsx), so migration normally
+    # happens within seconds. This exists to cover a graduation nobody is
+    # looking at, and to advance eligibility timers.
+    #
+    # GitHub delays scheduled workflows under load and skips ticks entirely
+    # during busy periods, so treat the interval as a ceiling rather than a
+    # promise — which is exactly why the fast path is not built on it.
+    - cron: "*/10 * * * *"
   workflow_dispatch: {} # lets you trigger it manually from the Actions tab
 
 jobs:

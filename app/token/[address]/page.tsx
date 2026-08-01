@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -127,6 +127,35 @@ export default function TokenDetailPage() {
     stats?.[10]?.status === "success" ? (stats[10].result as bigint) : undefined;
 
   const totalSupplyWhole = totalSupplyBase !== undefined ? totalSupplyBase / ONE_TOKEN : 0n;
+
+  /**
+   * Graduated but not yet migrated is a dead state — the curve has halted,
+   * so the token has no market at all until `migrate` runs. The hourly poke
+   * cron does it eventually, but "eventually" is up to an hour of a token
+   * sitting visibly frozen, so nudge it the moment this page observes the
+   * state (the stats poll above refreshes every 8s).
+   *
+   * `migrate` is permissionless on-chain and the server route simulates
+   * before spending anything, so this is only ever asking for something
+   * that was already going to happen, sooner. The ref keeps one mounted
+   * page to a single request rather than one per poll; the cron and the
+   * contract's own one-way latch cover everything else.
+   */
+  const migrateRequestedRef = useRef(false);
+  useEffect(() => {
+    if (!curveAddress) return;
+    if (graduated !== true || migrationExecuted !== false) return;
+    if (migrateRequestedRef.current) return;
+
+    migrateRequestedRef.current = true;
+    fetch("/api/migrate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ curveAddress }),
+    }).catch(() => {
+      // Best-effort: the cron is the guarantee, this is just the fast path.
+    });
+  }, [curveAddress, graduated, migrationExecuted]);
 
   /**
    * The curve's constant product, computed from immutables so it stays
