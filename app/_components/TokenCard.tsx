@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { TokenRecord } from "@/app/_lib/types";
 import type { MarketData } from "@/app/_lib/useTokenMarketData";
 import { resolveIpfsUrl } from "@/app/_lib/ipfs";
@@ -19,8 +20,18 @@ export default function TokenCard({
     <div className="pixel-frame pixel-card token-card p-4 cursor-pointer group">
       <div className="aspect-square rounded-xl bg-black flex items-center justify-center mb-4 relative overflow-hidden">
         {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={imageUrl} alt={token.ticker} className="w-full h-full object-cover" />
+          <Image
+            src={imageUrl}
+            alt={token.ticker}
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1536px) 20vw, 16vw"
+            className="object-cover"
+            // Every card ships through here (a live-updating grid, not a
+            // fixed handful) — never worth marking any one of them
+            // `priority`; letting them all lazy-load off-screen is what
+            // actually keeps the initial page load fast.
+            loading="lazy"
+          />
         ) : (
           <span className="text-4xl font-black text-lime-400 tracking-tighter">
             {token.ticker.charAt(0)}

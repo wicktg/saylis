@@ -5,6 +5,7 @@ const nextConfig = {
       { protocol: "https", hostname: "vgbujcuwptvheqijyjbe.supabase.co" },
       { protocol: "https", hostname: "api.dicebear.com" },
       { protocol: "https", hostname: "images.unsplash.com" },
+      { protocol: "https", hostname: "gateway.pinata.cloud" },
     ],
   },
   webpack: (config, { webpack }) => {

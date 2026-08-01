@@ -127,13 +127,17 @@ export default function TransactionsFeed({
         </table>
 
         {isLoading && trades.length === 0 && (
-          <div className="px-4 py-6 text-[11px] text-white/30">Loading trades from chain...</div>
+          <div className="flex items-center justify-center py-16">
+            <div className="w-6 h-6 border-2 border-lime-400/30 border-t-lime-400 spinner-circle animate-spin" />
+          </div>
         )}
         {!isLoading && error && (
-          <div className="px-4 py-6 text-[11px] text-white/50">{error}</div>
+          <div className="flex items-center justify-center py-16 text-[11px] text-white/50 text-center px-4">
+            {error}
+          </div>
         )}
         {!isLoading && !error && trades.length === 0 && (
-          <div className="px-4 py-6 text-[11px] text-white/30">
+          <div className="flex items-center justify-center py-16 text-[11px] text-white/30 text-center px-4">
             No trades yet. This curve hasn&apos;t been traded.
           </div>
         )}

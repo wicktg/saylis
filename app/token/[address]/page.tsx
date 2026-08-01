@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useReadContracts } from "wagmi";
@@ -257,10 +258,12 @@ export default function TokenDetailPage() {
           </Link>
 
           {imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={imageUrl}
               alt={token.ticker}
+              width={32}
+              height={32}
+              priority
               className="w-8 h-8 object-cover bg-white/5 shrink-0"
             />
           ) : (
