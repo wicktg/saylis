@@ -22,7 +22,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "saylis.wtf - Crypto Token Dashboard",
+  title: "Saylis",
   description: "Explore, launch, and trade tokens on saylis.wtf",
 };
 
