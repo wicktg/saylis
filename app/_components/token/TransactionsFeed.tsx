@@ -73,71 +73,69 @@ export default function TransactionsFeed({
         <span className="text-[10px] text-white/40">{trades.length}</span>
       </div>
 
-      <div className="overflow-y-auto custom-scrollbar min-h-0">
-        <table className="w-full text-[11px]">
-          <thead className="sticky top-0 bg-[var(--bg-main)] z-10">
-            <tr className="text-white/40 text-[10px] uppercase tracking-wide">
-              <th className="text-left font-medium px-4 py-2">Time</th>
-              <th className="text-left font-medium px-2 py-2">Type</th>
-              <th className="text-right font-medium px-2 py-2">Amount</th>
-              <th className="text-right font-medium px-2 py-2">Value</th>
-              <th className="text-right font-medium px-2 py-2">Price</th>
-              <th className="text-right font-medium px-4 py-2">Wallet</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((trade) => {
-              const isBuy = trade.type === "buy";
-              return (
-                <tr
-                  key={trade.id}
-                  className={`border-t border-white/5 hover:bg-white/5 transition-colors ${
-                    entering.has(trade.id) ? "tx-row-enter" : ""
-                  }`}
-                >
-                  <td className="px-4 py-1.5 text-white/50 whitespace-nowrap">
-                    {timeAgo(trade.timestamp, now)}
-                  </td>
-                  <td
-                    className={`px-2 py-1.5 font-bold uppercase ${
-                      isBuy ? "text-[#2ebd85]" : "text-[#e2444b]"
+      <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0 flex flex-col">
+        {trades.length > 0 ? (
+          <table className="w-full text-[11px]">
+            <thead className="sticky top-0 bg-[var(--bg-main)] z-10">
+              <tr className="text-white/40 text-[10px] uppercase tracking-wide">
+                <th className="text-left font-medium px-4 py-2">Time</th>
+                <th className="text-left font-medium px-2 py-2">Type</th>
+                <th className="text-right font-medium px-2 py-2">Amount</th>
+                <th className="text-right font-medium px-2 py-2">Value</th>
+                <th className="text-right font-medium px-2 py-2">Price</th>
+                <th className="text-right font-medium px-4 py-2">Wallet</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((trade) => {
+                const isBuy = trade.type === "buy";
+                return (
+                  <tr
+                    key={trade.id}
+                    className={`border-t border-white/5 hover:bg-white/5 transition-colors ${
+                      entering.has(trade.id) ? "tx-row-enter" : ""
                     }`}
                   >
-                    {trade.type}
-                  </td>
-                  <td className="px-2 py-1.5 text-right font-mono">
-                    {formatTokenAmount(trade.tokensWei)}
-                  </td>
-                  <td className="px-2 py-1.5 text-right font-mono text-white/70">
-                    {formatWeiAsUsdPrice(trade.ethWei, ethUsdPrice)}
-                  </td>
-                  <td className="px-2 py-1.5 text-right font-mono text-white/70">
-                    {formatWeiAsUsdPrice(trade.priceWei, ethUsdPrice)}
-                  </td>
-                  <td className="px-4 py-1.5 font-mono text-white/40">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <WalletAvatar address={trade.wallet} size={16} />
-                      {truncateAddress(trade.wallet)}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        {isLoading && trades.length === 0 && (
-          <div className="flex items-center justify-center py-16">
+                    <td className="px-4 py-1.5 text-white/50 whitespace-nowrap">
+                      {timeAgo(trade.timestamp, now)}
+                    </td>
+                    <td
+                      className={`px-2 py-1.5 font-bold uppercase ${
+                        isBuy ? "text-[#2ebd85]" : "text-[#e2444b]"
+                      }`}
+                    >
+                      {trade.type}
+                    </td>
+                    <td className="px-2 py-1.5 text-right font-mono">
+                      {formatTokenAmount(trade.tokensWei)}
+                    </td>
+                    <td className="px-2 py-1.5 text-right font-mono text-white/70">
+                      {formatWeiAsUsdPrice(trade.ethWei, ethUsdPrice)}
+                    </td>
+                    <td className="px-2 py-1.5 text-right font-mono text-white/70">
+                      {formatWeiAsUsdPrice(trade.priceWei, ethUsdPrice)}
+                    </td>
+                    <td className="px-4 py-1.5 font-mono text-white/40">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <WalletAvatar address={trade.wallet} size={16} />
+                        {truncateAddress(trade.wallet)}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : isLoading ? (
+          <div className="flex-1 flex items-center justify-center">
             <div className="w-6 h-6 border-2 border-lime-400/30 border-t-lime-400 spinner-circle animate-spin" />
           </div>
-        )}
-        {!isLoading && error && (
-          <div className="flex items-center justify-center py-16 text-[11px] text-white/50 text-center px-4">
+        ) : error ? (
+          <div className="flex-1 flex items-center justify-center text-[11px] text-white/50 text-center px-4">
             {error}
           </div>
-        )}
-        {!isLoading && !error && trades.length === 0 && (
-          <div className="flex items-center justify-center py-16 text-[11px] text-white/30 text-center px-4">
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-[11px] text-white/30 text-center px-4">
             No trades yet. This curve hasn&apos;t been traded.
           </div>
         )}
