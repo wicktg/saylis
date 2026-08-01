@@ -18,3 +18,4 @@ contracts/broadcast
 # Scratch testnet scripts + generated wallet keys — not part of the app
 contracts/_*.sh
 contracts/*.csv
+.env.local.example
