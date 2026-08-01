@@ -30,6 +30,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
+  // DELIBERATELY UNSIGNED — same reasoning as /api/wallets/register: this
+  // fires automatically on connect, so a signature prompt here would greet
+  // arrival rather than any decision the user made.
+  //
+  // Safe because the code grants nothing. It is a public lookup key pointing
+  // AT a wallet, and referral earnings are held on-chain by `ReferralVault`
+  // against that wallet's own address — minting someone else's code does not
+  // let the minter claim a wei of it, since `withdrawReferralFees` pays
+  // `msg.sender` and nobody else.
   const wallet = body.walletAddress?.toLowerCase() ?? "";
   if (!isAddress(wallet)) {
     return NextResponse.json({ error: "A valid walletAddress is required." }, { status: 400 });

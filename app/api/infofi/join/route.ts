@@ -16,15 +16,18 @@
  */
 import { NextResponse } from "next/server";
 import { isAddress } from "viem";
+import { verifyWalletAuth, type AuthenticatedRequest } from "@/app/_lib/walletAuth";
 import { getSupabaseAdmin } from "@/app/_lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
+
+const AUTH_ACTION = "infofi:join";
 
 /** Campaign states that still accept new participants. */
 const JOINABLE_STATES = new Set(["registered", "eligible", "open"]);
 
 export async function POST(request: Request) {
-  let body: { tokenAddress?: string; walletAddress?: string };
+  let body: AuthenticatedRequest & { tokenAddress?: string };
   try {
     body = await request.json();
   } catch {
@@ -32,14 +35,18 @@ export async function POST(request: Request) {
   }
 
   const tokenAddress = body.tokenAddress?.toLowerCase();
-  const walletAddress = body.walletAddress?.toLowerCase();
-
   if (!tokenAddress || !isAddress(tokenAddress)) {
     return NextResponse.json({ error: "A valid tokenAddress is required." }, { status: 400 });
   }
-  if (!walletAddress || !isAddress(walletAddress)) {
-    return NextResponse.json({ error: "A valid walletAddress is required." }, { status: 400 });
+
+  // The participant set is the input to the off-chain mindshare computation
+  // that produces the merkle root real tokens are claimed against, so who is
+  // in it has to be proven, not asserted. See app/_lib/walletAuth.ts.
+  const auth = await verifyWalletAuth(body, AUTH_ACTION);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
+  const walletAddress = auth.address.toLowerCase();
 
   const admin = getSupabaseAdmin();
 

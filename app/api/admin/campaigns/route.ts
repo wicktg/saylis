@@ -18,11 +18,13 @@
  * it grants no authority (the admin action routes check independently).
  */
 import { NextResponse } from "next/server";
-import { isAddress } from "viem";
 import { getSupabaseAdmin } from "@/app/_lib/supabaseAdmin";
 import { INFOFI_TEAM_ADDRESS } from "@/app/_lib/contracts/config";
+import { verifyWalletAuth } from "@/app/_lib/walletAuth";
 
 export const dynamic = "force-dynamic";
+
+const AUTH_ACTION = "admin:campaign-queue";
 
 type CampaignRow = {
   token_address: string;
@@ -44,11 +46,22 @@ type CampaignRow = {
 };
 
 export async function GET(request: Request) {
-  const wallet = new URL(request.url).searchParams.get("wallet")?.toLowerCase() ?? "";
-  if (!isAddress(wallet)) {
-    return NextResponse.json({ error: "A valid wallet is required." }, { status: 400 });
+  // Signed, like every other admin route. This one only reads, but the queue
+  // it returns is the team's private review pipeline (who requested what, and
+  // every owner wallet behind it) — not something a URL guess should open.
+  const params = new URL(request.url).searchParams;
+  const auth = await verifyWalletAuth(
+    {
+      walletAddress: params.get("wallet") ?? undefined,
+      signature: params.get("signature") ?? undefined,
+      issuedAt: Number(params.get("issuedAt")),
+    },
+    AUTH_ACTION
+  );
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
-  if (wallet !== INFOFI_TEAM_ADDRESS.toLowerCase()) {
+  if (auth.address.toLowerCase() !== INFOFI_TEAM_ADDRESS.toLowerCase()) {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 

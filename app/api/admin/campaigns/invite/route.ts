@@ -24,21 +24,29 @@ import { NextResponse } from "next/server";
 import { isAddress, type Address } from "viem";
 import { getSupabaseAdmin } from "@/app/_lib/supabaseAdmin";
 import { INFOFI_TEAM_ADDRESS } from "@/app/_lib/contracts/config";
+import { verifyWalletAuth, type AuthenticatedRequest } from "@/app/_lib/walletAuth";
+
+const AUTH_ACTION = "admin:campaign-invite";
 import { publicClient } from "@/app/_lib/infofi/chain";
 import { BONDING_CURVE_ABI } from "@/app/_lib/contracts/BondingCurve";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  let body: { walletAddress?: string; tokenAddress?: string; inviteWallet?: string };
+  let body: AuthenticatedRequest & { tokenAddress?: string; inviteWallet?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const caller = body.walletAddress?.toLowerCase() ?? "";
-  if (caller !== INFOFI_TEAM_ADDRESS.toLowerCase()) {
+  // Authorize against the signature-recovered address, never the body's
+  // self-declared one. See app/_lib/walletAuth.ts.
+  const auth = await verifyWalletAuth(body, AUTH_ACTION);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+  if (auth.address.toLowerCase() !== INFOFI_TEAM_ADDRESS.toLowerCase()) {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 
@@ -127,7 +135,7 @@ export async function POST(request: Request) {
     state: "invited",
     allocation_raw: "0",
     invited_at: nowIso,
-    invited_by: caller,
+    invited_by: auth.address.toLowerCase(),
     updated_at: nowIso,
   });
 

@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isAddress } from "viem";
+import { verifyWalletAuth, type AuthenticatedRequest } from "@/app/_lib/walletAuth";
+
+const AUTH_ACTION = "x:verify-confirm";
 import { getSupabaseAdmin } from "@/app/_lib/supabaseAdmin";
 import { fetchXProfile, TwitterApiIoError } from "@/app/_lib/twitterApiIo";
 
@@ -12,17 +14,23 @@ export const runtime = "nodejs";
  * and deletes the pending attempt.
  */
 export async function POST(request: NextRequest) {
-  let body: { wallet?: string };
+  let body: AuthenticatedRequest;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const wallet = (body.wallet ?? "").toLowerCase();
-  if (!isAddress(wallet)) {
-    return NextResponse.json({ error: "Invalid wallet address." }, { status: 400 });
+  // Same reasoning as /x/verify/start: this is the call that finalises the
+  // handle-to-wallet binding, so it must be the wallet asking.
+  const auth = await verifyWalletAuth(
+    body,
+    AUTH_ACTION
+  );
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
+  const wallet = auth.address.toLowerCase();
 
   const supabase = getSupabaseAdmin();
 

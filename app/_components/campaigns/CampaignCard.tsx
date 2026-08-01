@@ -7,6 +7,7 @@ import { resolveIpfsUrl } from "@/app/_lib/ipfs";
 import { truncateAddress } from "@/app/_lib/format";
 import { TOKEN_DECIMALS } from "@/app/_lib/contracts/config";
 import type { MyCampaign } from "@/app/_lib/useMyCampaigns";
+import { useWalletAuth } from "@/app/_lib/useWalletAuth";
 import SendSupplyModal from "./SendSupplyModal";
 
 const WINNER_MIN = 25;
@@ -52,6 +53,7 @@ export default function CampaignCard({
   onChanged: () => void;
 }) {
   const { address: account } = useAccount();
+  const { authorize } = useWalletAuth();
   const [winnerCount, setWinnerCount] = useState(campaign.winnerCount ?? 50);
   const [title, setTitle] = useState(campaign.title ?? "");
   const [description, setDescription] = useState(campaign.description ?? "");
@@ -71,7 +73,7 @@ export default function CampaignCard({
       const response = await fetch(`/api/campaigns/${campaign.tokenAddress}/configure`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress: account, ...body }),
+        body: JSON.stringify({ ...(await authorize("campaigns:configure")), ...body }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.error ?? "Could not update.");

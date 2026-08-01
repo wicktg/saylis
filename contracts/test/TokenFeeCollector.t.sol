@@ -88,6 +88,7 @@ contract TokenFeeCollectorTest is Test {
 
     function test_RevertWhen_DistributingWithNothingCollected() public {
         vm.expectRevert(TokenFeeCollector.NothingToDistribute.selector);
+        vm.prank(creator);
         collector.distribute(0);
     }
 
@@ -98,7 +99,7 @@ contract TokenFeeCollectorTest is Test {
         uint256 expectedCreator = (expectedEth * 8_500) / 10_000;
         uint256 expectedProtocol = expectedEth - expectedCreator;
 
-        vm.prank(keeper);
+        vm.prank(creator);
         uint256 received = collector.distribute(0);
 
         assertEq(received, expectedEth, "eth received");
@@ -110,15 +111,41 @@ contract TokenFeeCollectorTest is Test {
         assertEq(address(collector).balance, received, "eth held for pull payment");
     }
 
-    /// Anyone may trigger conversion; the split is fixed regardless of who.
-    function test_Distribute_IsPermissionless() public {
+    /// `distribute` carries a CALLER-SUPPLIED slippage bound, so whoever may
+    /// call also decides how much protection the swap gets. Leaving it open
+    /// to anyone made that bound unenforceable: an attacker would call
+    /// `distribute(0)` inside their own sandwich and take the fees. Only the
+    /// two parties the proceeds can ever reach may trigger it, so the one
+    /// address able to pass a bad bound is only ever robbing itself.
+    function test_RevertWhen_DistributeCalledByStranger() public {
         _accrueTax(100_000e18);
 
         vm.prank(keeper);
+        vm.expectRevert(TokenFeeCollector.NotAuthorized.selector);
         collector.distribute(0);
 
-        assertGt(collector.creatorFeesOwed(), 0);
-        assertEq(keeper.balance, 0, "caller gains nothing");
+        // ...and the tax is still sitting there, untouched and claimable.
+        assertGt(token.balanceOf(address(collector)), 0, "nothing was swapped");
+        assertEq(collector.creatorFeesOwed(), 0, "nothing was credited");
+    }
+
+    /// Both permitted callers work, and neither gains anything by calling —
+    /// the split is fixed by the contract regardless of who triggers it.
+    function test_Distribute_AllowedForCreatorAndTreasury() public {
+        _accrueTax(100_000e18);
+
+        vm.prank(creator);
+        collector.distribute(0);
+        assertGt(collector.creatorFeesOwed(), 0, "creator may trigger");
+        assertEq(creator.balance, 0, "caller gains nothing directly");
+
+        // Refill, then prove the treasury is equally able to trigger it.
+        _accrueTax(50_000e18);
+        uint256 beforeSecond = collector.creatorFeesOwed();
+
+        vm.prank(treasury);
+        collector.distribute(0);
+        assertGt(collector.creatorFeesOwed(), beforeSecond, "treasury may trigger");
     }
 
     function test_Distribute_EnforcesSlippageBound() public {
@@ -129,17 +156,20 @@ contract TokenFeeCollectorTest is Test {
         uint256 fullQuote = (tax * router.rateWeiPerToken()) / 1e18;
 
         vm.expectRevert("Too little received");
+        vm.prank(creator);
         collector.distribute(fullQuote);
     }
 
     function test_Distribute_LeavesNoStandingAllowance() public {
         _accrueTax(100_000e18);
+        vm.prank(creator);
         collector.distribute(0);
         assertEq(token.allowance(address(collector), address(router)), 0);
     }
 
     function test_WithdrawCreatorFees_PaysCreatorInEth() public {
         _accrueTax(100_000e18);
+        vm.prank(creator);
         collector.distribute(0);
 
         uint256 owed = collector.creatorFeesOwed();
@@ -153,6 +183,7 @@ contract TokenFeeCollectorTest is Test {
 
     function test_WithdrawProtocolFees_PaysTreasuryInEth() public {
         _accrueTax(100_000e18);
+        vm.prank(creator);
         collector.distribute(0);
 
         uint256 owed = collector.protocolFeesOwed();
@@ -176,6 +207,7 @@ contract TokenFeeCollectorTest is Test {
     /// the failure mode that bit GraduationMigrator's fee accounting.
     function test_WithdrawalsAreIndependent() public {
         _accrueTax(100_000e18);
+        vm.prank(creator);
         collector.distribute(0);
 
         uint256 protocolOwed = collector.protocolFeesOwed();
@@ -190,11 +222,13 @@ contract TokenFeeCollectorTest is Test {
 
     function test_MultipleDistributionsAccumulate() public {
         _accrueTax(50_000e18);
+        vm.prank(creator);
         collector.distribute(0);
         uint256 afterFirst = collector.creatorFeesOwed();
 
         vm.prank(whale);
         token.transfer(address(pool), 50_000e18);
+        vm.prank(creator);
         collector.distribute(0);
 
         assertGt(collector.creatorFeesOwed(), afterFirst, "second round adds");
@@ -210,6 +244,7 @@ contract TokenFeeCollectorTest is Test {
         uint256 tax = _accrueTax(sellAmount);
         vm.assume(tax > 0);
 
+        vm.prank(creator);
         uint256 received = collector.distribute(0);
 
         assertEq(

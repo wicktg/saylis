@@ -18,11 +18,14 @@
  */
 import { NextResponse } from "next/server";
 import { isAddress } from "viem";
+import { verifyWalletAuth, type AuthenticatedRequest } from "@/app/_lib/walletAuth";
 import { getSupabaseAdmin } from "@/app/_lib/supabaseAdmin";
 import { INFOFI_TEAM_ADDRESS } from "@/app/_lib/contracts/config";
 import { notify } from "@/app/_lib/infofi/notify";
 
 export const dynamic = "force-dynamic";
+
+const AUTH_ACTION = "campaigns:lock";
 
 const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 500;
@@ -39,8 +42,7 @@ export async function POST(
     return NextResponse.json({ error: "Invalid token address." }, { status: 400 });
   }
 
-  let body: {
-    walletAddress?: string;
+  let body: AuthenticatedRequest & {
     title?: string;
     description?: string;
     winnerCount?: number;
@@ -52,10 +54,13 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const wallet = body.walletAddress?.toLowerCase() ?? "";
-  if (!isAddress(wallet)) {
-    return NextResponse.json({ error: "Connect a wallet first." }, { status: 400 });
+  // Ownership of this campaign is checked against `owner_wallet` below, so
+  // the caller identity feeding that check must be proven, not asserted.
+  const auth = await verifyWalletAuth(body, AUTH_ACTION);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
+  const wallet = auth.address.toLowerCase();
 
   const title = body.title?.trim() ?? "";
   const description = body.description?.trim() ?? "";

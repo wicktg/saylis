@@ -22,8 +22,10 @@ import {IWETH9} from "./interfaces/IWETH9.sol";
 /// trade and is trivially sandwiched.
 ///
 /// So collection and conversion are split. Tax simply accumulates here, and
-/// `distribute()` is an ordinary permissionless top-level call with a caller
-/// supplied `amountOutMinimum`, exactly like any other swap.
+/// `distribute()` is an ordinary top-level call with a caller-supplied
+/// `amountOutMinimum`, exactly like any other swap — restricted to the
+/// creator and the protocol treasury, since the caller is also the party
+/// choosing the swap's slippage bound (see `distribute`).
 ///
 /// @dev IMMUTABILITY
 ///
@@ -59,6 +61,9 @@ contract TokenFeeCollector is ReentrancyGuard {
     event ProtocolFeesWithdrawn(uint256 amount);
 
     error ZeroAddress();
+    /// @notice `distribute` was called by an address that is neither
+    ///         `creator` nor `protocolTreasury`. See `distribute`.
+    error NotAuthorized();
     error NothingToDistribute();
     error NothingOwed();
     error EthTransferFailed();
@@ -85,13 +90,26 @@ contract TokenFeeCollector is ReentrancyGuard {
     }
 
     /// @notice Swaps the entire collected token balance for ETH and credits
-    ///         the creator/protocol split. Permissionless — anyone may call
-    ///         it; the proceeds are fixed by this contract regardless of who
-    ///         triggers it.
+    ///         the creator/protocol split.
     ///
-    /// @param amountOutMinimum Slippage bound for the swap, in wei. Callers
-    ///        should quote off-chain; passing 0 invites a sandwich.
+    /// @dev CALLER-RESTRICTED, and deliberately so. The slippage bound on
+    ///      this swap is a caller-supplied argument, which means whoever
+    ///      calls also chooses how much protection the swap gets. Leaving
+    ///      that open to anyone made `amountOutMinimum` unenforceable in
+    ///      practice: an attacker would simply call `distribute(0)` inside
+    ///      their own sandwich and take the collected fees, and no honest
+    ///      caller could prevent it. Restricting the trigger to the only two
+    ///      parties the proceeds can ever reach means the one address able
+    ///      to set a bad bound is an address that would only be robbing
+    ///      itself. The destination and the split are unchanged and still
+    ///      fixed by this contract — this narrows WHO may trigger, never
+    ///      where the money goes.
+    ///
+    /// @param amountOutMinimum Slippage bound for the swap, in wei. Quote
+    ///        off-chain; passing 0 invites a sandwich.
     function distribute(uint256 amountOutMinimum) external nonReentrant returns (uint256 ethReceived) {
+        if (msg.sender != creator && msg.sender != protocolTreasury) revert NotAuthorized();
+
         uint256 balance = token.balanceOf(address(this));
         if (balance == 0) revert NothingToDistribute();
 

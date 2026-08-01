@@ -41,4 +41,23 @@ interface IUniswapV3Pool {
     ///         become queryable. Permissionless and idempotent-ish: calling
     ///         with a value at or below the current `next` is a no-op.
     function increaseObservationCardinalityNext(uint16 observationCardinalityNext) external;
+
+    /// @notice Currently in-range liquidity. Zero for a pool that has been
+    ///         created and initialised but never funded — the state a
+    ///         griefer leaves behind when they pre-create a pair to hijack
+    ///         its price (see `GraduationMigrator.alignPoolPrice`).
+    function liquidity() external view returns (uint128);
+
+    /// @notice Swap, used here for exactly one purpose: dragging an EMPTY
+    ///         pool's price to `sqrtPriceLimitX96`. With no liquidity to
+    ///         cross, V3 walks the price to the limit and exchanges nothing,
+    ///         so `uniswapV3SwapCallback` is handed zero-or-negative deltas
+    ///         and owes the pool nothing.
+    function swap(
+        address recipient,
+        bool zeroForOne,
+        int256 amountSpecified,
+        uint160 sqrtPriceLimitX96,
+        bytes calldata data
+    ) external returns (int256 amount0, int256 amount1);
 }

@@ -22,6 +22,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
+  // DELIBERATELY UNSIGNED, unlike the campaign/join/verify routes.
+  //
+  // This fires automatically the moment any wallet connects, on every page.
+  // Demanding a signature here would put a wallet prompt in front of someone
+  // who has done nothing but arrive — which is both hostile and actively
+  // counterproductive: it trains users to dismiss signing prompts, and the
+  // prompts that matter are the ones on the routes that move value.
+  //
+  // The trade is acceptable because spoofing this grants nothing. The row is
+  // an address and a first-seen timestamp; it confers no authority, no funds,
+  // and no visibility into anything. The residual risk is padding the
+  // broadcast audience with addresses that never connected, which is a
+  // capacity problem, not a privilege one — see the audit report's
+  // recommendation to rate-limit the unauthenticated public routes.
   const wallet = body.walletAddress?.toLowerCase() ?? "";
   if (!isAddress(wallet)) {
     return NextResponse.json({ error: "A valid walletAddress is required." }, { status: 400 });

@@ -560,6 +560,12 @@ contract InfoFiCampaign is IInfoFiCampaign, ReentrancyGuard {
         // the launch token is cheaper than ETH, which is essentially always).
         if (tickDelta < 0 && tickDelta % int56(uint56(TWAP_PERIOD)) != 0) avgTick--;
 
+        // `getSqrtRatioAtTick` reverts outside Uniswap's global tick bounds.
+        // Every other failure mode in this function degrades to (0, false)
+        // so `recordMarketCap` stays pokeable; an out-of-range average tick
+        // must not be the one case that bricks it instead.
+        if (avgTick < TickMath.MIN_TICK || avgTick > TickMath.MAX_TICK) return (0, false);
+
         uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(avgTick);
 
         // sqrtPriceX96 encodes sqrt(token1/token0) in Q64.96. Square it to a
@@ -568,6 +574,11 @@ contract InfoFiCampaign is IInfoFiCampaign, ReentrancyGuard {
         uint256 priceX96 = Math.mulDiv(
             uint256(sqrtPriceX96), uint256(sqrtPriceX96), 1 << 96
         );
+        // At the extreme low end of the tick range the squared price rounds
+        // to zero, which would make the inverted branch below divide by zero
+        // and revert. Unanswerable, not fatal — same contract as every other
+        // failure path here.
+        if (priceX96 == 0) return (0, false);
 
         uint8 tokenDecimals = IERC20Metadata(token).decimals();
         uint256 wholeSupply = IERC20(token).totalSupply() / (10 ** uint256(tokenDecimals));
@@ -589,9 +600,12 @@ contract InfoFiCampaign is IInfoFiCampaign, ReentrancyGuard {
     /// @dev ETH/USD as 18dp, or `(0, false)` if the feed is stale/invalid.
     function _ethUsd18() internal view returns (uint256, bool) {
         try ethUsdPriceFeed.latestRoundData() returns (
-            uint80, int256 answer, uint256, uint256 updatedAt, uint80
+            uint80 roundId, int256 answer, uint256, uint256 updatedAt, uint80 answeredInRound
         ) {
             if (answer <= 0) return (0, false);
+            // Incomplete or carried-over round. Eligibility must never be
+            // granted off a price the feed itself has not finalised.
+            if (updatedAt == 0 || answeredInRound < roundId) return (0, false);
             if (block.timestamp > updatedAt + PRICE_STALENESS_THRESHOLD) return (0, false);
             return (
                 Math.mulDiv(uint256(answer), 1e18, 10 ** uint256(ethUsdPriceFeedDecimals)), true

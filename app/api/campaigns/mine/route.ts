@@ -23,6 +23,15 @@ import { getSupabaseAdmin } from "@/app/_lib/supabaseAdmin";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  // DELIBERATELY UNSIGNED, unlike the admin queue route this otherwise
+  // resembles. It runs on every /campaigns page load, so a signature here
+  // would be a wallet prompt on navigation — and unlike the admin queue,
+  // what it exposes is one wallet's own campaign list, not the whole review
+  // pipeline. Read-only, address-scoped, and grants nothing.
+  //
+  // If this should become private, the right fix is a short-lived session
+  // (sign once on connect, reuse for reads) rather than a per-request
+  // signature — see the audit report.
   const wallet = new URL(request.url).searchParams.get("wallet")?.toLowerCase() ?? "";
   if (!isAddress(wallet)) {
     return NextResponse.json({ error: "A valid wallet is required." }, { status: 400 });

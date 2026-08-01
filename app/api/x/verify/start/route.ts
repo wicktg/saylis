@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isAddress } from "viem";
+import { verifyWalletAuth, type AuthenticatedRequest } from "@/app/_lib/walletAuth";
+
+const AUTH_ACTION = "x:verify-start";
 import { getSupabaseAdmin } from "@/app/_lib/supabaseAdmin";
 import {
   generateVerificationCode,
@@ -19,19 +21,25 @@ export const runtime = "nodejs";
  * old code simply stops being the one `confirm` checks for.
  */
 export async function POST(request: NextRequest) {
-  let body: { wallet?: string; username?: string };
+  let body: AuthenticatedRequest & { username?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const wallet = (body.wallet ?? "").toLowerCase();
-  const username = normalizeUsername(body.username ?? "");
-
-  if (!isAddress(wallet)) {
-    return NextResponse.json({ error: "Invalid wallet address." }, { status: 400 });
+  // An X handle bound to a wallet decides who mindshare (and its payout) is
+  // credited to, so the wallet side of that binding has to be proven.
+  const auth = await verifyWalletAuth(
+    body,
+    AUTH_ACTION
+  );
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
+  const wallet = auth.address.toLowerCase();
+
+  const username = normalizeUsername(body.username ?? "");
   if (!isValidUsername(username)) {
     return NextResponse.json({ error: "That doesn't look like a valid X username." }, { status: 400 });
   }

@@ -12,22 +12,30 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/app/_lib/supabaseAdmin";
 import { INFOFI_TEAM_ADDRESS } from "@/app/_lib/contracts/config";
 import { notifyMany } from "@/app/_lib/infofi/notify";
+import { verifyWalletAuth, type AuthenticatedRequest } from "@/app/_lib/walletAuth";
 
 export const dynamic = "force-dynamic";
+
+const AUTH_ACTION = "admin:broadcast";
 
 const TITLE_MAX = 80;
 const BODY_MAX = 500;
 
 export async function POST(request: Request) {
-  let body: { walletAddress?: string; title?: string; message?: string };
+  let body: AuthenticatedRequest & { title?: string; message?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const caller = body.walletAddress?.toLowerCase() ?? "";
-  if (caller !== INFOFI_TEAM_ADDRESS.toLowerCase()) {
+  // Authorize against the address recovered from the signature, never the
+  // one stated in the body — the latter is attacker-chosen. See walletAuth.
+  const auth = await verifyWalletAuth(body, AUTH_ACTION);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+  if (auth.address.toLowerCase() !== INFOFI_TEAM_ADDRESS.toLowerCase()) {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 

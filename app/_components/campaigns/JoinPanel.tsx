@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Address } from "viem";
 import ConnectXModal from "@/app/_components/ConnectXModal";
 import { useXAccount } from "@/app/_lib/useXAccount";
+import { useWalletAuth } from "@/app/_lib/useWalletAuth";
 
 /**
  * Joining is free and reversible in effect — it only creates a row the
@@ -31,6 +32,7 @@ export default function JoinPanel({
   onJoined: () => void;
 }) {
   const { account: xAccount, isLoading: xLoading, refresh: refreshX } = useXAccount(account);
+  const { authorize } = useWalletAuth();
   const [connectXOpen, setConnectXOpen] = useState(false);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +86,10 @@ export default function JoinPanel({
       const response = await fetch("/api/infofi/join", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tokenAddress, walletAddress: account }),
+        body: JSON.stringify({
+          ...(await authorize("infofi:join")),
+          tokenAddress,
+        }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.error ?? "Could not join.");

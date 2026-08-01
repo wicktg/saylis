@@ -42,6 +42,13 @@ import {IUniswapV3Pool} from "./interfaces/IUniswapV3Pool.sol";
 /// pattern in tax-token history — reentrancy and sandwiching — so this
 /// contract never does it.
 ///
+/// The tax is charged ON TOP of the transferred amount rather than skimmed
+/// out of it, so the pool always receives exactly what it asked for and this
+/// is NOT a fee-on-transfer token. That distinction is load-bearing: Uniswap
+/// V3 reverts (`IIA`) on any short delivery, so a skimming implementation
+/// would block every whale sell through every standard router instead of
+/// taxing it. See `_update`.
+///
 /// @dev IMMUTABILITY
 ///
 /// Everything is `immutable` except `ammPair`/`feeCollector`, which are
@@ -221,9 +228,12 @@ contract TaxableLaunchToken is ERC20 {
         if (!priceValid) return (0, false);
 
         try ethUsdPriceFeed.latestRoundData() returns (
-            uint80, int256 answer, uint256, uint256 updatedAt, uint80
+            uint80 roundId, int256 answer, uint256, uint256 updatedAt, uint80 answeredInRound
         ) {
             if (answer <= 0) return (0, false);
+            // Incomplete or carried-over round — see BondingCurve for the
+            // rationale. Falls back to the most lenient tier, never reverts.
+            if (updatedAt == 0 || answeredInRound < roundId) return (0, false);
             if (block.timestamp > updatedAt + PRICE_STALENESS_THRESHOLD) return (0, false);
 
             uint256 totalSupplyWhole = totalSupply() / (10 ** uint256(_decimals));
@@ -255,11 +265,20 @@ contract TaxableLaunchToken is ERC20 {
     }
 
     /// @notice Tax that would be charged if `seller` sold `amount` now.
+    ///
+    /// @dev Charged ON TOP of `amount` — the seller needs `amount + tax` in
+    ///      total — and capped at their balance beyond the sale. Mirrors
+    ///      `_update` exactly so a quote never disagrees with the transfer.
     function quoteSellTax(address seller, uint256 amount) public view returns (uint256) {
         if (sellTaxBps == 0) return 0;
         if (ammPair == address(0)) return 0;
-        if (balanceOf(seller) <= currentWhaleThresholdTokens()) return 0;
-        return (amount * sellTaxBps) / BPS_DENOMINATOR;
+
+        uint256 balance = balanceOf(seller);
+        if (balance <= currentWhaleThresholdTokens()) return 0;
+
+        uint256 tax = (amount * sellTaxBps) / BPS_DENOMINATOR;
+        uint256 headroom = balance > amount ? balance - amount : 0;
+        return tax > headroom ? headroom : tax;
     }
 
     // ---------------------------------------------------------------
@@ -280,14 +299,37 @@ contract TaxableLaunchToken is ERC20 {
         ) {
             // Balance is read pre-deduction, matching the curve, which
             // tests the seller's balance BEFORE the sale.
-            if (balanceOf(from) > currentWhaleThresholdTokens()) {
+            uint256 balance = balanceOf(from);
+            if (balance > currentWhaleThresholdTokens()) {
                 uint256 tax = (value * sellTaxBps) / BPS_DENOMINATOR;
+
+                // The tax is charged ON TOP of `value`, never skimmed out of
+                // it. Skimming is the obvious implementation and it does not
+                // work here: deducting from `value` makes this a
+                // fee-on-transfer token, and Uniswap V3's swap asserts it
+                // received exactly what it asked for —
+                //
+                //     require(balance0Before.add(amount0) <= balance0(), 'IIA')
+                //
+                // — so a short delivery reverts the whole swap. That turned
+                // the tax into something strictly worse than uncollectable:
+                // whales simply could not sell through any standard router,
+                // while non-whales sold fine, so it presented as a random
+                // unexplained failure. Charging on top keeps the pool whole,
+                // so V3 is satisfied and the swap goes through.
+                //
+                // Capped at whatever the seller holds beyond the sale itself,
+                // so selling an entire balance still succeeds (taxed on the
+                // remainder, which is 0) rather than reverting for want of a
+                // few tokens to pay the tax with. A whale exiting completely
+                // is the one case where the cap bites, and blocking an exit
+                // to collect a fee is never the right trade.
+                uint256 headroom = balance > value ? balance - value : 0;
+                if (tax > headroom) tax = headroom;
+
                 if (tax > 0) {
                     super._update(from, feeCollector, tax);
                     emit SellTaxCollected(from, tax);
-                    unchecked {
-                        value -= tax;
-                    }
                 }
             }
         }

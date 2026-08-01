@@ -6,6 +6,7 @@ import { ConnectKitButton } from "connectkit";
 import { formatUnits, isAddress, parseUnits, type Address } from "viem";
 import MiniSparkline from "@/app/_components/admin/MiniSparkline";
 import { resolveIpfsUrl } from "@/app/_lib/ipfs";
+import { useWalletAuth } from "@/app/_lib/useWalletAuth";
 import { formatCompactTokenAmount, truncateAddress } from "@/app/_lib/format";
 import { INFO_FI_CAMPAIGN_ABI } from "@/app/_lib/contracts/InfoFiCampaign";
 import { IMMUTABLE_LAUNCH_TOKEN_ABI } from "@/app/_lib/contracts/ImmutableLaunchToken";
@@ -158,6 +159,7 @@ function TabButton({
 function CampaignsTab({ account }: { account: string }) {
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
+  const { authorize } = useWalletAuth();
   const [pending, setPending] = useState<CampaignItem[]>([]);
   const [approved, setApproved] = useState<CampaignItem[]>([]);
   const [awaitingReview, setAwaitingReview] = useState<CampaignItem[]>([]);
@@ -170,7 +172,13 @@ function CampaignsTab({ account }: { account: string }) {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/admin/campaigns?wallet=${account}`, {
+      const auth = await authorize("admin:campaign-queue");
+      const query = new URLSearchParams({
+        wallet: auth.walletAddress,
+        signature: auth.signature,
+        issuedAt: String(auth.issuedAt),
+      });
+      const response = await fetch(`/api/admin/campaigns?${query}`, {
         cache: "no-store",
       });
       const payload = await response.json();
@@ -216,7 +224,10 @@ function CampaignsTab({ account }: { account: string }) {
       const response = await fetch(`/api/admin/campaigns/${tokenAddress}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress: account, txHash }),
+        body: JSON.stringify({
+          ...(await authorize("admin:campaign-approve")),
+          txHash,
+        }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.error ?? "Could not sync the campaign.");
@@ -236,7 +247,7 @@ function CampaignsTab({ account }: { account: string }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          walletAddress: account,
+          ...(await authorize("admin:campaign-reject")),
           note: rejectNote[tokenAddress] ?? "",
         }),
       });
@@ -279,7 +290,10 @@ function CampaignsTab({ account }: { account: string }) {
       const response = await fetch(`/api/admin/campaigns/${item.tokenAddress}/confirm-lock`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress: account, txHash }),
+        body: JSON.stringify({
+          ...(await authorize("admin:campaign-confirm-lock")),
+          txHash,
+        }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.error ?? "Could not sync the campaign.");
@@ -390,6 +404,7 @@ function CampaignsTab({ account }: { account: string }) {
  * "tell everyone something" tool, not a campaign system of its own.
  */
 function NotificationsTab({ account }: { account: string }) {
+  const { authorize } = useWalletAuth();
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -407,7 +422,11 @@ function NotificationsTab({ account }: { account: string }) {
       const response = await fetch("/api/admin/notifications/broadcast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress: account, title: title.trim(), message: message.trim() }),
+        body: JSON.stringify({
+          ...(await authorize("admin:broadcast")),
+          title: title.trim(),
+          message: message.trim(),
+        }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.error ?? "Could not push the notification.");
@@ -606,6 +625,7 @@ function InviteSection({
   account: string;
   onInvited: () => void;
 }) {
+  const { authorize } = useWalletAuth();
   const [tokenAddress, setTokenAddress] = useState("");
   const [inviteWallet, setInviteWallet] = useState("");
   const [busy, setBusy] = useState(false);
@@ -623,7 +643,7 @@ function InviteSection({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          walletAddress: account,
+          ...(await authorize("admin:campaign-invite")),
           tokenAddress: tokenAddress.trim(),
           inviteWallet: inviteWallet.trim(),
         }),
@@ -702,6 +722,7 @@ type BurnCandidate = {
 function BurnSection({ account }: { account: string }) {
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
+  const { authorize } = useWalletAuth();
   const [candidates, setCandidates] = useState<BurnCandidate[]>([]);
   const [burnable, setBurnable] = useState<Record<string, bigint>>({});
   const [loading, setLoading] = useState(true);
@@ -784,7 +805,10 @@ function BurnSection({ account }: { account: string }) {
       const response = await fetch(`/api/admin/campaigns/${tokenAddress}/burn-confirm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress: account, txHash }),
+        body: JSON.stringify({
+          ...(await authorize("admin:campaign-burn-confirm")),
+          txHash,
+        }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.error ?? "Could not sync the burn.");

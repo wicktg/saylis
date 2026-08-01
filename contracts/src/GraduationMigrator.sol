@@ -7,6 +7,7 @@ import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/Reentrancy
 import {Math} from "openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {BondingCurve} from "./BondingCurve.sol";
 import {IUniswapV3Factory} from "./interfaces/IUniswapV3Factory.sol";
+import {IUniswapV3Pool} from "./interfaces/IUniswapV3Pool.sol";
 import {INonfungiblePositionManager} from "./interfaces/INonfungiblePositionManager.sol";
 import {IWETH9} from "./interfaces/IWETH9.sol";
 import {TaxableLaunchToken} from "./TaxableLaunchToken.sol";
@@ -78,6 +79,30 @@ contract GraduationMigrator is ReentrancyGuard {
     /// checked explicitly for defense in depth).
     error ZeroLiquidityMinted();
 
+    /// @notice Thrown by `migrate` when the pair already exists at a price
+    /// materially different from the one derived from the curve's real
+    /// reserves — i.e. someone pre-created and mispriced it. Clear it with
+    /// `alignPoolPrice`, then migrate again.
+    error PoolPriceOutOfRange(uint160 actual, uint160 expected);
+
+    /// @notice Thrown by `alignPoolPrice` against a pool that holds real
+    /// liquidity. That is a genuine market, not a squat — see that function.
+    error PoolAlreadyFunded();
+
+    /// @notice Thrown by `uniswapV3SwapCallback` if a swap ever asks this
+    /// contract to pay. `alignPoolPrice` only swaps empty pools, which owe
+    /// nothing, so this means the callback was reached some other way.
+    error UnexpectedSwapDebt();
+
+    /// @notice Basis-point denominator (100% == 10_000 bps).
+    uint256 public constant BPS_DENOMINATOR = 10_000;
+
+    /// @notice How far `migrate` tolerates an existing pool's price drifting
+    /// from the value computed off the curve's own reserves, in bps of
+    /// `sqrtPriceX96`. Tight on purpose — on a pool `migrate` itself creates
+    /// the two are identical, so any real gap means the pair pre-existed.
+    uint256 public constant PRICE_TOLERANCE_BPS = 100; // 1%
+
     /// @notice The standard, unrecoverable ERC-721/ERC-20 burn address.
     /// No private key exists for it; anything sent here is gone forever.
     address public constant BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
@@ -133,6 +158,10 @@ contract GraduationMigrator is ReentrancyGuard {
     event PostGraduationFeesWired(
         address indexed token, address indexed pool, address indexed collector
     );
+
+    /// @notice Emitted when a squatted, unfunded pool was shoved back to the
+    /// price migration expects. See `alignPoolPrice`.
+    event PoolPriceAligned(address indexed pool, uint160 fromSqrtPriceX96, uint160 toSqrtPriceX96);
 
     /// @param factory_ Canonical Uniswap V3 factory for this chain.
     /// @param positionManager_ Canonical Uniswap V3 NonfungiblePositionManager
@@ -214,6 +243,26 @@ contract GraduationMigrator is ReentrancyGuard {
         pool = positionManager.createAndInitializePoolIfNecessary(token0, token1, poolFee, sqrtPriceX96);
         if (pool == address(0)) revert PoolCreationFailed();
 
+        // `createAndInitializePoolIfNecessary` is a NO-OP against a pool that
+        // already exists — it does not re-initialise the price. Anyone may
+        // therefore create this pair at an arbitrary price in the window
+        // between graduation (a public event) and this call (permissionless,
+        // so typically a keeper minutes-to-an-hour later), and without this
+        // check the mint below would seed the curve's entire raise at that
+        // attacker-chosen price, into a position whose LP NFT is then burned
+        // — locking the mispricing in permanently for them to arbitrage.
+        //
+        // So: refuse to seed a pool that is not at the price this contract
+        // just derived from the real reserves. Reverting here unwinds the
+        // whole migration atomically (including the curve's own
+        // `withdrawForMigration`), leaving everything retryable rather than
+        // half-done.
+        //
+        // That deliberately cannot become a permanent block: `alignPoolPrice`
+        // below lets ANYONE shove an unfunded squatted pool back to the right
+        // price, after which `migrate` simply succeeds. See that function.
+        _requirePoolPriceWithinTolerance(pool, sqrtPriceX96);
+
         IERC20(token0).forceApprove(address(positionManager), amount0Desired);
         IERC20(token1).forceApprove(address(positionManager), amount1Desired);
 
@@ -241,6 +290,13 @@ contract GraduationMigrator is ReentrancyGuard {
 
         if (liquidity == 0) revert ZeroLiquidityMinted();
 
+        // Clear the approvals the mint did not consume, so this contract
+        // never leaves a standing allowance over a balance it still holds.
+        IERC20(token0).forceApprove(address(positionManager), 0);
+        IERC20(token1).forceApprove(address(positionManager), 0);
+
+        _sweepLeftovers(tokenAddr, curve.protocolTreasury());
+
         emit Migrated(pool, tokenId, liquidity);
 
         // ---- Post-graduation fee capture ----
@@ -257,6 +313,131 @@ contract GraduationMigrator is ReentrancyGuard {
 
         // Burn: no lock contract, no unlock path — this transfer is final.
         positionManager.safeTransferFrom(address(this), BURN_ADDRESS, tokenId);
+    }
+
+    /// @notice Drag a squatted, UNFUNDED pool back to the price `migrate`
+    /// would initialise it at, so a griefer cannot permanently block a
+    /// graduated token's migration by pre-creating its pair at a nonsense
+    /// price.
+    ///
+    /// @dev Permissionless, and safe to be: it only ever moves the price
+    /// TOWARD the value this contract independently derives from `curve`'s
+    /// own real reserves — the caller supplies nothing but gas and cannot
+    /// influence the destination.
+    ///
+    /// Restricted to pools with zero liquidity, which is exactly the griefing
+    /// case (creating and initialising a pool is nearly free; funding one at
+    /// a bad price is not). A pool that someone has actually funded is a real
+    /// market, and moving its price is ordinary arbitrage that this contract
+    /// has no business doing with assets it does not own — that case corrects
+    /// itself through normal arbitrage instead.
+    ///
+    /// With no liquidity to cross, V3 walks `sqrtPriceX96` straight to the
+    /// limit and settles zero tokens, so this costs nothing but gas.
+    function alignPoolPrice(BondingCurve curve) external nonReentrant returns (uint160 sqrtPriceX96) {
+        if (migrated[address(curve)]) revert AlreadyMigrated();
+        if (!curve.graduated()) revert NotGraduated();
+
+        address tokenAddr = address(curve.token());
+        bool tokenIsToken0 = tokenAddr < address(weth9);
+        address token0 = tokenIsToken0 ? tokenAddr : address(weth9);
+        address token1 = tokenIsToken0 ? address(weth9) : tokenAddr;
+
+        address pool = factory.getPool(token0, token1, poolFee);
+        if (pool == address(0)) revert PoolCreationFailed();
+        if (IUniswapV3Pool(pool).liquidity() != 0) revert PoolAlreadyFunded();
+
+        // The same amounts `migrate` will use, read from the curve now. The
+        // ETH figure mirrors `withdrawForMigration`'s own cap so the target
+        // matches what migration will actually deposit.
+        uint256 tokenAmount = curve.liquidityReserveTokens();
+        uint256 owed = curve.creatorFeesOwed() + curve.protocolFeesOwed();
+        uint256 balance = address(curve).balance;
+        uint256 spendable = balance > owed ? balance - owed : 0;
+        uint256 reserve = curve.realEthReserve();
+        uint256 ethAmount = reserve < spendable ? reserve : spendable;
+
+        uint256 amount0Desired = tokenIsToken0 ? tokenAmount : ethAmount;
+        uint256 amount1Desired = tokenIsToken0 ? ethAmount : tokenAmount;
+        sqrtPriceX96 = _sqrtPriceX96(amount0Desired, amount1Desired);
+
+        (uint160 current,,,,,,) = IUniswapV3Pool(pool).slot0();
+        if (current == sqrtPriceX96) return sqrtPriceX96;
+
+        // Direction is whichever way walks price toward the target. A tiny
+        // `amountSpecified` is irrelevant — with zero liquidity the swap
+        // stops at the limit having exchanged nothing.
+        IUniswapV3Pool(pool).swap(address(this), current > sqrtPriceX96, 1, sqrtPriceX96, "");
+
+        emit PoolPriceAligned(pool, current, sqrtPriceX96);
+    }
+
+    /// @notice Uniswap V3 swap callback. Only ever reached via
+    /// `alignPoolPrice`, which swaps against a zero-liquidity pool, so both
+    /// deltas are always <= 0 (nothing owed). Anything else means this was
+    /// invoked in a context this contract never initiates, and it refuses to
+    /// part with a balance it is mid-migration on.
+    function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata) external view {
+        if (amount0Delta > 0 || amount1Delta > 0) revert UnexpectedSwapDebt();
+    }
+
+    /// @dev Reverts unless `pool`'s spot price is within `PRICE_TOLERANCE_BPS`
+    /// of `expected`. Compared on `sqrtPrice` rather than price, so the
+    /// tolerance is roughly half as wide in price terms — deliberately
+    /// tight, since the expected value is not a market observation but a
+    /// figure this contract computed moments ago from the exact amounts it
+    /// is about to deposit. On a pool this call just created, the two match
+    /// to the wei.
+    function _requirePoolPriceWithinTolerance(address pool, uint160 expected) private view {
+        (uint160 actual,,,,,,) = IUniswapV3Pool(pool).slot0();
+        if (actual == expected) return;
+
+        uint256 diff = actual > expected ? actual - expected : expected - actual;
+        if (diff * BPS_DENOMINATOR > uint256(expected) * PRICE_TOLERANCE_BPS) {
+            revert PoolPriceOutOfRange(actual, expected);
+        }
+    }
+
+    /// @dev A full-range mint almost never consumes both sides exactly:
+    /// Uniswap takes whatever ratio the pool's price implies and leaves the
+    /// remainder with the minter. On a freshly-created pool — the intended
+    /// path, where this contract picked the initial price from these exact
+    /// amounts — that remainder is rounding dust. But
+    /// `createAndInitializePoolIfNecessary` is a no-op against a pool that
+    /// ALREADY exists, so anyone may pre-create the pair at an arbitrary
+    /// price before `migrate` runs, and the mint then consumes only a
+    /// sliver of one side.
+    ///
+    /// Either way the leftovers must not simply sit here: this contract has
+    /// no owner, no rescue path, and no other function that can move a
+    /// balance, so anything left behind is stranded permanently and silently.
+    /// Sweeping makes the outcome explicit and matches where each asset was
+    /// already headed — launch tokens follow the LP position to the burn
+    /// address (they are supply that was never sold and is now unbacked),
+    /// and unspent ETH goes back to the curve's own protocol treasury rather
+    /// than evaporating.
+    ///
+    /// This does not FIX the pre-created-pool case — see the audit report;
+    /// a mispriced pool is still a mispriced pool — it only stops that case
+    /// from also destroying the assets it failed to deposit.
+    function _sweepLeftovers(address tokenAddr, address treasury) private {
+        uint256 leftoverToken = IERC20(tokenAddr).balanceOf(address(this));
+        if (leftoverToken > 0) {
+            IERC20(tokenAddr).safeTransfer(BURN_ADDRESS, leftoverToken);
+        }
+
+        uint256 leftoverWeth = IERC20(address(weth9)).balanceOf(address(this));
+        if (leftoverWeth > 0) {
+            weth9.withdraw(leftoverWeth);
+        }
+
+        uint256 leftoverEth = address(this).balance;
+        if (leftoverEth > 0) {
+            // Best-effort: a treasury that rejects ETH must not be able to
+            // unwind an otherwise-complete migration.
+            (bool sent,) = treasury.call{value: leftoverEth}("");
+            sent; // result deliberately unused — see above
+        }
     }
 
     /// @dev Deploys this token's fee collector and points the token at it,

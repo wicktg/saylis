@@ -235,8 +235,7 @@ export default function ProfileMenu() {
                 }}
                 className="w-full flex items-center gap-2 px-4 py-3 text-xs font-medium hover:bg-white/5 transition-colors border-b border-white/5"
               >
-                Connect
-                <iconify-icon icon="ri:twitter-x-fill" className="text-white text-sm shrink-0" />
+                Connect X
               </button>
             )}
 

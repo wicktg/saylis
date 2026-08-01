@@ -6,6 +6,7 @@ import { formatUnits, type Address } from "viem";
 import { INFOFI_CAMPAIGN_ADDRESS, TOKEN_DECIMALS } from "@/app/_lib/contracts/config";
 import { IMMUTABLE_LAUNCH_TOKEN_ABI } from "@/app/_lib/contracts/ImmutableLaunchToken";
 import type { MyCampaign } from "@/app/_lib/useMyCampaigns";
+import { useWalletAuth } from "@/app/_lib/useWalletAuth";
 
 const BALANCE_POLL_MS = 4_000;
 
@@ -44,6 +45,7 @@ export default function SendSupplyModal({
   onSubmitted: () => void;
 }) {
   const { address: account } = useAccount();
+  const { authorize } = useWalletAuth();
 
   const [copied, setCopied] = useState(false);
   const [title, setTitle] = useState("");
@@ -102,7 +104,7 @@ export default function SendSupplyModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          walletAddress: account,
+          ...(await authorize("campaigns:lock")),
           title: title.trim(),
           description: description.trim(),
           winnerCount,

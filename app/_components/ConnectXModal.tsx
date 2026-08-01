@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Address } from "viem";
+import { useWalletAuth } from "@/app/_lib/useWalletAuth";
 
 type Step = "input" | "code" | "confirming" | "success";
 
@@ -21,6 +22,7 @@ export default function ConnectXModal({
   wallet: Address;
   onLinked: () => void;
 }) {
+  const { authorize } = useWalletAuth();
   const [step, setStep] = useState<Step>("input");
   const [username, setUsername] = useState("");
   const [code, setCode] = useState("");
@@ -58,7 +60,7 @@ export default function ConnectXModal({
       const res = await fetch("/api/x/verify/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ wallet, username: handle }),
+        body: JSON.stringify({ ...(await authorize("x:verify-start")), username: handle }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -79,7 +81,7 @@ export default function ConnectXModal({
       const res = await fetch("/api/x/verify/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ wallet }),
+        body: JSON.stringify({ ...(await authorize("x:verify-confirm")) }),
       });
       const data = await res.json();
       if (!res.ok) {

@@ -173,12 +173,42 @@ contract TaxableLaunchTokenTest is Test {
 
         uint256 amount = 1_000e18;
         uint256 expectedTax = (amount * SELL_TAX_BPS) / 10_000;
+        uint256 whaleBefore = token.balanceOf(whale);
 
         vm.prank(whale);
         token.transfer(address(pool), amount);
 
         assertEq(token.balanceOf(collector), expectedTax, "collector got tax");
-        assertEq(token.balanceOf(address(pool)), amount - expectedTax, "pool got remainder");
+        // The pool receives the FULL amount, not a skimmed remainder. That is
+        // the whole point: deducting from the transfer would make this a
+        // fee-on-transfer token, and Uniswap V3 reverts ('IIA') on a short
+        // delivery — so a skim would block every whale sell instead of taxing
+        // it. The tax is charged on top, out of the seller's own balance.
+        assertEq(token.balanceOf(address(pool)), amount, "pool got the full amount");
+        assertEq(
+            whaleBefore - token.balanceOf(whale),
+            amount + expectedTax,
+            "seller paid amount + tax"
+        );
+    }
+
+    /// A whale selling their ENTIRE balance must still succeed. There is no
+    /// headroom left to charge the tax from, so it is capped to what remains
+    /// (zero) rather than reverting — blocking an exit to collect a fee is
+    /// never the right trade.
+    function test_WhaleSellingEntireBalanceIsNotBlocked() public {
+        _graduate();
+        _setMcapUsd(100_000);
+        _fund(whale, TOTAL_SUPPLY / 20);
+
+        uint256 all = token.balanceOf(whale);
+
+        vm.prank(whale);
+        token.transfer(address(pool), all);
+
+        assertEq(token.balanceOf(address(pool)), all, "pool got the full amount");
+        assertEq(token.balanceOf(whale), 0, "whale fully exited");
+        assertEq(token.balanceOf(collector), 0, "no headroom, so no tax");
     }
 
     function test_NonWhaleSellIsNotTaxed() public {
@@ -349,13 +379,18 @@ contract TaxableLaunchTokenTest is Test {
         _fund(whale, balance);
 
         uint256 before = token.balanceOf(collector);
+        uint256 sellerBefore = token.balanceOf(whale);
         vm.prank(whale);
         token.transfer(address(pool), amount);
         uint256 tax = token.balanceOf(collector) - before;
 
         assertLe(tax, (amount * SELL_TAX_BPS) / 10_000, "never above configured rate");
-        // Conservation: seller's outflow always lands entirely in pool+collector.
-        assertEq(token.balanceOf(address(pool)) + tax, amount);
+        // The pool always receives the full requested amount — this token is
+        // never fee-on-transfer, which is what keeps V3 swaps from reverting.
+        assertEq(token.balanceOf(address(pool)), amount, "pool always made whole");
+        // Conservation: the seller's outflow lands entirely in pool+collector,
+        // with the tax charged on top of the transfer rather than out of it.
+        assertEq(sellerBefore - token.balanceOf(whale), amount + tax, "no tokens conjured or lost");
     }
 
     function testFuzz_QuoteMatchesActualTax(uint256 balance, uint256 amount) public {

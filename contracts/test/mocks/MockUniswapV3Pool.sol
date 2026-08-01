@@ -101,6 +101,36 @@ contract MockUniswapV3Pool is IUniswapV3Pool {
         if (next > observationCardinalityNext) observationCardinalityNext = next;
     }
 
+    /* ------------------------------------------------------------------ */
+    /*                   Liquidity / swap (GraduationMigrator)             */
+    /* ------------------------------------------------------------------ */
+
+    /// @notice In-range liquidity this mock reports. Defaults to 0, which is
+    ///         the squatted-pool case `alignPoolPrice` is built for; tests
+    ///         set it non-zero to exercise the `PoolAlreadyFunded` refusal.
+    uint128 public liquidityValue;
+
+    function setLiquidity(uint128 v) external {
+        liquidityValue = v;
+    }
+
+    function liquidity() external view override returns (uint128) {
+        return liquidityValue;
+    }
+
+    /// @dev Mirrors the only V3 behaviour this codebase relies on: with no
+    ///      liquidity to cross, the price walks straight to the limit and
+    ///      nothing is exchanged, so the callback is owed nothing.
+    function swap(address, bool, int256, uint160 sqrtPriceLimitX96, bytes calldata)
+        external
+        override
+        returns (int256, int256)
+    {
+        require(liquidityValue == 0, "MockUniswapV3Pool: funded swap unsupported");
+        sqrtPriceX96 = sqrtPriceLimitX96;
+        return (int256(0), int256(0));
+    }
+
     /// @dev Babylonian method.
     function _sqrt(uint256 x) private pure returns (uint256 y) {
         if (x == 0) return 0;

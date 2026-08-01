@@ -20,6 +20,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
+  // DELIBERATELY UNSIGNED. Marking a feed read moves nothing and reveals
+  // nothing; the worst a spoofer achieves is clearing someone else's unread
+  // badge. A wallet prompt for that is far more disruptive than the abuse.
   const wallet = body.walletAddress?.toLowerCase() ?? "";
   if (!isAddress(wallet)) {
     return NextResponse.json({ error: "Connect a wallet first." }, { status: 400 });

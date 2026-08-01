@@ -14,8 +14,11 @@ import { getSupabaseAdmin } from "@/app/_lib/supabaseAdmin";
 import { INFOFI_TEAM_ADDRESS, BLOCK_EXPLORER_TX_URL } from "@/app/_lib/contracts/config";
 import { readCampaign } from "@/app/_lib/infofi/chain";
 import { notify } from "@/app/_lib/infofi/notify";
+import { verifyWalletAuth, type AuthenticatedRequest } from "@/app/_lib/walletAuth";
 
 export const dynamic = "force-dynamic";
+
+const AUTH_ACTION = "admin:campaign-burn-confirm";
 
 export async function POST(
   request: Request,
@@ -26,15 +29,20 @@ export async function POST(
     return NextResponse.json({ error: "Invalid token address." }, { status: 400 });
   }
 
-  let body: { walletAddress?: string; txHash?: string };
+  let body: AuthenticatedRequest & { txHash?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const wallet = body.walletAddress?.toLowerCase() ?? "";
-  if (wallet !== INFOFI_TEAM_ADDRESS.toLowerCase()) {
+  // Authorize against the signature-recovered address, never the body's
+  // self-declared one. See app/_lib/walletAuth.ts.
+  const auth = await verifyWalletAuth(body, AUTH_ACTION);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+  if (auth.address.toLowerCase() !== INFOFI_TEAM_ADDRESS.toLowerCase()) {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 

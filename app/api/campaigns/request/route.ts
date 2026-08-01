@@ -4,13 +4,18 @@
  * An external project applying to run a campaign. Team review happens off
  * this record; nothing here creates or funds anything on-chain.
  *
- * No wallet signature, consistent with the rest of the app's write paths.
- * That is acceptable because an application grants nothing — the team reads
- * it, and every subsequent step (funding the pool, opening the window) is a
- * transaction signed by the wallet that actually owns the tokens.
+ * Wallet-signed, like every other write path. An application grants nothing
+ * on its own — the team reads it, and every subsequent step (funding the
+ * pool, opening the window) is a transaction signed by the wallet that
+ * actually owns the tokens — but it IS attributed to a wallet and surfaced
+ * to the team as that wallet's request, so the attribution has to be proven
+ * rather than typed in.
  */
 import { NextResponse } from "next/server";
 import { isAddress } from "viem";
+import { verifyWalletAuth, type AuthenticatedRequest } from "@/app/_lib/walletAuth";
+
+const AUTH_ACTION = "campaigns:request";
 import { getSupabaseAdmin } from "@/app/_lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -33,15 +38,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const walletAddress = String(body.walletAddress ?? "").toLowerCase();
+  // Requests are attributed to a wallet and reviewed by the team, so the
+  // attribution has to be provable rather than typed in.
+  const auth = await verifyWalletAuth(body as AuthenticatedRequest, AUTH_ACTION);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+  const walletAddress = auth.address.toLowerCase();
+
   const contractAddress = String(body.contractAddress ?? "").toLowerCase();
   const projectName = String(body.projectName ?? "").trim();
   const description = String(body.description ?? "").trim();
   const email = String(body.email ?? "").trim();
 
-  if (!isAddress(walletAddress)) {
-    return NextResponse.json({ error: "Connect a wallet first." }, { status: 400 });
-  }
   if (!isAddress(contractAddress)) {
     return NextResponse.json(
       { error: "Enter a valid contract address." },

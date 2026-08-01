@@ -1040,9 +1040,14 @@ contract BondingCurve is ReentrancyGuard {
     /// as "assume the most generous whale tier" rather than reverting.
     function currentMarketCapUsd() public view returns (uint256 mcapUsd18, bool valid) {
         try ethUsdPriceFeed.latestRoundData() returns (
-            uint80, int256 answer, uint256, uint256 updatedAt, uint80
+            uint80 roundId, int256 answer, uint256, uint256 updatedAt, uint80 answeredInRound
         ) {
             if (answer <= 0) return (0, false);
+            // A round whose answer was carried over from an earlier round, or
+            // that never completed (`updatedAt == 0`), is not a fresh price
+            // no matter how recent its timestamp looks. Treated exactly like
+            // staleness: fall back to the most generous tier, never revert.
+            if (updatedAt == 0 || answeredInRound < roundId) return (0, false);
             if (block.timestamp > updatedAt + PRICE_STALENESS_THRESHOLD) return (0, false);
 
             uint256 totalSupplyWhole = token.totalSupply() / (10 ** uint256(tokenDecimals));
