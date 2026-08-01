@@ -381,3 +381,8 @@ export async function POST(request: Request) {
     migrated,
   });
 }
+
+// Vercel Cron only ever issues GET requests, and automatically attaches
+// `Authorization: Bearer $CRON_SECRET` to them when that env var is set on
+// the project — the same header `isAuthorized` already checks above.
+export const GET = POST;

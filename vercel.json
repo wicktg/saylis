@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/infofi/cron/poke",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/infofi/cron/recompute",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}
