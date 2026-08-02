@@ -373,7 +373,13 @@ export default function TokenDetailPage() {
           <div className="ml-auto flex items-center gap-5 shrink-0">
             <Stat
               label="Price"
-              value={priceWei !== undefined ? formatWeiAsUsdPrice(priceWei, ethUsd) : "..."}
+              // `livePriceWei`, never the raw `priceWei` from the curve.
+              // Market Cap below is `livePriceWei * totalSupply`, so reading
+              // the curve here put two different prices side by side on the
+              // same panel — post-migration the curve's `getPrice()` is
+              // frozen, so Price and Market Cap disagreed by whatever the
+              // token had moved since it graduated.
+              value={livePriceWei !== undefined ? formatWeiAsUsdPrice(livePriceWei, ethUsd) : "..."}
             />
             <Stat
               label="Market Cap"
