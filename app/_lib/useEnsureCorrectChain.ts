@@ -6,7 +6,7 @@ import { TARGET_CHAIN } from "@/app/_lib/contracts/config";
 
 /**
  * Once a wallet is connected, auto-switch (or, if the wallet doesn't know
- * about it yet, add + switch) to Arbitrum Sepolia. This app only ever
+ * about it yet, add + switch) to `TARGET_CHAIN`. This app only ever
  * targets one chain — there's no multi-chain picker anywhere in the UI.
  */
 export function useEnsureCorrectChain() {

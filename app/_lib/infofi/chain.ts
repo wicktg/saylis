@@ -19,19 +19,19 @@
  */
 import { createPublicClient, createWalletClient, http, type Address } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { arbitrumSepolia } from "viem/chains";
+import { robinhood } from "viem/chains";
 import { INFO_FI_CAMPAIGN_ABI } from "@/app/_lib/contracts/InfoFiCampaign";
 import { INFOFI_CAMPAIGN_ADDRESS } from "@/app/_lib/contracts/config";
 
 function rpcUrl(): string {
   return (
-    process.env.NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL ||
-    "https://sepolia-rollup.arbitrum.io/rpc"
+    process.env.NEXT_PUBLIC_ROBINHOOD_RPC_URL ||
+    "https://rpc.mainnet.chain.robinhood.com"
   );
 }
 
 export function publicClient() {
-  return createPublicClient({ chain: arbitrumSepolia, transport: http(rpcUrl()) });
+  return createPublicClient({ chain: robinhood, transport: http(rpcUrl()) });
 }
 
 /** `null` when no poker key is configured — callers should skip, not throw. */
@@ -45,7 +45,7 @@ export function pokerWallet() {
     account,
     client: createWalletClient({
       account,
-      chain: arbitrumSepolia,
+      chain: robinhood,
       transport: http(rpcUrl()),
     }),
   };

@@ -55,7 +55,7 @@ function isRateLimitError(err: unknown): boolean {
  * back-to-back is enough to occasionally trip it. Retry with exponential
  * backoff ONLY for rate-limit errors; anything else (a revert, a rejected
  * signature, insufficient funds) fails immediately since retrying won't
- * help. For heavier usage, point NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL at a
+ * help. For heavier usage, point NEXT_PUBLIC_ROBINHOOD_RPC_URL at a
  * dedicated RPC (Alchemy/Infura/etc.) instead of the shared public one.
  */
 async function withRateLimitRetry<T>(fn: () => Promise<T>, maxAttempts = 4): Promise<T> {

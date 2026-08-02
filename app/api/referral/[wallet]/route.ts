@@ -24,7 +24,7 @@ import {
   type Address,
   type Log,
 } from "viem";
-import { arbitrumSepolia } from "viem/chains";
+import { robinhood } from "viem/chains";
 import { getSupabaseAdmin } from "@/app/_lib/supabaseAdmin";
 import { REFERRAL_VAULT_ADDRESS } from "@/app/_lib/contracts/config";
 import { REFERRAL_VAULT_ABI } from "@/app/_lib/contracts/ReferralVault";
@@ -43,13 +43,13 @@ const FALLBACK_MAX_CHUNKS = 24;
 
 function rpcUrl(): string {
   return (
-    process.env.NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL ||
-    "https://sepolia-rollup.arbitrum.io/rpc"
+    process.env.NEXT_PUBLIC_ROBINHOOD_RPC_URL ||
+    "https://rpc.mainnet.chain.robinhood.com"
   );
 }
 
 function client() {
-  return createPublicClient({ chain: arbitrumSepolia, transport: http(rpcUrl()) });
+  return createPublicClient({ chain: robinhood, transport: http(rpcUrl()) });
 }
 
 /** Same "try the full range, fall back to chunked scanning" pattern

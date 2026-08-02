@@ -1,17 +1,29 @@
-import { arbitrumSepolia } from "wagmi/chains";
-
-/** Chain this entire app targets — no other network is supported. */
-export const TARGET_CHAIN = arbitrumSepolia;
-
-/** Arbitrum Sepolia's block explorer, for tx links in notifications etc. */
-export const BLOCK_EXPLORER_TX_URL = "https://sepolia.arbiscan.io/tx/";
+import { robinhood } from "wagmi/chains";
 
 /**
- * Already-deployed, protocol-wide ProtocolTreasury on Arbitrum Sepolia.
- * Every curve the frontend deploys routes its protocol fee share here.
+ * Chain this entire app targets — no other network is supported.
+ *
+ * MAINNET, deployed 2026-08-02. Robinhood Chain (Arbitrum Orbit L2, chain id
+ * 4663) — real ETH, real user funds from this point on. Was Arbitrum
+ * Sepolia testnet for the entire session up to this deploy.
+ */
+export const TARGET_CHAIN = robinhood;
+
+/** Robinhood Chain's block explorer (Blockscout), for tx links etc. */
+export const BLOCK_EXPLORER_TX_URL = "https://robinhoodchain.blockscout.com/tx/";
+
+/**
+ * Protocol-wide ProtocolTreasury on Robinhood Chain mainnet. Every curve
+ * the frontend deploys routes its protocol fee share here.
+ *
+ * Deployed 2026-08-02, tx-verified: `owner()` reads back the multisig
+ * (`TREASURY_OWNER_ADDRESS`) exactly as passed to the constructor.
+ * `owner` is immutable — rotating it means deploying a NEW ProtocolTreasury
+ * and re-pointing future curves at it; existing curves keep paying this one
+ * forever.
  */
 export const PROTOCOL_TREASURY_ADDRESS =
-  "0x1B0B17721ed646FBA63421C898246D678A6fC5C9" as const;
+  "0x8CbB10B3DF639a51E128A41148719Bfb9f3d4103" as const;
 
 /** Token decimals — matches every contract deployed by this app so far. */
 export const TOKEN_DECIMALS = 18;
@@ -60,44 +72,44 @@ export const DEFAULT_ETH_USD_PRICE_WHOLE = 3_000n;
 export const DEFAULT_GRADUATION_THRESHOLD_WEI = 4_200_000_000_000_000_000n; // 4.2 ether
 
 /**
- * Already-deployed, protocol-wide GraduationMigrator on Arbitrum Sepolia —
+ * Already-deployed, protocol-wide GraduationMigrator —
  * the only address ever authorized to pull a graduated curve's remaining
  * real ETH reserve + reserved liquidity tokens (see BondingCurve.sol's
  * `withdrawForMigration`). Every curve the frontend deploys points at
  * this same migrator; it seeds a full-range Uniswap V3 pool and burns the
  * resulting LP position permanently.
  */
-/// Redeployed 2026-08-02 from current source. The previous build
-/// (0x98d1f17E7D52353E71De8578F3aA299175940d9b) predated `TokenFeeCollector`
-/// entirely — it had no `swapRouter` and no `setAmmPair` call, so every
-/// token it migrated came out with `ammPair` and `feeCollector` left at
-/// zero and its post-graduation whale sell tax permanently disarmed. That
-/// is unfixable after the fact: `pairSetter` is immutable per token, so
-/// anything already minted against the old address (REKT included) stays
-/// wired to a migrator with no code to arm it. Only launches from here on
-/// get the tax.
+/// MAINNET, deployed 2026-08-02 on Robinhood Chain from current source —
+/// carries every security-audit fix (see audit/AUDIT_REPORT.md): the H-02
+/// pool-price tolerance check with `alignPoolPrice` as its permissionless
+/// escape hatch, the leftover sweep, and full TokenFeeCollector wiring
+/// (`setAmmPair` correctly arms the post-graduation whale tax on every
+/// token launched against this address).
 ///
-/// This build also carries the security-audit fixes (see audit/
-/// AUDIT_REPORT.md): the H-02 pool-price tolerance check with
-/// `alignPoolPrice` as its permissionless escape hatch, and the leftover
-/// sweep that stops undeposited assets being stranded forever.
+/// Constructed with Robinhood's real Uniswap V3 deployment: factory
+/// `0x1f7d7550b1b028f7571e69a784071f0205fd2efa`, position manager
+/// `0x73991a25c818bf1f1128deaab1492d45638de0d3`, SwapRouter02
+/// `0xcaf681a66d020601342297493863e78c959e5cb2`, pool fee 3000 (0.3%) —
+/// all verified to have real deployed bytecode on-chain before this
+/// contract was constructed against them.
 ///
 /// !! Redeploying this again means updating this constant BEFORE the next
 /// launch — it is baked into each token as `pairSetter` and cannot be
 /// changed once minted. !!
 export const GRADUATION_MIGRATOR_ADDRESS =
-  "0x4A0d353fC6500AB82d7274B81928F091D7ccA492" as const;
+  "0xBe8e28EA67015a7CF82173B617BF3Dd6ec008e9D" as const;
 
 /**
- * Arbitrum Sepolia's real Chainlink-style ETH/USD price feed (verified
- * on-chain: `description()` returns "ETH/USD", `decimals()` returns 8).
- * Used ONLY to gate BondingCurve's whale sell tax live — see that
+ * Robinhood Chain's real Chainlink ETH/USD price feed — verified on-chain
+ * before use: `description()` returns exactly "ETH / USD", `decimals()`
+ * returns 8, `latestAnswer()` returned a live, plausible price at deploy
+ * time. Used ONLY to gate BondingCurve's whale sell tax live — see that
  * contract's "SELL TAX" NatSpec. Required by every curve deploy
  * regardless of whether this launch's sell tax is 0; the feed is simply
  * never read on-chain when the rate is zero.
  */
 export const ETH_USD_PRICE_FEED_ADDRESS =
-  "0x2d3bBa5e0A9Fd8EAa45Dcf71A2389b7C12005b1f" as const;
+  "0x78F3556b67E17Df817D51Ef5a990cDaF09E8d3A9" as const;
 
 /**
  * Upper bound on the creator-configurable whale sell tax, in basis
@@ -108,31 +120,37 @@ export const ETH_USD_PRICE_FEED_ADDRESS =
 export const MAX_SELL_TAX_BPS = 300n;
 
 /**
- * Canonical Uniswap V3 deployment on Arbitrum Sepolia, plus the fee tier
+ * Real Uniswap V3 deployment on Robinhood Chain mainnet, plus the fee tier
  * GraduationMigrator seeds pools at (must match its `UNISWAP_V3_POOL_FEE`).
+ * Each address was checked for real deployed bytecode against chain 4663
+ * before being used in any deploy.
  *
  * Needed on the client so the token page can locate a graduated token's
  * pool and keep reading trades from it — after migration the curve stops
  * emitting Buy/Sell entirely and all activity moves to the pool's `Swap`.
  */
 export const UNISWAP_V3_FACTORY_ADDRESS =
-  "0x248AB79Bbb9bC29bB72f7Cd42F17e054Fc40188e" as const;
+  "0x1f7d7550b1b028f7571e69a784071f0205fd2efa" as const;
 
-export const WETH9_ADDRESS = "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73" as const;
+/**
+ * Robinhood Chain's real WETH9 — confirmed via `name()`/`symbol()` both
+ * returning "WETH" before use.
+ */
+export const WETH9_ADDRESS = "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73" as const;
 
 export const UNISWAP_V3_POOL_FEE = 3000;
 
 /**
- * Already-deployed, protocol-wide ReferralVault on Arbitrum Sepolia. Every
- * curve the frontend deploys points at this same vault — see
- * BondingCurve.sol's "REFERRALS" NatSpec. A referrer's earnings unify
- * across every creator they've ever referred and every token those
- * creators launch, regardless of which curve the fee came from.
+ * Protocol-wide ReferralVault on Robinhood Chain mainnet. Every curve the
+ * frontend deploys points at this same vault — see BondingCurve.sol's
+ * "REFERRALS" NatSpec. A referrer's earnings unify across every creator
+ * they've ever referred and every token those creators launch, regardless
+ * of which curve the fee came from.
  *
- * Deployed 2026-08-01. No admin, no owner, nothing to configure.
+ * Deployed 2026-08-02. No admin, no owner, nothing to configure.
  */
 export const REFERRAL_VAULT_ADDRESS =
-  "0x9988a43C1Bb2fdFA5e9baFBbD7CDa03e7e62914B" as const;
+  "0xdc10c0CEC697Cd730f1b071348D92fF20434E81F" as const;
 
 /**
  * Upper bound on the creator-configurable InfoFi allocation, in basis
@@ -146,47 +164,25 @@ export const MAX_INFOFI_BPS = 500n;
  * is transferred to at construction. Only consulted when a launch sets a
  * non-zero allocation — a plain 0% launch never touches it.
  *
- * Deployed on Arbitrum Sepolia 2026-07-31, configured with:
- *   graduationOnly     = TRUE         (testing mode, see below)
- *   mcapThresholdUsd18 = 120_000e18   ($120k, currently unused)
- *   sustainedDuration  = 86_400       (24 hours, currently unused)
+ * MAINNET, deployed on Robinhood Chain 2026-08-02, configured with:
+ *   graduationOnly     = FALSE        (the real rule, live from day one)
+ *   mcapThresholdUsd18 = 120_000e18   ($120k)
+ *   sustainedDuration  = 1 second     (effectively "sustained" is a formality —
+ *                                      the contract requires > 0, so this is
+ *                                      the minimum: eligibility follows the
+ *                                      $120k crossing essentially immediately
+ *                                      rather than requiring a 24h hold)
  *   CAMPAIGN_WINDOW    = 7 days       (constant)
- *   CLAIM_WINDOW       = 30 days      (constant)
+ *   CLAIM_WINDOW       = 7 days       (constant)
  *   ABANDON_PERIOD     = 365 days     (constant)
  *
- * !! TESTING MODE: `graduationOnly` IS TRUE !!
- * A curve-backed launch becomes campaign-eligible the moment it GRADUATES.
- * The $120k sustained market-cap rule is fully implemented and tested
- * underneath but is not consulted while this flag is set. Switching to the
- * USD rule is a redeploy with `INFOFI_GRADUATION_ONLY=false`, not a rewrite.
- *
- * Redeployed 2026-07-31 (two-path finalization): `openCampaign` is now
- * team-only for every path — the earlier owner-self-open branch for a true
- * external pool was removed, so admin review is the one human gate
- * everywhere. `registerExternalPool` gained a `curve` parameter: passing
- * the token's real deployed `BondingCurve` (verified via `curve.token()`)
- * makes a post-launch "buy + lock" pool (Path B) earn eligibility exactly
- * like a mint-time allocation (Path A) — `graduationOnly` applies to both.
- * Leaving `curve` as the zero address keeps the original true-external
- * behavior (`markEligible`, team-only, no automatic eligibility).
- *
- * Redeployed 2026-08-01 (team wallet): `team` set to
- * 0xcE1c491084752f90b3B4e235a199bB8cD687a454 — the project's official
- * wallet. Nobody but this address has ever held `team` since; it is
- * immutable on this deployment. As with every prior deployment it can
- * open campaigns and publish payout roots but can NEVER take a pool
- * (there is no sweep path in the contract).
- *
- * Redeployed again 2026-08-01 (claim window): `CLAIM_WINDOW` shortened
- * from 30 days to 7 days (immutable constant, contracts/src/
- * InfoFiCampaign.sol) — a campaign's full lifecycle is now a 7-day run
- * followed by a 7-day claim period, then whatever's unclaimed becomes
- * burnable. This orphaned the previous deployment's live CAT campaign
- * (no sweep/migration path exists for this contract) — accepted as a
- * testnet-only loss.
+ * Every constructor value verified by reading it back on-chain
+ * (`team()`, `mcapThresholdUsd18()`, `sustainedDuration()`,
+ * `graduationOnly()`, `ethUsdPriceFeed()`) immediately after deploy, before
+ * this address was wired into the app.
  */
 export const INFOFI_CAMPAIGN_ADDRESS =
-  "0x8C8181aDFd56E7B0C8dc023aE89110E26eA79ac4" as const;
+  "0x5F6517e825154FA30d61D10E260E68Ace685f3Fa" as const;
 
 /**
  * The wallet allowed to open campaigns and publish payout roots — mirrors
@@ -202,7 +198,7 @@ export const INFOFI_CAMPAIGN_ADDRESS =
  * holding a key on this address's behalf.
  */
 export const INFOFI_TEAM_ADDRESS =
-  "0xcE1c491084752f90b3B4e235a199bB8cD687a454" as const;
+  "0xc0Ed3DAeaCb4c052753C6BF13DeDb940401C3A4C" as const;
 
 /**
  * Virtual token reserve for a launch reserving `infoFiBps` of supply.
