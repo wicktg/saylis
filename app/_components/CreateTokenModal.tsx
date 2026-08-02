@@ -17,6 +17,7 @@ import {
   TOKEN_DECIMALS,
 } from "@/app/_lib/contracts/config";
 import type { Address } from "viem";
+import Icon from "@/app/_components/Icon";
 
 const DESCRIPTION_LIMIT = 280;
 // Mirrors BondingCurve's MAX_SELL_TAX_BPS (300 = 3%) in the slider's own
@@ -265,7 +266,7 @@ export default function CreateTokenModal({
           aria-label="Close"
           className="absolute right-4 top-4 text-white/40 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
-          <iconify-icon icon="pixelarticons:close" className="text-base" />
+          <Icon icon="pixelarticons:close" className="text-base" />
         </button>
 
         {stage === "form" && (
@@ -277,7 +278,7 @@ export default function CreateTokenModal({
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-20 h-20 rounded-xl border border-dashed border-white/20 bg-white/5 hover:border-lime-400/50 transition-colors flex items-center justify-center overflow-hidden shrink-0"
+                  className="w-20 h-20 rounded-xl border border-dashed border-white/20 bg-white/5 hover:border-[rgba(207,56,221,0.5)] transition-colors flex items-center justify-center overflow-hidden shrink-0"
                 >
                   {imagePreview ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -287,7 +288,7 @@ export default function CreateTokenModal({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <iconify-icon icon="pixelarticons:image-plus" className="text-xl text-white/30" />
+                    <Icon icon="pixelarticons:image-plus" className="text-xl text-white/30" />
                   )}
                 </button>
 
@@ -298,7 +299,7 @@ export default function CreateTokenModal({
                   aria-expanded={advancedOpen}
                   className="text-white/40 hover:text-white transition-colors"
                 >
-                  <iconify-icon
+                  <Icon
                     icon="pixelarticons:chevron-right"
                     className={`text-lg transition-transform duration-200 ${
                       advancedOpen ? "rotate-180" : ""
@@ -320,7 +321,7 @@ export default function CreateTokenModal({
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 required
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-lime-500/50 placeholder:text-white/30"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[rgba(207,56,221,0.5)] placeholder:text-white/30"
               />
 
               <input
@@ -330,7 +331,7 @@ export default function CreateTokenModal({
                 onChange={(event) => setTicker(event.target.value)}
                 required
                 maxLength={10}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm uppercase focus:outline-none focus:border-lime-500/50 placeholder:text-white/30 placeholder:normal-case"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm uppercase focus:outline-none focus:border-[rgba(207,56,221,0.5)] placeholder:text-white/30 placeholder:normal-case"
               />
 
               <div>
@@ -340,7 +341,7 @@ export default function CreateTokenModal({
                   maxLength={DESCRIPTION_LIMIT}
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-lime-500/50 placeholder:text-white/30"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-[rgba(207,56,221,0.5)] placeholder:text-white/30"
                 />
                 <div className="text-right text-[10px] text-white/30 mt-1">
                   {description.length}/{DESCRIPTION_LIMIT}
@@ -357,7 +358,7 @@ export default function CreateTokenModal({
 
               <div className="flex items-center gap-2">
                 <div className="flex-1 flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-lg px-2.5 py-2">
-                  <iconify-icon icon="ri:twitter-x-fill" className="text-white/40 text-xs shrink-0" />
+                  <Icon icon="ri:twitter-x-fill" className="text-white/40 text-xs shrink-0" />
                   <input
                     type="text"
                     placeholder="X"
@@ -367,7 +368,7 @@ export default function CreateTokenModal({
                   />
                 </div>
                 <div className="flex-1 flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-lg px-2.5 py-2">
-                  <iconify-icon icon="mdi:telegram" className="text-white/40 text-xs shrink-0" />
+                  <Icon icon="mdi:telegram" className="text-white/40 text-xs shrink-0" />
                   <input
                     type="text"
                     placeholder="Telegram"
@@ -377,7 +378,7 @@ export default function CreateTokenModal({
                   />
                 </div>
                 <div className="flex-1 flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-lg px-2.5 py-2">
-                  <iconify-icon icon="pixelarticons:globe" className="text-white/40 text-xs shrink-0" />
+                  <Icon icon="pixelarticons:globe" className="text-white/40 text-xs shrink-0" />
                   <input
                     type="text"
                     placeholder="Website"
@@ -419,7 +420,7 @@ export default function CreateTokenModal({
               <div className="mb-5">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-medium text-white/70">Whale Sell Tax</span>
-                  <span className="text-xs font-bold text-lime-400">
+                  <span className="text-xs font-bold text-[#cf38dd]">
                     {whaleSellTax.toFixed(1)}%
                   </span>
                 </div>
@@ -451,7 +452,7 @@ export default function CreateTokenModal({
                   type="text"
                   spellCheck={false}
                   autoComplete="off"
-                  placeholder="0x… (defaults to you)"
+                  placeholder="0x... (defaults to you)"
                   value={feeRecipient}
                   onChange={(event) => setFeeRecipient(event.target.value)}
                   onBlur={() => setFeeRecipientTouched(true)}
@@ -473,7 +474,7 @@ export default function CreateTokenModal({
               <div className="space-y-2">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-medium text-white/70">InfoFi Allocation</span>
-                  <span className="text-xs font-bold text-lime-400">
+                  <span className="text-xs font-bold text-[#cf38dd]">
                     {infoFiAllocation.toFixed(1)}%
                   </span>
                 </div>
@@ -502,7 +503,7 @@ export default function CreateTokenModal({
 
         {(stage === "launching" || stage === "saving") && (
           <div className="flex flex-col items-center justify-center py-10 gap-4">
-            <div className="w-10 h-10 border-2 border-lime-400/30 border-t-lime-400 spinner-circle animate-spin" />
+            <div className="w-10 h-10 border-2 border-[rgba(207,56,221,0.3)] border-t-[#cf38dd] spinner-circle animate-spin" />
             <p className="text-sm font-bold">Launching...</p>
             {stage === "launching" && (
               <p className="text-[11px] text-white/40 text-center leading-relaxed">
@@ -587,7 +588,7 @@ function LaunchSuccess({
           // eslint-disable-next-line @next/next/no-img-element
           <img src={imagePreview} alt={ticker} className="w-full h-full object-cover" />
         ) : (
-          <iconify-icon icon="pixelarticons:coin" className="text-2xl text-lime-400" />
+          <Icon icon="pixelarticons:coin" className="text-2xl text-[#cf38dd]" />
         )}
       </div>
 
@@ -598,7 +599,7 @@ function LaunchSuccess({
         className="flex items-center gap-1.5 text-[11px] text-white/50 hover:text-white/80 transition-colors mb-5"
       >
         {truncateAddress(tokenAddress)}
-        <iconify-icon icon={copied ? "pixelarticons:check" : "pixelarticons:copy"} className="text-xs" />
+        <Icon icon={copied ? "pixelarticons:check" : "pixelarticons:copy"} className="text-xs" />
       </button>
 
       {saveError && (

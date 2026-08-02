@@ -25,6 +25,7 @@ import { useXAccount } from "@/app/_lib/useXAccount";
 import ConnectXModal from "@/app/_components/ConnectXModal";
 import { useNotifications } from "@/app/_lib/useNotifications";
 import NotificationsModal from "@/app/_components/NotificationsModal";
+import Icon from "@/app/_components/Icon";
 
 const CLAIMABLE_TOOLTIP = "Total fees earned across all your launches.";
 
@@ -150,7 +151,7 @@ export default function ProfileMenu() {
           onClick={() => setOpen((prev) => !prev)}
           className="pixel-frame pixel-btn h-9 w-9 text-white flex items-center justify-center"
         >
-          <iconify-icon icon="pixelarticons:user" className="text-white text-sm" />
+          <Icon icon="pixelarticons:user" className="text-white text-sm" />
         </button>
 
         {open && (
@@ -190,7 +191,7 @@ export default function ProfileMenu() {
               <span className="flex items-center gap-1.5 text-xs font-bold">
                 {formatWeiAsUsdPrice(creatorFeesOwed ?? 0n, ethUsdPrice)}
                 <span className="group relative flex items-center">
-                  <iconify-icon
+                  <Icon
                     icon="pixelarticons:info-box"
                     className="text-white/40 text-xs cursor-help"
                   />
@@ -221,7 +222,7 @@ export default function ProfileMenu() {
                     className="photo w-5 h-5 object-cover shrink-0"
                   />
                 ) : (
-                  <iconify-icon icon="ri:twitter-x-fill" className="text-white text-sm shrink-0" />
+                  <Icon icon="ri:twitter-x-fill" className="text-white text-sm shrink-0" />
                 )}
                 <span className="text-xs font-medium text-white/80 truncate">
                   @{xAccount.username}
@@ -247,7 +248,7 @@ export default function ProfileMenu() {
               className="w-full flex items-center justify-between px-4 py-3 text-xs font-bold text-white/70 hover:text-white hover:bg-white/5 transition-colors border-b border-white/5"
             >
               Docs
-              <iconify-icon icon="pixelarticons:external-link" className="text-sm shrink-0" />
+              <Icon icon="pixelarticons:external-link" className="text-sm shrink-0" />
             </a>
 
             <button

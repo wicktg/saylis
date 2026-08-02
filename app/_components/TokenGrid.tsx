@@ -41,40 +41,40 @@ export default function TokenGrid({ sortBy, search = "" }: { sortBy: SortOption;
   );
 
   if (loading) {
-    return <div className="text-xs text-white/30 py-10 text-center">Loading tokens...</div>;
+    return <EmptyState>loading tokens...</EmptyState>;
   }
 
   if (tokens.length === 0) {
-    return (
-      <div className="text-xs text-white/30 py-16 text-center">
-        No tokens launched yet.
-      </div>
-    );
+    return <EmptyState>no tokens launched yet</EmptyState>;
   }
 
   if (search.trim() && searchedTokens.length === 0) {
-    return (
-      <div className="text-xs text-white/30 py-16 text-center">
-        No tokens match &quot;{search.trim()}&quot;.
-      </div>
-    );
+    return <EmptyState>no tokens match &quot;{search.trim()}&quot;</EmptyState>;
   }
 
   if (sortedTokens.length === 0) {
-    return (
-      <div className="text-xs text-white/30 py-16 text-center">
-        No graduated tokens yet.
-      </div>
-    );
+    return <EmptyState>no graduated tokens yet</EmptyState>;
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+    // Fewer columns than the old square cards used: these are landscape
+    // (thumbnail beside a stat block), so they need roughly double the width
+    // to keep the numeric column from wrapping.
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
       {sortedTokens.map((token) => (
         <Link key={token.id} href={`/token/${token.contract_address}`}>
           <TokenCard token={token} marketData={marketData[token.curve_address as Address]} />
         </Link>
       ))}
+    </div>
+  );
+}
+
+function EmptyState({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="ascii text-[11px] text-white/30 py-16 text-center">
+      <span className="text-white/20">{"// "}</span>
+      {children}
     </div>
   );
 }

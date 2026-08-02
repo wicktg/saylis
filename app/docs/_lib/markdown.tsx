@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Icon from "@/app/_components/Icon";
 
 /**
  * A deliberately small markdown-lite renderer — just enough for the docs
@@ -164,12 +165,12 @@ export function renderMarkdown(source: string): ReactNode {
         <div
           key={next()}
           className={`my-4 pixel-frame p-4 flex gap-2.5 ${
-            tone === "warn" ? "bg-red-400/5" : "bg-lime-400/5"
+            tone === "warn" ? "bg-red-400/5" : "bg-[rgba(207,56,221,0.05)]"
           }`}
         >
-          <iconify-icon
+          <Icon
             icon={tone === "warn" ? "pixelarticons:alert" : "pixelarticons:info-box"}
-            className={`text-sm mt-0.5 shrink-0 ${tone === "warn" ? "text-red-400" : "text-lime-400"}`}
+            className={`text-sm mt-0.5 shrink-0 ${tone === "warn" ? "text-red-400" : "text-[#cf38dd]"}`}
           />
           <p className="text-[13px] text-white/70 leading-relaxed">
             {renderInline(content, next())}

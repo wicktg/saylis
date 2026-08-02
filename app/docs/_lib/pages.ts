@@ -2,7 +2,7 @@
  * All docs content, as markdown-lite source (see ../_lib/markdown.tsx for
  * what's supported). One entry per slug in content.ts's DOCS_NAV.
  *
- * Every number in here matches the actual deployed contracts exactly —
+ * Every number in here matches the actual deployed contracts exactly --
  * this is documentation for a real, immutable system, not marketing copy.
  */
 export const DOCS_CONTENT: Record<string, string> = {
@@ -21,7 +21,7 @@ When a token raises enough real ETH, it **graduates**: its liquidity moves perma
 
 This section of the docs explains what you're actually looking at as a trader: how price is set, what protections exist against sniping and whale dumps, and what graduation actually means for the token you're holding.
 
-> [!note] Every contract referenced in these docs is linked with its real deployed address on Arbitrum Sepolia; see **Reference → Contract Addresses**. Nothing here is a claim you have to take on faith.
+> [!note] Every contract referenced in these docs is linked with its real deployed address on Arbitrum Sepolia; see **Reference -> Contract Addresses**. Nothing here is a claim you have to take on faith.
 `,
 
   "bonding-curve": `
@@ -39,7 +39,7 @@ As people buy, real ETH flows into \`realEthReserve\` and real tokens flow out o
 
 ## The 1% trade fee
 
-Every buy and every sell pays a flat **1% fee**, split between the token's creator and the protocol treasury. The split itself escalates over the token's lifetime; see **For Creators → Fee Structure** for the exact numbers.
+Every buy and every sell pays a flat **1% fee**, split between the token's creator and the protocol treasury. The split itself escalates over the token's lifetime; see **For Creators -> Fee Structure** for the exact numbers.
 
 ## What happens to your ETH
 
@@ -80,14 +80,14 @@ Selling is exempt from both checks for the same reason: reducing a balance can n
   "whale-tax-tiers": `
 # Whale Sell Tax Tiers
 
-Separate from the ordinary 1% trade fee, a creator can optionally configure a **whale sell tax**: an extra tax that applies only to large sells, only from wallets holding more than a certain share of supply. The rate itself is creator-chosen (0–3%), but *whether it applies to a given sell* is decided by a fixed tier table based on the token's live market cap:
+Separate from the ordinary 1% trade fee, a creator can optionally configure a **whale sell tax**: an extra tax that applies only to large sells, only from wallets holding more than a certain share of supply. The rate itself is creator-chosen (0-3%), but *whether it applies to a given sell* is decided by a fixed tier table based on the token's live market cap:
 
 | Market cap | Whale threshold (% of total supply) |
 |---|---|
-| ≤ $150,000 | 2.00% |
-| $150,000 – $300,000 | 1.50% |
-| $300,000 – $500,000 | 1.00% |
-| $500,000 – $1,000,000 | 0.75% |
+| <= $150,000 | 2.00% |
+| $150,000 - $300,000 | 1.50% |
+| $300,000 - $500,000 | 1.00% |
+| $500,000 - $1,000,000 | 0.75% |
 | > $1,000,000 | 0.50% |
 
 A seller only pays the tax if **their own balance, measured immediately before the sell**, exceeds the threshold implied by the token's current market cap. As the token's market cap grows, the bar for "whale" gets *lower*; a wallet holding 1% of supply is untaxed on a brand-new token but could cross into whale territory once the token has grown enough for 1% to represent real, concentrated value.
@@ -116,7 +116,7 @@ A token **graduates** the moment its bonding curve has raised a fixed amount of 
 
 1. The triggering buy still executes fully; a single transaction can simultaneously be someone's last curve purchase **and** the one that crosses the threshold.
 2. \`graduated\` flips to \`true\`, a one-way latch nothing in the contract can ever reset.
-3. The token's creator is credited a **graduation bonus**: see **For Creators → Graduation Bonus**.
+3. The token's creator is credited a **graduation bonus**: see **For Creators -> Graduation Bonus**.
 4. Both \`buy\` and \`sell\` revert unconditionally on this curve from then on.
 
 ## Migration: moving liquidity to a real DEX pool
@@ -132,7 +132,7 @@ Migration pulls together:
 
 ## The LP position is burned, not locked
 
-The LP NFT that position mints as is sent straight to \`0x000000000000000000000000000000000000dEaD\`; permanently. Not held by a timelock, not held by a multisig with a future unlock date: **there is no function anywhere in this system that could move it, ever again, for any reason.** See **Trust & Safety → LP Lock** for why that's a meaningfully stronger guarantee than a locked-but-recoverable position.
+The LP NFT that position mints as is sent straight to \`0x000000000000000000000000000000000000dEaD\`; permanently. Not held by a timelock, not held by a multisig with a future unlock date: **there is no function anywhere in this system that could move it, ever again, for any reason.** See **Trust & Safety -> LP Lock** for why that's a meaningfully stronger guarantee than a locked-but-recoverable position.
 
 ## Trading after graduation
 
@@ -144,7 +144,7 @@ All trading moves to the public Uniswap pool. The bonding curve's own pricing/li
 
 Every field on a token's page is either read live from the chain or computed from data that's live from the chain; nothing is a cached marketing number. Here's what each figure actually means:
 
-- **Market cap**: live price × total supply, computed from the curve's (or, post-graduation, the pool's) actual current reserves.
+- **Market cap**: live price x total supply, computed from the curve's (or, post-graduation, the pool's) actual current reserves.
 - **Progress bar / bonding curve progress**: how close \`realEthReserve\` is to the graduation threshold. Fills to 100% and freezes once graduated.
 - **Volume**: the curve's own \`cumulativeVolume\`: the running gross ETH value of every trade this specific token has ever done. This is also what drives the creator's fee-share escalation (see **Fee Structure**).
 - **Graduated / Migrated badges** (reflect the curve's own \`graduated\` and \`migrationExecuted\` flags directly. "Graduated" means the ETH threshold was hit and trading halted; "Migrated" means the DEX pool has actually been created and the LP burned. There's a real, sometimes-brief gap between the two), a token can be graduated-but-not-yet-migrated.
@@ -166,9 +166,9 @@ Launching deploys two contracts, back to back, straight from your own wallet; th
 
 1. **Fill in the token's identity**: name, ticker, an optional image, an optional description and social links. All of this is stored off-chain for display purposes; the on-chain contracts themselves don't need any of it beyond name/symbol/decimals.
 2. **Choose your configuration** (all immutable once launched):
-   - **Whale sell tax rate** (0–3%, optional); see **Whale Tax, for Creators**.
+   - **Whale sell tax rate** (0-3%, optional); see **Whale Tax, for Creators**.
    - **Fee redirect address** (optional); where your creator fee share actually pays out. See **Redirecting Your Fees**.
-   - **InfoFi allocation** (0–5%, optional); reserve a slice of supply for an attention campaign at mint time. See **InfoFi Campaigns**.
+   - **InfoFi allocation** (0-5%, optional); reserve a slice of supply for an attention campaign at mint time. See **InfoFi Campaigns**.
 3. **Sign two transactions**: the token deploy, then the curve deploy. Your wallet pays gas for both; there is no additional launch fee charged by the platform.
 
 ## What you're committing to, permanently
@@ -187,7 +187,7 @@ Every trade (buy or sell), pays a flat **1% fee**. That fee is split between you
 
 \`\`\`
 creatorShare(volume) = 75%  at zero cumulative volume
-                      → 85%  once cumulative volume reaches $10,000,000
+                      -> 85%  once cumulative volume reaches $10,000,000
                         (linear in between)
 \`\`\`
 
@@ -233,7 +233,7 @@ A few details worth knowing:
   "whale-tax-creator": `
 # Whale Tax, for Creators
 
-If you enable a whale sell tax at launch (0–3%, your choice, immutable once set), **100% of it comes to you**: none of it is shared with the protocol treasury, unlike the ordinary 1% trade fee.
+If you enable a whale sell tax at launch (0-3%, your choice, immutable once set), **100% of it comes to you**: none of it is shared with the protocol treasury, unlike the ordinary 1% trade fee.
 
 ## When it actually collects anything
 
@@ -310,7 +310,7 @@ Refer another creator, and you earn **5% of their own creator fee share**: forev
 
 1. Share your referral link. Anyone who connects a wallet through it can permanently link you as their referrer with one signed transaction; this is one-way and can only ever be set once per wallet.
 2. From that point on, every token that wallet launches automatically resolves your address as its referrer at the moment it deploys.
-3. On every trade on any of their curves, **5% of their own creator-fee share** (never the protocol's share, never their sell tax, never their graduation bonus; specifically the 75%–85% escalating slice of the 1% trade fee) is redirected into your own balance instead of theirs.
+3. On every trade on any of their curves, **5% of their own creator-fee share** (never the protocol's share, never their sell tax, never their graduation bonus; specifically the 75%-85% escalating slice of the 1% trade fee) is redirected into your own balance instead of theirs.
 
 \`\`\`
 referralCut = creatorFee * 5%
@@ -323,7 +323,7 @@ Because this routes through a single protocol-wide contract rather than being tr
 
 ## What it costs the person you refer
 
-Nothing beyond the 5% carve-out of their own share; the protocol's cut of every trade is completely unaffected by whether a creator was referred or not. A referred creator still earns the full escalating 75%–85% split on the *remaining* 95% of their share; they just aren't the only one benefiting from their own success.
+Nothing beyond the 5% carve-out of their own share; the protocol's cut of every trade is completely unaffected by whether a creator was referred or not. A referred creator still earns the full escalating 75%-85% split on the *remaining* 95% of their share; they just aren't the only one benefiting from their own success.
 
 ## Registration is permanent
 
@@ -381,25 +381,25 @@ Every qualifying post is scored using a weighted formula, then normalized agains
 ## The weights
 
 \`\`\`
-rawScore = views × 1
-         + likes × 3
-         + comments × 5
-         + reposts × 4
+rawScore = views x 1
+         + likes x 3
+         + comments x 5
+         + reposts x 4
 \`\`\`
 
 The weighting is ordered by how expensive each action is to fake, cheapest to most expensive:
 
-- **Views (×1)**: almost entirely passive, the easiest number to inflate, so it counts for the least per unit.
-- **Likes (×3)**: a single tap, but still a deliberate account action.
-- **Reposts (×4)**: puts the content on the reposter's own timeline, a real reputational cost.
-- **Comments (×5)**: someone had to write something; the most expensive signal to fake and the easiest to spot if faked.
+- **Views (x1)**: almost entirely passive, the easiest number to inflate, so it counts for the least per unit.
+- **Likes (x3)**: a single tap, but still a deliberate account action.
+- **Reposts (x4)**: puts the content on the reposter's own timeline, a real reputational cost.
+- **Comments (x5)**: someone had to write something; the most expensive signal to fake and the easiest to spot if faked.
 
 Views aren't excluded, though; real reach still matters. The weighting just means a viral-but-ignored post can never outrank a smaller post that actually started real conversations.
 
 ## Normalizing to 100
 
 \`\`\`
-mindshare_i = 100 × rawScore_i / sum(rawScore for everyone in the campaign)
+mindshare_i = 100 x rawScore_i / sum(rawScore for everyone in the campaign)
 \`\`\`
 
 If your posts generated zero engagement, your mindshare is 0; you keep your spot on the board (you joined, after all) but earn nothing when rewards are calculated. If literally nobody in a campaign has posted anything yet, everyone sits at 0 rather than the pool being divided by zero or split arbitrarily.
@@ -514,7 +514,7 @@ Most token contracts, even well-intentioned ones, have an \`owner\` address with
 
 ## Verifying this yourself
 
-Every claim on this page is checkable directly against the deployed source (see **Reference → Contract Addresses**); search for the word \`owner\`, \`onlyOwner\`, \`pause\`, \`mint\`, or \`blacklist\` in any contract here and you will not find a privileged version of any of them.
+Every claim on this page is checkable directly against the deployed source (see **Reference -> Contract Addresses**); search for the word \`owner\`, \`onlyOwner\`, \`pause\`, \`mint\`, or \`blacklist\` in any contract here and you will not find a privileged version of any of them.
 `,
 
   // ------------------------------------------------------------------

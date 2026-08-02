@@ -1,5 +1,7 @@
 "use client";
 
+import Icon from "@/app/_components/Icon";
+
 export const WINNER_MIN = 25;
 export const WINNER_MAX = 100;
 export const WINNER_STEP = 5;
@@ -89,7 +91,7 @@ function StepButton({
       disabled={disabled}
       className="pixel-frame pixel-btn-ghost w-7 h-7 flex items-center justify-center text-white/70 hover:text-white transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
     >
-      <iconify-icon icon={icon} className="text-sm" />
+      <Icon icon={icon} className="text-sm" />
     </button>
   );
 }

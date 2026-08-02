@@ -9,6 +9,7 @@ import { formatWeiAsUsdPrice, truncateAddress } from "@/app/_lib/format";
 import { REFERRAL_VAULT_ADDRESS } from "@/app/_lib/contracts/config";
 import { REFERRAL_VAULT_ABI } from "@/app/_lib/contracts/ReferralVault";
 import { useEthUsdPrice } from "@/app/_lib/useEthUsdPrice";
+import Icon from "@/app/_components/Icon";
 
 type ReferredWallet = {
   walletAddress: string;
@@ -113,7 +114,7 @@ export default function ReferralPage() {
         {!account ? (
           <div className="flex flex-col items-center justify-center text-center py-20 gap-2">
             <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-1">
-              <iconify-icon icon="pixelarticons:wallet" className="text-xl text-white/25" />
+              <Icon icon="pixelarticons:wallet" className="text-xl text-white/25" />
             </div>
             <h2 className="text-sm font-bold text-white/70">Connect your wallet</h2>
             <p className="text-[11px] text-white/35 max-w-xs leading-relaxed">
@@ -122,7 +123,7 @@ export default function ReferralPage() {
           </div>
         ) : loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="w-8 h-8 border-2 border-lime-400/30 border-t-lime-400 spinner-circle animate-spin" />
+            <div className="w-8 h-8 border-2 border-[rgba(207,56,221,0.3)] border-t-[#cf38dd] spinner-circle animate-spin" />
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center text-center py-20 gap-2">
@@ -144,7 +145,7 @@ export default function ReferralPage() {
                 <span className="text-[12px] font-mono truncate">
                   {shareLink ?? "..."}
                 </span>
-                <iconify-icon
+                <Icon
                   icon={copied ? "pixelarticons:check" : "pixelarticons:copy"}
                   className="text-white/40 text-sm shrink-0"
                 />
@@ -174,7 +175,7 @@ export default function ReferralPage() {
                     title={currentBalance === 0n ? "Nothing to claim" : "Claim earnings"}
                     className="text-[var(--accent)] disabled:text-white/20 disabled:cursor-not-allowed shrink-0 transition-colors flex items-center"
                   >
-                    <iconify-icon
+                    <Icon
                       icon="pixelarticons:briefcase"
                       className={`text-lg leading-none ${claiming ? "animate-pulse" : ""}`}
                     />
@@ -193,7 +194,7 @@ export default function ReferralPage() {
               {!data || data.referred.length === 0 ? (
                 <div className="flex flex-col items-center justify-center text-center py-16 gap-2 pixel-frame pixel-card">
                   <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-1">
-                    <iconify-icon icon="pixelarticons:users" className="text-xl text-white/25" />
+                    <Icon icon="pixelarticons:users" className="text-xl text-white/25" />
                   </div>
                   <h3 className="text-sm font-bold text-white/70">Nobody yet</h3>
                   <p className="text-[11px] text-white/35 max-w-xs leading-relaxed">

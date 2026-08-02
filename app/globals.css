@@ -1,5 +1,3 @@
-@import url("https://fonts.cdnfonts.com/css/satoshi");
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,7 +6,6 @@
   --bg-main: #000000;
   --bg-card: #000000;
   --bg-sidebar: #000000;
-  --accent-lime: #ffffff;
 
   /*
    * Brand magenta. Three deliberate shades, not one:
@@ -32,17 +29,25 @@
      against an arbitrary CSS variable in Tailwind v3. */
   --accent-tint: rgba(207, 56, 221, 0.12);
 
-  /* Approximation of dexscreener's --chakra-colors-boost-500, which isn't
-     available to us outside their app — a bright boost orange. Used for the
-     ticker strip's gradient. */
-  --boost-500: #ffb347;
-
   --text-muted: #a8a3c9;
-  --grain-bg: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='linear' slope='3.2' intercept='-0.35'/></feComponentTransfer></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
 }
 
+/*
+ * Monospace everywhere. This is the single largest lever in the ASCII
+ * conversion: a terminal UI is defined more by uniform character cells
+ * than by any border treatment, and setting it once here means individual
+ * components never have to opt in.
+ *
+ * The Satoshi webfont this used to load is gone with it — one fewer
+ * external stylesheet fetch, and nothing references it any more.
+ */
 body {
-  font-family: "Satoshi", "Inter", sans-serif;
+  font-family: var(--font-jetbrains-mono), ui-monospace, "Cascadia Mono",
+    "Segoe UI Mono", "Liberation Mono", Menlo, Consolas, monospace;
+  font-variant-ligatures: none;
+  /* Live market figures update in place; tabular figures stop the numeric
+     columns jittering as digits change width. */
+  font-variant-numeric: tabular-nums;
   background-color: var(--bg-main);
   color: white;
   margin: 0;
@@ -51,11 +56,13 @@ body {
 }
 
 /*
- * Pixelated, minimalist branding: every rounded surface (buttons, inputs,
- * pills, cards, modals) is squared off to a hard block edge instead of
- * Tailwind's `rounded-*` curves — texture and color are untouched, only
- * the corner shape changes. `!important` because this deliberately wins
- * over every `rounded-*` utility class regardless of source order.
+ * Every rounded surface (buttons, inputs, pills, cards, modals) is squared
+ * off to a hard edge instead of Tailwind's `rounded-*` curves. Inherited
+ * from the pixel-art design and kept unchanged: character cells are
+ * rectangular, so a terminal UI has no curves either.
+ *
+ * `!important` because this deliberately wins over every `rounded-*`
+ * utility class regardless of source order.
  */
 button,
 input,
@@ -76,178 +83,104 @@ select,
   border-radius: 50%;
 }
 
-/* Raster art (token images, previews, the pixel-art logo mark) stays
-   crisp/blocky when scaled instead of being smoothed by the browser. */
-img {
-  image-rendering: pixelated;
-}
 
-/* Real photographs (X profile pictures, etc.) are the opposite case:
-   nearest-neighbor scaling makes them look blocky/low-quality rather than
-   crisp. Opt back into normal smooth scaling for these. */
-img.photo {
-  image-rendering: auto;
-}
 
-/*
- * Film-grain texture overlay: a tiled SVG <feTurbulence> noise map painted
- * fixed over the whole viewport, above the navy background but below all
- * real content (z-index: 0 sits under every component, which all use
- * position: relative/absolute with a natural stacking context above the
- * page flow). blend-mode "overlay" + low opacity keeps it a subtle texture
- * rather than visible static.
- */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.9;
-  mix-blend-mode: overlay;
-  background-image: var(--grain-bg);
-  background-repeat: repeat;
-  background-size: 140px 140px;
-}
-
-/*
- * Same navy + film-grain treatment as the page body, self-contained for
- * floating surfaces (dropdowns, popovers) that need to visually read as
- * "cut from the same background" rather than a distinct dark card. Relies
- * on the element already being positioned (absolute/relative) via its own
- * classes — deliberately NOT setting `position` here, since this rule
- * loads after Tailwind's utilities and would silently win the cascade over
- * a `position: absolute` utility class on the same element, breaking
- * layout for anything floated (e.g. a dropdown).
- *
- * The pseudo-element clips its OWN background via `border-radius: inherit`
- * rather than the parent using `overflow: hidden` — that would also clip
- * any real child that needs to pop outside the box (e.g. a tooltip).
- */
-.surface-grain::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  pointer-events: none;
-  opacity: 0.9;
-  mix-blend-mode: overlay;
-  background-image: var(--grain-bg);
-  background-repeat: repeat;
-  background-size: 140px 140px;
-}
 
 /* =================================================================
- * PIXEL-ART UI KIT (8/16-bit RPG menu styling)
+ * SURFACE KIT (ASCII / terminal styling)
  * =================================================================
  *
- * Every surface is drawn as a sprite rather than a CSS box: flat colour
- * bands, no gradients or blur, and stair-stepped corners instead of a
- * radius.
+ * These class NAMES are still `.pixel-*` while their appearance is now
+ * ASCII. That is deliberate and worth explaining, because the mismatch
+ * looks like an oversight:
  *
- * Construction is deliberately just `box-shadow` on the element itself:
- * four hard, blurless, OFFSET shadows (one per side). Because each is
- * offset rather than spread, the corners are left uncovered — which is
- * exactly the notched corner pixel art has. A fifth `inset` shadow paints
- * the lighter top band that fakes a bevel.
+ * The names appear at 175 call sites across 25 files. Renaming them all
+ * would be a large mechanical diff with real regression risk (a missed
+ * class silently renders an unstyled surface) in exchange for zero visual
+ * change, since this stylesheet is the only thing that decides how they
+ * look. Restyling the kit in place converts every surface in the app at
+ * once and keeps the reviewable diff to this one block. A rename is
+ * cosmetic follow-up work, tracked separately.
  *
- * An earlier version drew this on a `::before` at `z-index: -1` with a
- * `clip-path` silhouette. That is abandoned, for two concrete reasons:
- * negative z-index is fragile — it slips behind ancestor backgrounds and
- * takes content with it — and pseudo-elements do not render on replaced
- * elements at all, so every `<input>` using it came out invisible.
- * `box-shadow` paints outside the border box without participating in
- * layout or stacking, so it can never occlude content and works directly
- * on inputs.
+ * The construction changes completely. The old kit drew each surface as a
+ * sprite: four hard, blurless, OFFSET box-shadows leaving the corners
+ * uncovered (a pixel-art notch), plus an inset shadow faking a bevel band.
+ * A terminal box has none of that -- it is a single uniform rule, one cell
+ * wide, with no bevel and no depth. So these are now plain 1px borders.
  *
- * Note the outline is LIGHT, not the black of a pixel-art sprite sheet:
- * those are drawn for light backgrounds, and black-on-black would be
- * invisible here. Light-on-dark is what 16-bit RPG dialogue boxes
- * actually use.
+ * One constraint carried over from the old kit, because it was learned the
+ * hard way: `.pixel-frame` must NOT set `position`. This rule loads after
+ * Tailwind's utilities, so declaring `position: relative` here silently
+ * beat the `absolute` on every floated surface using the class, dropping
+ * the profile dropdown and the Advanced popover back into normal flow.
+ * Borders need no positioning; anything wanting a containing block sets
+ * its own. This is also why `.pixel-frame` gets no corner ticks, unlike
+ * `.ascii-box` further down, which is only applied to elements already
+ * marked `relative`.
  */
 :root {
-  /* Outline thickness, and equally the size of the corner notch. */
-  --pixel-unit: 3px;
-  --pixel-outline: rgba(255, 255, 255, 0.55);
+  --pixel-outline: rgba(255, 255, 255, 0.22);
 }
 
 .pixel-frame {
-  /* Deliberately does NOT set `position`. This rule loads after Tailwind's
-     utilities, so declaring `position: relative` here silently beat the
-     `absolute` on every floated surface using this class — dropping the
-     profile dropdown and the Advanced popover back into normal flow, which
-     shifted the page and pushed the popover far down. box-shadow needs no
-     positioning; anything that wants a containing block sets its own. */
-  border: 0;
+  border: 1px solid var(--pixel-outline);
   background-color: var(--pixel-fill, transparent);
-  box-shadow:
-    0 calc(var(--pixel-unit) * -1) 0 0 var(--pixel-outline),
-    0 var(--pixel-unit) 0 0 var(--pixel-outline),
-    calc(var(--pixel-unit) * -1) 0 0 0 var(--pixel-outline),
-    var(--pixel-unit) 0 0 0 var(--pixel-outline),
-    inset 0 var(--pixel-highlight-size, 0) 0 0 var(--pixel-highlight, transparent);
+  box-shadow: none;
+  transition: border-color 120ms linear, background-color 120ms linear;
 }
 
-/* ---- Primary action: brand fill, bright outline, lighter top band ---- */
+/* ---- Primary action: solid accent fill ---- */
 .pixel-btn {
   --pixel-fill: var(--accent-fill);
-  --pixel-highlight: #c04ccc;
-  --pixel-highlight-size: 6px;
-  --pixel-outline: #ffffff;
+  --pixel-outline: var(--accent);
 }
 .pixel-btn:hover:not(:disabled) {
   --pixel-fill: var(--accent-fill-hover);
-  --pixel-highlight: #d264dd;
+  --pixel-outline: var(--accent-soft);
 }
 .pixel-btn:active:not(:disabled) {
-  /* Sprite "presses in": the bevel band drops away entirely. */
-  --pixel-highlight-size: 0;
+  --pixel-fill: var(--accent-fill);
 }
 .pixel-btn:disabled {
-  --pixel-fill: #2a2a2a;
-  --pixel-highlight: #333333;
-  --pixel-outline: rgba(255, 255, 255, 0.3);
+  --pixel-fill: transparent;
+  --pixel-outline: rgba(255, 255, 255, 0.15);
 }
 
 /* ---- Secondary / neutral action ---- */
 .pixel-btn-ghost {
-  --pixel-fill: rgba(255, 255, 255, 0.07);
-  --pixel-highlight: rgba(255, 255, 255, 0.14);
-  --pixel-highlight-size: 5px;
-  --pixel-outline: rgba(255, 255, 255, 0.55);
+  --pixel-fill: transparent;
+  --pixel-outline: rgba(255, 255, 255, 0.22);
 }
 .pixel-btn-ghost:hover:not(:disabled) {
-  --pixel-fill: rgba(255, 255, 255, 0.14);
-  --pixel-outline: #ffffff;
+  --pixel-fill: rgba(255, 255, 255, 0.05);
+  --pixel-outline: rgba(255, 255, 255, 0.5);
 }
 .pixel-btn-ghost:disabled {
-  --pixel-outline: rgba(255, 255, 255, 0.2);
+  --pixel-outline: rgba(255, 255, 255, 0.1);
 }
 
-/* ---- Modal / dropdown panel: the RPG dialogue box ---- */
+/* ---- Modal / dropdown panel ---- */
 .pixel-panel {
-  --pixel-fill: #050505;
-  --pixel-outline: rgba(255, 255, 255, 0.75);
-  --pixel-unit: 4px;
+  /* Opaque, not tinted: a panel floats over live content and has to occlude
+     it completely. */
+  --pixel-fill: #000000;
+  --pixel-outline: rgba(255, 255, 255, 0.4);
 }
 
 /* ---- Token card ---- */
 .pixel-card {
-  --pixel-fill: rgba(255, 255, 255, 0.035);
-  --pixel-outline: rgba(255, 255, 255, 0.3);
+  --pixel-fill: #000000;
+  --pixel-outline: rgba(255, 255, 255, 0.22);
 }
 .pixel-card:hover {
-  --pixel-fill: rgba(255, 255, 255, 0.07);
-  --pixel-outline: rgba(255, 255, 255, 0.7);
+  --pixel-fill: rgba(207, 56, 221, 0.05);
+  --pixel-outline: var(--accent);
 }
 
-/* ---- Text input / search bar: recessed, no highlight band ---- */
+/* ---- Text input / search bar ---- */
 .pixel-input {
-  --pixel-fill: rgba(255, 255, 255, 0.05);
-  --pixel-highlight: rgba(0, 0, 0, 0.4);
-  --pixel-highlight-size: 4px;
-  --pixel-outline: rgba(255, 255, 255, 0.35);
+  --pixel-fill: transparent;
+  --pixel-outline: rgba(255, 255, 255, 0.22);
 }
 .pixel-input:focus-within,
 .pixel-input:focus {
@@ -255,18 +188,14 @@ body::before {
 }
 
 /*
- * Blocky "online" indicator — a plus-shaped sprite built from box-shadow
- * steps rather than a circle, so it reads as a handful of lit pixels.
+ * "Online" indicator. Was a plus-shaped cluster of lit pixels; now a single
+ * filled character cell, the terminal equivalent of a status LED.
  */
 .pixel-dot {
-  width: 4px;
-  height: 4px;
+  width: 6px;
+  height: 6px;
   background: var(--accent);
-  box-shadow:
-    -4px 0 0 0 var(--accent),
-    4px 0 0 0 var(--accent),
-    0 -4px 0 0 var(--accent),
-    0 4px 0 0 var(--accent);
+  box-shadow: none;
 }
 
 /* A newly-landed trade sliding into the top of the transactions feed. */
@@ -287,33 +216,20 @@ body::before {
   animation: tx-row-enter 0.9s ease-out 1;
 }
 
-/*
- * Distinct from `.surface-grain`'s noise: a soft diagonal hairline weave,
- * used for elevated modal surfaces that want their own tactile texture
- * without visually reading as an extension of the page background.
- */
-.surface-weave {
-  background-image: repeating-linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.05) 0px,
-    rgba(255, 255, 255, 0.05) 1px,
-    transparent 1px,
-    transparent 9px
-  );
-}
 
 /*
- * Create Token modal's texture: a fine dot-grid (subtle "circuit board" /
- * blueprint feel, fitting a launch/build flow) plus a soft radial glow
- * seeping down from the top edge for depth. Distinct from both
- * `.surface-grain` (noise) and `.surface-weave` (diagonal hairlines) so
- * each elevated surface in the app reads as its own place.
+ * Create Token modal's surface. This was a dot-grid "circuit board"
+ * texture, the last of three decorative surface treatments (alongside the
+ * film-grain noise and diagonal weave, both now deleted) that gave each
+ * elevated panel its own tactile identity.
+ *
+ * A terminal has exactly one surface: the background. Textured panels are
+ * the single most anti-ASCII thing in the old design, so this is now flat
+ * black. The class is kept rather than removed from its two call sites so
+ * the modal retains an explicit, named surface to restyle later.
  */
 .surface-circuit {
   background-color: var(--bg-main);
-  background-image: radial-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1px);
-  background-size: 18px 18px;
-  background-position: 0 0;
 }
 
 /*
@@ -439,3 +355,102 @@ body::before {
   animation: rocket-flame 0.25s ease-in-out infinite;
 }
 
+
+/* =================================================================
+ * ASCII UI KIT (terminal / box-drawing styling)
+ * =================================================================
+ *
+ * The successor to the pixel-art kit above, currently scoped to the
+ * Explore page while the look is being evaluated. Both kits coexist on
+ * purpose — nothing here overrides `.pixel-*`, so unconverted routes keep
+ * rendering exactly as before.
+ *
+ * The rule this kit follows: STRUCTURE is CSS, TEXTURE is characters.
+ * Frames are 1px CSS borders rather than strings of `┌─┐`, because a real
+ * character-grid box cannot reflow — it needs an exact column count, so it
+ * breaks the moment a ticker is long or the viewport is narrow. The
+ * terminal feel comes instead from monospace type, lowercase labels, and
+ * genuinely character-drawn elements (progress bars, dividers, prefixes)
+ * where the content is fixed-width anyway.
+ */
+
+.ascii {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-variant-ligatures: none;
+  /* Terminal cells are uniform, so tabular figures keep numeric columns
+     from jittering as live market data updates. */
+  font-variant-numeric: tabular-nums;
+}
+
+.ascii-box {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background-color: #000000;
+  transition: border-color 120ms linear, background-color 120ms linear;
+}
+
+.ascii-box:hover {
+  border-color: var(--accent);
+  background-color: rgba(207, 56, 221, 0.05);
+}
+
+/* Corner ticks. Four 1px L-shapes inset from the frame, echoing the
+   `┌ ┐ └ ┘` junctions of a drawn box without the character-grid problem.
+   Drawn on ::before/::after (two corners each) so no extra markup is
+   needed; the parent must establish a stacking context via `relative`. */
+.ascii-box::before,
+.ascii-box::after {
+  content: "";
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.ascii-box::before {
+  top: 2px;
+  left: 2px;
+  border-top: 1px solid currentColor;
+  border-left: 1px solid currentColor;
+}
+
+.ascii-box::after {
+  bottom: 2px;
+  right: 2px;
+  border-bottom: 1px solid currentColor;
+  border-right: 1px solid currentColor;
+}
+
+/* A full-width horizontal rule drawn as repeated `─`, not a border — it
+   wraps to the container and reads as terminal output rather than chrome. */
+.ascii-rule {
+  overflow: hidden;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.15);
+  user-select: none;
+}
+
+.ascii-rule::after {
+  content: "────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────";
+}
+
+/* Dim label / bright value, the standard two-tone of a terminal readout. */
+.ascii-label {
+  color: rgba(255, 255, 255, 0.35);
+  text-transform: lowercase;
+}
+
+.ascii-value {
+  color: #ffffff;
+}
+
+/* Selected rows in a menu get a `>` gutter marker rather than a fill. */
+.ascii-option::before {
+  content: "  ";
+  white-space: pre;
+}
+
+.ascii-option[data-selected="true"]::before {
+  content: "> ";
+  color: var(--accent);
+}

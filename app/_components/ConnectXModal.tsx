@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Address } from "viem";
 import { useWalletAuth } from "@/app/_lib/useWalletAuth";
+import Icon from "@/app/_components/Icon";
 
 type Step = "input" | "code" | "confirming" | "success";
 
@@ -115,11 +116,11 @@ export default function ConnectXModal({
           aria-label="Close"
           className="absolute right-4 top-4 text-white/40 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
-          <iconify-icon icon="pixelarticons:close" className="text-base" />
+          <Icon icon="pixelarticons:close" className="text-base" />
         </button>
 
         <div className="flex items-center gap-2 mb-5">
-          <iconify-icon icon="ri:twitter-x-fill" className="text-white text-lg" />
+          <Icon icon="ri:twitter-x-fill" className="text-white text-lg" />
           <h2 className="text-base font-bold">Connect X</h2>
         </div>
 
@@ -172,7 +173,7 @@ export default function ConnectXModal({
               <span className="text-lg font-black tracking-[0.2em] text-[var(--accent)]">
                 {code}
               </span>
-              <iconify-icon
+              <Icon
                 icon="pixelarticons:copy"
                 className="text-white/40 group-hover:text-white text-sm"
               />
@@ -201,7 +202,7 @@ export default function ConnectXModal({
 
         {step === "success" && (
           <div className="flex flex-col items-center text-center py-4 gap-3">
-            <iconify-icon icon="pixelarticons:check" className="text-3xl text-[var(--accent)]" />
+            <Icon icon="pixelarticons:check" className="text-3xl text-[var(--accent)]" />
             <p className="text-sm font-bold">@{linkedUsername} linked.</p>
             <p className="text-[11px] text-white/40 leading-relaxed">
               You can remove the code from your bio now.

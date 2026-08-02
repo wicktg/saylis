@@ -8,6 +8,7 @@ import { useTokenMarketData } from "@/app/_lib/useTokenMarketData";
 import { resolveIpfsUrl } from "@/app/_lib/ipfs";
 import { formatUsdCompact } from "@/app/_lib/format";
 import { useEthUsdPrice } from "@/app/_lib/useEthUsdPrice";
+import Icon from "@/app/_components/Icon";
 
 const PAGE_SIZE = 5;
 
@@ -68,7 +69,7 @@ export default function MyTokensModal({
           aria-label="Close"
           className="absolute right-4 top-4 text-white/40 hover:text-white transition-colors"
         >
-          <iconify-icon icon="pixelarticons:close" className="text-base" />
+          <Icon icon="pixelarticons:close" className="text-base" />
         </button>
 
         <h2 className="text-lg font-bold tracking-tight mb-5">My Tokens</h2>
@@ -80,7 +81,7 @@ export default function MyTokensModal({
 
           {!loading && tokens.length === 0 && (
             <div className="flex flex-col items-center gap-2 py-10 text-center">
-              <iconify-icon icon="pixelarticons:coin" className="text-3xl text-white/15" />
+              <Icon icon="pixelarticons:coin" className="text-3xl text-white/15" />
               <p className="text-xs font-bold text-white/50">No bags yet.</p>
               <p className="text-[11px] text-white/25">
                 Launch your first token to see it here.
@@ -103,12 +104,12 @@ export default function MyTokensModal({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={imageUrl}
-                    className="w-9 h-9 rounded-lg object-cover bg-white/5 shrink-0 ring-1 ring-transparent group-hover:ring-lime-400/30 transition-all"
+                    className="w-9 h-9 rounded-lg object-cover bg-white/5 shrink-0 ring-1 ring-transparent group-hover:ring-[rgba(207,56,221,0.3)] transition-all"
                     alt={`${token.ticker} icon`}
                   />
                 ) : (
-                  <div className="w-9 h-9 rounded-lg bg-lime-400/20 flex items-center justify-center shrink-0 ring-1 ring-transparent group-hover:ring-lime-400/30 transition-all">
-                    <span className="text-xs font-black text-lime-400">
+                  <div className="w-9 h-9 rounded-lg bg-[rgba(207,56,221,0.2)] flex items-center justify-center shrink-0 ring-1 ring-transparent group-hover:ring-[rgba(207,56,221,0.3)] transition-all">
+                    <span className="text-xs font-black text-[#cf38dd]">
                       {token.ticker.charAt(0)}
                     </span>
                   </div>
@@ -134,7 +135,7 @@ export default function MyTokensModal({
               aria-label="Previous page"
               className="pixel-frame pixel-btn-ghost w-8 h-8 flex items-center justify-center text-white/70 disabled:cursor-not-allowed"
             >
-              <iconify-icon icon="pixelarticons:chevron-left" className="text-xs" />
+              <Icon icon="pixelarticons:chevron-left" className="text-xs" />
             </button>
             <span className="text-[11px] font-medium text-white/40">
               <span className="text-[var(--accent)] font-bold">{page + 1}</span> / {totalPages}
@@ -145,7 +146,7 @@ export default function MyTokensModal({
               aria-label="Next page"
               className="pixel-frame pixel-btn-ghost w-8 h-8 flex items-center justify-center text-white/70 disabled:cursor-not-allowed"
             >
-              <iconify-icon icon="pixelarticons:chevron-right" className="text-xs" />
+              <Icon icon="pixelarticons:chevron-right" className="text-xs" />
             </button>
           </div>
         )}

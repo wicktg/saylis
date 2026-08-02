@@ -25,7 +25,7 @@ export default function DocsSidebar() {
                       href={href}
                       className={`block px-2 py-1.5 rounded text-[12px] transition-colors ${
                         isActive
-                          ? "bg-lime-400/10 text-lime-400 font-bold"
+                          ? "bg-[rgba(207,56,221,0.1)] text-[#cf38dd] font-bold"
                           : "text-white/50 hover:text-white hover:bg-white/5"
                       }`}
                     >

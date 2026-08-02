@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { formatTimeAgo } from "@/app/_lib/time";
 import type { Notification, NotificationType } from "@/app/_lib/useNotifications";
+import Icon from "@/app/_components/Icon";
 
 const ICON_BY_TYPE: Record<NotificationType, string> = {
   eligible: "pixelarticons:trophy",
@@ -20,17 +21,17 @@ const ICON_BY_TYPE: Record<NotificationType, string> = {
 };
 
 const TONE_BY_TYPE: Record<NotificationType, string> = {
-  eligible: "text-lime-400",
-  approved: "text-lime-400",
+  eligible: "text-[#cf38dd]",
+  approved: "text-[#cf38dd]",
   rejected: "text-red-400",
   supply_sent: "text-white/50",
-  supply_confirmed: "text-lime-400",
-  graduated: "text-lime-400",
-  migrated: "text-lime-400",
+  supply_confirmed: "text-[#cf38dd]",
+  graduated: "text-[#cf38dd]",
+  migrated: "text-[#cf38dd]",
   campaign_ended: "text-white/50",
   claim_period_ended: "text-white/50",
   burned: "text-white/40",
-  leaderboard_entry: "text-lime-400",
+  leaderboard_entry: "text-[#cf38dd]",
   announcement: "text-[var(--accent)]",
 };
 
@@ -61,18 +62,18 @@ export default function NotificationsModal({
           aria-label="Close"
           className="absolute right-4 top-4 text-white/40 hover:text-white transition-colors"
         >
-          <iconify-icon icon="pixelarticons:close" className="text-base" />
+          <Icon icon="pixelarticons:close" className="text-base" />
         </button>
 
         <h2 className="text-base font-bold mb-3">Notifications</h2>
 
         {isLoading ? (
           <div className="flex items-center justify-center py-10">
-            <div className="w-6 h-6 border-2 border-lime-400/30 border-t-lime-400 spinner-circle animate-spin" />
+            <div className="w-6 h-6 border-2 border-[rgba(207,56,221,0.3)] border-t-[#cf38dd] spinner-circle animate-spin" />
           </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center text-center py-8 gap-2">
-            <iconify-icon icon="pixelarticons:bell" className="text-xl text-white/25" />
+            <Icon icon="pixelarticons:bell" className="text-xl text-white/25" />
             <p className="text-[11px] text-white/35 max-w-[14rem] leading-relaxed">
               Nothing yet. We&apos;ll let you know when a token hits InfoFi
               criteria, or a campaign is approved or rejected.
@@ -97,7 +98,7 @@ function NotificationRow({ notification }: { notification: Notification }) {
         notification.read ? "" : "bg-white/[0.04]"
       } ${notification.linkUrl ? "hover:bg-white/5" : ""}`}
     >
-      <iconify-icon
+      <Icon
         icon={ICON_BY_TYPE[notification.type]}
         className={`text-sm mt-0.5 shrink-0 ${TONE_BY_TYPE[notification.type]}`}
       />
@@ -105,7 +106,7 @@ function NotificationRow({ notification }: { notification: Notification }) {
         <div className="flex items-center gap-1.5">
           <p className="text-xs font-bold truncate">{notification.title}</p>
           {!notification.read && (
-            <span className="w-1.5 h-1.5 rounded-full bg-lime-400 shrink-0" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#cf38dd] shrink-0" />
           )}
         </div>
         <p className="text-[11px] text-white/45 leading-snug mt-0.5">{notification.body}</p>

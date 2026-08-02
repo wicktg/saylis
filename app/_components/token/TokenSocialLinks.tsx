@@ -7,6 +7,7 @@ import {
   type SocialKind,
 } from "@/app/_lib/socialLinks";
 import type { TokenSocials } from "@/app/_lib/types";
+import Icon from "@/app/_components/Icon";
 
 const ORDER: SocialKind[] = ["x", "telegram", "website"];
 
@@ -42,7 +43,7 @@ export default function TokenSocialLinks({ socials }: { socials: TokenSocials | 
           aria-label={SOCIAL_LABELS[kind]}
           className="w-4 h-4 flex items-center justify-center shrink-0 self-center text-white/40 hover:text-white transition-colors"
         >
-          <iconify-icon
+          <Icon
             icon={SOCIAL_ICONS[kind]}
             className="text-[10px] leading-none translate-y-[1.5px]"
           />

@@ -4,6 +4,7 @@ import type { MarketData } from "@/app/_lib/useTokenMarketData";
 import { resolveIpfsUrl } from "@/app/_lib/ipfs";
 import { formatUsdCompact } from "@/app/_lib/format";
 import { formatTimeAgo } from "@/app/_lib/time";
+import { asciiBar } from "@/app/_lib/asciiBar";
 import { useEthUsdPrice } from "@/app/_lib/useEthUsdPrice";
 
 export default function TokenCard({
@@ -16,74 +17,80 @@ export default function TokenCard({
   const imageUrl = resolveIpfsUrl(token.image_url);
   const ethUsdPrice = useEthUsdPrice();
 
-  return (
-    <div className="pixel-frame pixel-card token-card p-4 cursor-pointer group">
-      <div className="aspect-square rounded-xl bg-black flex items-center justify-center mb-4 relative overflow-hidden">
-        {imageUrl ? (
-          <Image
-            src={imageUrl}
-            alt={token.ticker}
-            fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1536px) 20vw, 16vw"
-            className="object-cover"
-            // Every card ships through here (a live-updating grid, not a
-            // fixed handful) — never worth marking any one of them
-            // `priority`; letting them all lazy-load off-screen is what
-            // actually keeps the initial page load fast.
-            loading="lazy"
-          />
-        ) : (
-          <span className="text-4xl font-black text-lime-400 tracking-tighter">
-            {token.ticker.charAt(0)}
-          </span>
-        )}
-      </div>
+  // A graduated curve is at 100% by definition; progressPct only tracks the
+  // pre-graduation climb.
+  const progressPct = marketData?.graduated ? 100 : marketData?.progressPct ?? 0;
 
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <h3 className="font-bold text-sm tracking-tight uppercase truncate">
-            {token.ticker}
-          </h3>
-          <span className="font-mono text-[9px] font-medium text-lime-400/80 shrink-0">
-            {marketData ? formatUsdCompact(marketData.marketCapWei, ethUsdPrice) : "..."}
-          </span>
-          {marketData?.graduated && (
-            <span
-              className={
-                marketData.migrated
-                  ? "text-[8px] font-bold uppercase bg-white/10 text-white/60 px-1 py-0.5 shrink-0"
-                  : "text-[8px] font-bold uppercase bg-[var(--accent-tint)] text-[var(--accent)] px-1 py-0.5 shrink-0 animate-pulse"
-              }
-            >
-              {marketData.migrated ? "Migrated" : "Migrating"}
+  return (
+    <div className="ascii ascii-box relative p-3 cursor-pointer group h-full flex flex-col">
+      <div className="flex gap-3">
+        <div className="w-14 h-14 shrink-0 bg-black border border-white/15 relative overflow-hidden">
+          {imageUrl ? (
+            <Image
+              src={imageUrl}
+              alt={token.ticker}
+              fill
+              sizes="56px"
+              className="object-cover"
+              // Every card ships through here (a live-updating grid, not a
+              // fixed handful) — never worth marking any one of them
+              // `priority`; letting them all lazy-load off-screen is what
+              // actually keeps the initial page load fast.
+              loading="lazy"
+            />
+          ) : (
+            <span className="absolute inset-0 flex items-center justify-center text-lg text-white/40">
+              {token.ticker.charAt(0).toUpperCase()}
             </span>
           )}
         </div>
-        <span className="text-[10px] text-white/30 shrink-0 ml-2">
-          {formatTimeAgo(token.created_at)}
-        </span>
-      </div>
 
-      <div className="flex items-center justify-between mt-auto pt-2 border-t border-white/10">
-        <span className="text-[10px] text-white/40 font-medium">
-          Vol{" "}
-          <span className="text-white">
-            {marketData ? formatUsdCompact(marketData.volumeWei, ethUsdPrice) : "..."}
-          </span>
-        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-2">
+            {/* Full name is not shown as its own row — it would double the
+                card height for a value that is rarely what you scan by. It
+                stays reachable as a tooltip. */}
+            <h3 className="text-[13px] text-white uppercase truncate" title={token.name}>
+              {token.ticker}
+            </h3>
+            <span className="text-[10px] text-white/30 shrink-0">
+              {formatTimeAgo(token.created_at)}
+            </span>
+          </div>
 
-        {/* Bonding curve progress toward graduation — plain white border,
-            fill is the only signal: brand magenta while trading, dimmed
-            grey once graduated. */}
-        <div className="h-1.5 w-14 bg-white/10 rounded-full overflow-hidden shrink-0 relative border border-white/20">
-          <div
-            className={`absolute inset-y-0 left-0 rounded-full ${
-              marketData?.graduated ? "bg-white/30" : "bg-[var(--accent)]"
-            }`}
-            style={{ width: `${marketData?.graduated ? 100 : (marketData?.progressPct ?? 0)}%` }}
-          />
+          <div className="mt-1.5 space-y-0.5 text-[11px]">
+            <div className="flex justify-between gap-2">
+              <span className="ascii-label">mcap</span>
+              <span className="ascii-value truncate">
+                {marketData ? formatUsdCompact(marketData.marketCapWei, ethUsdPrice) : "-"}
+              </span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="ascii-label">vol</span>
+              <span className="ascii-value truncate">
+                {marketData ? formatUsdCompact(marketData.volumeWei, ethUsdPrice) : "-"}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
+
+      <div className="mt-3 pt-2 flex items-center gap-2 text-[11px] border-t border-white/10">
+        <span
+          className={`tracking-[-0.05em] ${
+            marketData?.graduated ? "text-white/30" : "text-[var(--accent)]"
+          }`}
+        >
+          {asciiBar(progressPct)}
+        </span>
+        <span className="ascii-value ml-auto shrink-0">{Math.round(progressPct)}%</span>
+      </div>
+
+      {marketData?.graduated && (
+        <div className="mt-1 text-[10px] text-white/40">
+          {marketData.migrated ? "[migrated]" : "[migrating]"}
+        </div>
+      )}
     </div>
   );
 }

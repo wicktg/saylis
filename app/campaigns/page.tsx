@@ -9,6 +9,7 @@ import PublicCampaignCard, {
 } from "@/app/_components/campaigns/PublicCampaignCard";
 import TalkToTeamModal from "@/app/_components/campaigns/TalkToTeamModal";
 import { useMyCampaigns, type CampaignState } from "@/app/_lib/useMyCampaigns";
+import Icon from "@/app/_components/Icon";
 
 /** Once a campaign reaches one of these, it's public — everyone sees it in
  *  the grid below, not just its owner. */
@@ -98,7 +99,7 @@ export default function CampaignsPage() {
           <div className="p-6">
             {loading ? (
               <div className="flex items-center justify-center py-16">
-                <div className="w-8 h-8 border-2 border-lime-400/30 border-t-lime-400 spinner-circle animate-spin" />
+                <div className="w-8 h-8 border-2 border-[rgba(207,56,221,0.3)] border-t-[#cf38dd] spinner-circle animate-spin" />
               </div>
             ) : loadError ? (
               <EmptyState
@@ -131,7 +132,7 @@ export default function CampaignsPage() {
             onClick={() => setTalkToTeamOpen(true)}
             className="pixel-frame pixel-btn w-full text-white font-bold py-2.5 text-sm flex items-center justify-center gap-2"
           >
-            <iconify-icon icon="mdi:telegram" className="text-sm" />
+            <Icon icon="mdi:telegram" className="text-sm" />
             Talk to Team
           </button>
 
@@ -191,7 +192,7 @@ function EmptyState({
   return (
     <div className="flex flex-col items-center justify-center text-center py-20 gap-2">
       <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-1">
-        <iconify-icon icon={icon} className="text-xl text-white/25" />
+        <Icon icon={icon} className="text-xl text-white/25" />
       </div>
       <h2 className="text-sm font-bold text-white/70">{title}</h2>
       {body && <p className="text-[11px] text-white/35 max-w-xs leading-relaxed">{body}</p>}

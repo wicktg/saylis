@@ -13,6 +13,7 @@ import { supabase } from "@/app/_lib/supabase";
 import { resolveIpfsUrl } from "@/app/_lib/ipfs";
 import { truncateAddress } from "@/app/_lib/format";
 import type { TokenRecord } from "@/app/_lib/types";
+import Icon from "@/app/_components/Icon";
 
 type LeaderboardRow = {
   walletAddress: string;
@@ -122,7 +123,7 @@ export default function CampaignDetailPage() {
     return (
       <AppShell>
         <div className="flex-1 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-lime-400/30 border-t-lime-400 spinner-circle animate-spin" />
+          <div className="w-8 h-8 border-2 border-[rgba(207,56,221,0.3)] border-t-[#cf38dd] spinner-circle animate-spin" />
         </div>
       </AppShell>
     );
@@ -155,7 +156,7 @@ export default function CampaignDetailPage() {
             aria-label="Back to Campaigns"
             className="w-8 h-8 flex items-center justify-center shrink-0 border border-white/15 text-white/60 hover:text-white hover:border-white/40 hover:bg-white/5 transition-colors"
           >
-            <iconify-icon icon="pixelarticons:arrow-left" className="text-base" />
+            <Icon icon="pixelarticons:arrow-left" className="text-base" />
           </Link>
 
           {imageUrl ? (
@@ -215,7 +216,7 @@ export default function CampaignDetailPage() {
                       key={row.walletAddress}
                       className={`border-t border-white/5 ${
                         account && row.walletAddress.toLowerCase() === account.toLowerCase()
-                          ? "bg-lime-400/5"
+                          ? "bg-[rgba(207,56,221,0.05)]"
                           : ""
                       }`}
                     >

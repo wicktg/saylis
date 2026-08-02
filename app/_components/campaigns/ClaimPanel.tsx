@@ -5,6 +5,7 @@ import { usePublicClient, useWalletClient } from "wagmi";
 import { formatUnits, type Address } from "viem";
 import { INFO_FI_CAMPAIGN_ABI } from "@/app/_lib/contracts/InfoFiCampaign";
 import { INFOFI_CAMPAIGN_ADDRESS, TOKEN_DECIMALS } from "@/app/_lib/contracts/config";
+import Icon from "@/app/_components/Icon";
 
 type ClaimStatus = "checking" | "unclaimed" | "claimed";
 
@@ -98,8 +99,8 @@ export default function ClaimPanel({
 
   if (claimStatus === "claimed") {
     return (
-      <p className="text-[11px] text-lime-400 font-bold flex items-center gap-1.5">
-        <iconify-icon icon="pixelarticons:check" className="text-sm" />
+      <p className="text-[11px] text-[#cf38dd] font-bold flex items-center gap-1.5">
+        <Icon icon="pixelarticons:check" className="text-sm" />
         Claimed
       </p>
     );

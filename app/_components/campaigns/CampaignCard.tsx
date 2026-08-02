@@ -84,7 +84,7 @@ export default function CampaignCard({
       <>
         <div className="pixel-frame pixel-card p-4 flex flex-col gap-3">
           <CardHeader campaign={campaign} imageUrl={imageUrl} />
-          <p className="text-[11px] leading-snug text-lime-400">
+          <p className="text-[11px] leading-snug text-[#cf38dd]">
             You&apos;ve been invited to launch an InfoFi campaign for this
             token. Send the agreed supply to create the pool.
           </p>
@@ -176,7 +176,7 @@ export default function CampaignCard({
   const toneClass = status
     ? {
         wait: "text-white/40",
-        action: "text-lime-400",
+        action: "text-[#cf38dd]",
         live: "text-[var(--accent)]",
         done: "text-white/30",
       }[status.tone]

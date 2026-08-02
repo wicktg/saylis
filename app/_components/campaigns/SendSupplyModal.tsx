@@ -8,6 +8,7 @@ import { IMMUTABLE_LAUNCH_TOKEN_ABI } from "@/app/_lib/contracts/ImmutableLaunch
 import type { MyCampaign } from "@/app/_lib/useMyCampaigns";
 import { useWalletAuth } from "@/app/_lib/useWalletAuth";
 import WinnerCountStepper from "./WinnerCountStepper";
+import Icon from "@/app/_components/Icon";
 
 const BALANCE_POLL_MS = 4_000;
 
@@ -125,7 +126,7 @@ export default function SendSupplyModal({
           aria-label="Close"
           className="absolute right-4 top-4 text-white/40 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
-          <iconify-icon icon="pixelarticons:close" className="text-base" />
+          <Icon icon="pixelarticons:close" className="text-base" />
         </button>
 
         <h2 className="text-base font-bold mb-1">
@@ -147,7 +148,7 @@ export default function SendSupplyModal({
             <span className="text-[11px] font-mono truncate">
               {INFOFI_CAMPAIGN_ADDRESS}
             </span>
-            <iconify-icon
+            <Icon
               icon={copied ? "pixelarticons:check" : "pixelarticons:copy"}
               className="text-white/40 text-sm shrink-0"
             />
@@ -157,7 +158,7 @@ export default function SendSupplyModal({
         <div className="mb-3 pixel-frame pixel-input px-3 py-2 flex items-center gap-2">
           {hasDetectedSupply ? (
             <>
-              <iconify-icon icon="pixelarticons:check" className="text-[var(--accent)] text-sm shrink-0" />
+              <Icon icon="pixelarticons:check" className="text-[var(--accent)] text-sm shrink-0" />
               <span className="text-[11px]">
                 Detected{" "}
                 <span className="font-bold text-[var(--accent)]">
@@ -204,7 +205,7 @@ export default function SendSupplyModal({
               <span className="text-[10px] text-white/40">Airdrop winners</span>
               {/* Submitting is what fixes this, so say so before they do. */}
               <p className="text-[10px] text-white/25 leading-snug">
-                Set once — cannot be changed after submitting.
+                Set once -- cannot be changed after submitting.
               </p>
             </div>
             <WinnerCountStepper

@@ -30,7 +30,7 @@ export default function WalletAvatar({
       width={size}
       height={size}
       alt=""
-      className={`rounded bg-lime-400/10 shrink-0 ${className}`}
+      className={`rounded bg-[rgba(207,56,221,0.1)] shrink-0 ${className}`}
       style={{ width: size, height: size }}
     />
   );

@@ -17,39 +17,38 @@ export default function ExplorePage() {
 
   return (
     <AppShell>
-      <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4">
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-extrabold tracking-tight">Tokens</h1>
-          </div>
+      <div className="ascii flex-1 overflow-y-auto p-6 custom-scrollbar">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-3 gap-3">
+          <h1 className="text-lg text-white lowercase">
+            <span className="text-white/25">./</span>tokens
+          </h1>
 
-          <div className="flex flex-wrap items-center gap-6">
-            <div className="pixel-frame pixel-input flex items-center gap-2 px-3 py-2 w-48">
-              <iconify-icon icon="pixelarticons:search" className="text-white/30 text-sm shrink-0" />
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="ascii-box relative flex items-center gap-2 px-2.5 py-1.5 w-56">
+              <span className="text-[11px] text-[var(--accent)] shrink-0">&gt;</span>
               <input
                 type="text"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search tokens or paste ca..."
-                className="bg-transparent text-[11px] text-white focus:outline-none placeholder:text-white/30 w-full"
+                placeholder="search ticker or address"
+                className="bg-transparent text-[11px] text-white focus:outline-none placeholder:text-white/25 w-full"
               />
-            </div>
+            </label>
 
             <div className="relative" ref={sortRef}>
               <button
                 onClick={() => setSortOpen((prev) => !prev)}
-                className="pixel-frame pixel-btn-ghost flex items-center gap-2 px-3 py-2 cursor-pointer w-[168px] shrink-0"
+                className="ascii-box relative flex items-center gap-2 px-2.5 py-1.5 cursor-pointer w-[180px]"
               >
-                <span className="text-[11px] text-white/40 shrink-0">Sort By:</span>
-                <span className="text-[11px] font-medium text-white truncate">{activeLabel}</span>
-                <iconify-icon
-                  icon="pixelarticons:chevron-down"
-                  className={`text-white/30 transition-transform shrink-0 ml-auto ${sortOpen ? "rotate-180" : ""}`}
-                />
+                <span className="ascii-label text-[11px] shrink-0">sort</span>
+                <span className="text-[11px] text-white truncate">{activeLabel}</span>
+                <span className="text-[10px] text-white/30 ml-auto shrink-0">
+                  {sortOpen ? "[-]" : "[+]"}
+                </span>
               </button>
 
               {sortOpen && (
-                <div className="pixel-frame pixel-panel absolute right-0 top-full mt-2 w-40 z-50 py-1">
+                <div className="ascii-box absolute right-0 top-full mt-1 w-[180px] z-50 py-1">
                   {SORT_OPTIONS.map((option) => (
                     <button
                       key={option.value}
@@ -57,10 +56,11 @@ export default function ExplorePage() {
                         setSortBy(option.value);
                         setSortOpen(false);
                       }}
-                      className={`w-full text-left px-3 py-2 text-[11px] font-medium transition-colors ${
+                      data-selected={option.value === sortBy}
+                      className={`ascii-option w-full text-left px-2.5 py-1.5 text-[11px] transition-colors ${
                         option.value === sortBy
-                          ? "text-[var(--accent)] bg-[var(--accent-tint)]"
-                          : "text-white/70 hover:bg-white/5 hover:text-white"
+                          ? "text-[var(--accent)]"
+                          : "text-white/60 hover:text-white hover:bg-white/5"
                       }`}
                     >
                       {option.label}
@@ -71,6 +71,8 @@ export default function ExplorePage() {
             </div>
           </div>
         </div>
+
+        <div className="ascii-rule text-[11px] leading-none mb-5" aria-hidden="true" />
 
         <TokenGrid sortBy={sortBy} search={search} />
       </div>

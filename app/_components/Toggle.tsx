@@ -20,7 +20,7 @@ export default function Toggle({
         disabled
           ? "bg-white/10 cursor-not-allowed"
           : checked
-            ? "bg-lime-400"
+            ? "bg-[#cf38dd]"
             : "bg-white/10"
       }`}
     >

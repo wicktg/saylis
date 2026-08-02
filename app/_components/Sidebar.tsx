@@ -5,6 +5,7 @@ import { useAccount } from "wagmi";
 import { useChat } from "@/app/_lib/useChat";
 import { truncateAddress } from "@/app/_lib/format";
 import WalletAvatar from "@/app/_components/WalletAvatar";
+import Icon from "@/app/_components/Icon";
 
 const CHAR_LIMIT = 280;
 
@@ -40,52 +41,54 @@ export default function Sidebar() {
 
   return (
     <aside className="w-72 flex flex-col border-r border-white/10 shrink-0">
-      <div ref={listRef} className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-4">
+      <div className="px-3 py-2 border-b border-white/10 text-[11px] text-white/35 lowercase">
+        ./chat
+      </div>
+
+      <div ref={listRef} className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3">
         {messages.length === 0 ? (
           <p className="text-[11px] text-white/25 text-center py-10">
-            No messages yet. Say something.
+            <span className="text-white/15">{"// "}</span>no messages yet
           </p>
         ) : (
+          // Log-line layout rather than chat bubbles: timestamp, then
+          // sender, then message, the way a terminal transcript reads.
           messages.map((msg) => (
-            <div key={msg.id} className="group">
-              <div className="flex items-start gap-3">
-                <WalletAvatar address={msg.walletAddress} size={32} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-xs font-bold text-white font-mono">
-                      {truncateAddress(msg.walletAddress)}
-                    </span>
-                    <span className="text-[9px] text-white/30">{formatTime(msg.sentAt)}</span>
-                  </div>
-                  <p className="text-xs text-white/70 leading-relaxed break-words">
-                    {msg.message}
-                  </p>
-                </div>
+            <div key={msg.id} className="group text-[11px] leading-relaxed">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-white/25 shrink-0">[{formatTime(msg.sentAt)}]</span>
+                <WalletAvatar address={msg.walletAddress} size={14} />
+                <span className="text-white truncate">
+                  {truncateAddress(msg.walletAddress)}
+                </span>
               </div>
+              <p className="text-white/65 break-words pl-1">
+                <span className="text-[var(--accent)]">&gt; </span>
+                {msg.message}
+              </p>
             </div>
           ))
         )}
       </div>
 
       <form onSubmit={handleSend} className="p-4 border-t border-white/10">
-        {/* The sprite lives on this wrapper, not the input: `<input>` is a
-            replaced element and cannot render ::before. */}
-        <div className="pixel-frame pixel-input relative group">
+        <div className="pixel-frame pixel-input relative group flex items-center">
+          <span className="pl-2 text-[11px] text-[var(--accent)] shrink-0">&gt;</span>
           <input
             type="text"
             value={draft}
             onChange={(event) => setDraft(event.target.value.slice(0, CHAR_LIMIT))}
-            placeholder={account ? "Type Message Here..." : "Connect a wallet to chat"}
+            placeholder={account ? "type message" : "connect a wallet to chat"}
             disabled={!account}
-            className="w-full bg-transparent text-xs py-3 pl-4 pr-10 focus:outline-none placeholder:text-white/30 disabled:cursor-not-allowed"
+            className="w-full bg-transparent text-xs py-2.5 pl-2 pr-10 focus:outline-none placeholder:text-white/30 disabled:cursor-not-allowed"
           />
           <button
             type="submit"
             disabled={!canSend || !draft.trim()}
             aria-label="Send message"
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-lime-400 disabled:text-lime-400/30 disabled:cursor-not-allowed transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#cf38dd] disabled:text-[rgba(207,56,221,0.3)] disabled:cursor-not-allowed transition-colors"
           >
-            <iconify-icon icon="pixelarticons:send" />
+            <Icon icon="pixelarticons:send" />
           </button>
         </div>
         <div className="flex items-center justify-between mt-2 px-1">

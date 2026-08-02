@@ -131,7 +131,7 @@ export default function TransactionsFeed({
           </table>
         ) : isLoading ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-lime-400/30 border-t-lime-400 spinner-circle animate-spin" />
+            <div className="w-6 h-6 border-2 border-[rgba(207,56,221,0.3)] border-t-[#cf38dd] spinner-circle animate-spin" />
           </div>
         ) : error ? (
           <div className="flex-1 flex items-center justify-center text-[11px] text-white/50 text-center px-4">

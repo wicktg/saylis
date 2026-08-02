@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Archivo, Inter, JetBrains_Mono } from "next/font/google";
-import Script from "next/script";
 import Web3Provider from "@/app/_providers/Web3Provider";
 import "./globals.css";
 
@@ -33,11 +32,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${archivo.variable} ${inter.variable} ${jetbrainsMono.variable}`}>
-      <body className="selection:bg-lime-500/30">
-        <Script
-          src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"
-          strategy="beforeInteractive"
-        />
+      {/* The iconify icon-font script used to load here. Every icon is now
+          an ASCII text token rendered by app/_components/Icon.tsx, so the
+          third-party script (and its render-blocking beforeInteractive
+          fetch) is gone entirely. */}
+      <body className="selection:bg-[var(--accent)]/30">
         <Web3Provider>{children}</Web3Provider>
       </body>
     </html>

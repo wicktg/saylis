@@ -10,6 +10,7 @@ import { useWalletAuth } from "@/app/_lib/useWalletAuth";
 import { formatCompactTokenAmount, truncateAddress } from "@/app/_lib/format";
 import { INFO_FI_CAMPAIGN_ABI } from "@/app/_lib/contracts/InfoFiCampaign";
 import { IMMUTABLE_LAUNCH_TOKEN_ABI } from "@/app/_lib/contracts/ImmutableLaunchToken";
+import Icon from "@/app/_components/Icon";
 import {
   INFOFI_CAMPAIGN_ADDRESS,
   INFOFI_TEAM_ADDRESS,
@@ -147,7 +148,7 @@ function TabButton({
       onClick={onClick}
       className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors ${
         active
-          ? "bg-lime-400/10 text-lime-400"
+          ? "bg-[rgba(207,56,221,0.1)] text-[#cf38dd]"
           : "text-white/40 hover:text-white/70"
       }`}
     >
@@ -350,7 +351,7 @@ function CampaignsTab({ account }: { account: string }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <div className="w-8 h-8 border-2 border-lime-400/30 border-t-lime-400 spinner-circle animate-spin" />
+        <div className="w-8 h-8 border-2 border-[rgba(207,56,221,0.3)] border-t-[#cf38dd] spinner-circle animate-spin" />
       </div>
     );
   }
@@ -516,7 +517,7 @@ function NotificationsTab({ account }: { account: string }) {
           />
         </div>
         {error && <p className="text-[10px] text-red-400">{error}</p>}
-        {success && <p className="text-[10px] text-lime-400">{success}</p>}
+        {success && <p className="text-[10px] text-[#cf38dd]">{success}</p>}
         <button
           onClick={handlePush}
           disabled={!canSubmit || busy}
@@ -584,7 +585,7 @@ function CampaignRow({
               {item.ticker ?? truncateAddress(item.tokenAddress)}
             </h3>
             {readOnly && (
-              <span className="text-[9px] font-bold uppercase bg-lime-400/10 text-lime-400 px-1.5 py-0.5">
+              <span className="text-[9px] font-bold uppercase bg-[rgba(207,56,221,0.1)] text-[#cf38dd] px-1.5 py-0.5">
                 {item.state}
               </span>
             )}
@@ -614,7 +615,7 @@ function CampaignRow({
           label="Creator"
           value={
             item.owner.wallet
-              ? `${truncateAddress(item.owner.wallet)} · ${item.owner.tokensLaunched} launched`
+              ? `${truncateAddress(item.owner.wallet)} - ${item.owner.tokensLaunched} launched`
               : "N/A"
           }
         />
@@ -731,7 +732,7 @@ function InviteSection({
           />
         </div>
         {error && <p className="text-[10px] text-red-400">{error}</p>}
-        {success && <p className="text-[10px] text-lime-400">{success}</p>}
+        {success && <p className="text-[10px] text-[#cf38dd]">{success}</p>}
         <button
           onClick={handleInvite}
           disabled={!canSubmit || busy}
@@ -1059,7 +1060,7 @@ function Empty({ icon, title, body }: { icon: string; title: string; body: strin
   return (
     <div className="flex flex-col items-center justify-center text-center py-16 gap-2">
       <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-1">
-        <iconify-icon icon={icon} className="text-xl text-white/25" />
+        <Icon icon={icon} className="text-xl text-white/25" />
       </div>
       <h2 className="text-sm font-bold text-white/70">{title}</h2>
       <p className="text-[11px] text-white/35 max-w-xs leading-relaxed">{body}</p>

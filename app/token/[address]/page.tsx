@@ -29,6 +29,7 @@ import { usePoolSpotPrice } from "@/app/_lib/poolPrice";
 import { resolveIpfsUrl } from "@/app/_lib/ipfs";
 import { formatUsdCompact, formatWeiAsUsdPrice, truncateAddress } from "@/app/_lib/format";
 import type { TokenRecord } from "@/app/_lib/types";
+import Icon from "@/app/_components/Icon";
 
 const ONE_TOKEN = 10n ** 18n;
 
@@ -334,7 +335,7 @@ export default function TokenDetailPage() {
             title="Back to Explore"
             className="w-8 h-8 flex items-center justify-center shrink-0 border border-white/15 text-white/60 hover:text-white hover:border-white/40 hover:bg-white/5 transition-colors"
           >
-            <iconify-icon icon="pixelarticons:arrow-left" className="text-base" />
+            <Icon icon="pixelarticons:arrow-left" className="text-base" />
           </Link>
 
           {imageUrl ? (
@@ -416,7 +417,7 @@ export default function TokenDetailPage() {
           ))}
 
           <span className="ml-auto text-[10px] text-white/30 pr-2">
-            {candles.length} candles · {trades.length} trades
+            {candles.length} candles - {trades.length} trades
           </span>
         </div>
 
@@ -517,7 +518,7 @@ function CopyAddress({ address }: { address: string }) {
       aria-label={copied ? "Address copied" : "Copy contract address"}
       className="group flex items-center gap-1 text-[10px] font-mono text-white/30 hover:text-white/70 transition-colors"
     >
-      <iconify-icon
+      <Icon
         icon={copied ? "pixelarticons:check" : "pixelarticons:copy"}
         className={`text-[11px] shrink-0 ${copied ? "text-[var(--accent)]" : ""}`}
       />

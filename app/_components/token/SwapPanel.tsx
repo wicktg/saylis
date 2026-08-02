@@ -196,7 +196,7 @@ export default function SwapPanel({
       } else if (migrated === true) {
         await tradeOnPool();
       } else {
-        throw new Error("Trading venue not ready yet — try again in a moment.");
+        throw new Error("Trading venue not ready yet -- try again in a moment.");
       }
       setAmount("");
       setSuccess(mode === "buy" ? "Bought." : "Sold.");
@@ -392,7 +392,7 @@ export default function SwapPanel({
             placeholder="0.0"
             className="pixel-frame pixel-input w-full px-3 py-2 text-sm bg-transparent focus:outline-none placeholder:text-white/20"
           />
-          {usdValue && <p className="text-[10px] text-white/30 mt-1">≈ {usdValue}</p>}
+          {usdValue && <p className="text-[10px] text-white/30 mt-1">~ {usdValue}</p>}
         </div>
 
         {/* ---- Quick presets ---- */}
@@ -428,12 +428,12 @@ export default function SwapPanel({
               ? mode === "buy"
                 ? `${Number(formatUnits(estimatedOut, TOKEN_DECIMALS)).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
                 : `${Number(formatUnits(estimatedOut, 18)).toFixed(5)} ETH`
-              : "—"}
+              : "-"}
           </span>
         </div>
         {migrated === true && (
           <p className="text-[9px] text-white/25 -mt-2">
-            Estimated from live pool price — actual amount confirmed on-chain.
+            Estimated from live pool price -- actual amount confirmed on-chain.
           </p>
         )}
 

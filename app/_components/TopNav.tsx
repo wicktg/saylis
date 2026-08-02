@@ -40,17 +40,24 @@ export default function TopNav() {
         />
       </div>
 
-      <nav className="flex items-center gap-6 justify-self-center">
+      <nav className="flex items-center gap-5 justify-self-center">
         {NAV_LINKS.map((link) => {
           const isActive = pathname === link.href;
           return (
             <Link
               key={link.href}
               href={link.href}
-              className={`inline-block text-sm font-medium py-1.5 transition-colors ${
-                isActive ? "text-white" : "text-white/50 hover:text-white"
+              className={`inline-block text-xs py-1.5 lowercase transition-colors ${
+                isActive ? "text-white" : "text-white/45 hover:text-white"
               }`}
             >
+              {/* The active route is marked with a gutter caret rather than
+                  a underline or pill, matching the `>` selection marker used
+                  in every dropdown. The inactive spacer keeps the label from
+                  shifting sideways as selection moves. */}
+              <span className={isActive ? "text-[var(--accent)]" : "text-transparent"}>
+                &gt;
+              </span>
               {link.label}
             </Link>
           );
@@ -62,9 +69,9 @@ export default function TopNav() {
           <>
             <button
               onClick={() => setCreateTokenOpen(true)}
-              className="pixel-frame pixel-btn h-9 flex items-center text-white font-bold px-4 text-xs"
+              className="pixel-frame pixel-btn h-9 flex items-center text-white px-4 text-xs lowercase"
             >
-              Create Token
+              [+] create token
             </button>
             <ProfileMenu />
           </>

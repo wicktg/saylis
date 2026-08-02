@@ -5,6 +5,7 @@ import type { Address } from "viem";
 import ConnectXModal from "@/app/_components/ConnectXModal";
 import { useXAccount } from "@/app/_lib/useXAccount";
 import { useWalletAuth } from "@/app/_lib/useWalletAuth";
+import Icon from "@/app/_components/Icon";
 
 /**
  * Joining is free and reversible in effect — it only creates a row the
@@ -46,8 +47,8 @@ export default function JoinPanel({
 
   if (joined) {
     return (
-      <p className="text-[11px] text-lime-400 flex items-center gap-1.5">
-        <iconify-icon icon="pixelarticons:check" className="text-sm" />
+      <p className="text-[11px] text-[#cf38dd] flex items-center gap-1.5">
+        <Icon icon="pixelarticons:check" className="text-sm" />
         Joined{joinedXUsername ? ` as @${joinedXUsername}` : ""}
       </p>
     );
@@ -62,7 +63,7 @@ export default function JoinPanel({
           onClick={() => setConnectXOpen(true)}
           className="pixel-frame pixel-btn text-white font-bold px-4 py-2 text-[11px] flex items-center gap-1.5"
         >
-          <iconify-icon icon="pixelarticons:link" className="text-sm" />
+          <Icon icon="pixelarticons:link" className="text-sm" />
           Connect X to Join
         </button>
         <ConnectXModal
