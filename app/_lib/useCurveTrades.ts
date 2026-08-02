@@ -8,6 +8,8 @@ import {
   UNISWAP_V3_POOL_FEE,
   WETH9_ADDRESS,
 } from "@/app/_lib/contracts/config";
+import { BONDING_CURVE_ABI } from "@/app/_lib/contracts/BondingCurve";
+import { getLogsChunked } from "@/app/_lib/chunkedLogs";
 
 /**
  * A single executed trade, reconstructed from on-chain logs. Every field is
@@ -73,20 +75,6 @@ const GET_POOL_ABI = [
 
 const ONE_TOKEN = 10n ** 18n;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-
-/**
- * Fallback scan settings, used only if the RPC refuses an unbounded
- * `fromBlock: 0` query.
- *
- * Arbitrum Sepolia produces a block roughly every 0.25s — about 345k blocks
- * a DAY — so a single modest window covers almost no history. An earlier
- * 400k-block window (~1.1 days) silently dropped a real pool swap that was
- * only 1.5 days old, making a graduated token's chart look empty. Scanning
- * backwards in chunks covers a useful span while keeping each individual
- * request inside whatever range limit the RPC enforces.
- */
-const FALLBACK_CHUNK_BLOCKS = 500_000n;
-const FALLBACK_MAX_CHUNKS = 24; // ~12M blocks, roughly 35 days
 
 /** Block-timestamp fetches issued at once; keeps the public RPC happy. */
 const TIMESTAMP_BATCH_SIZE = 10;
@@ -304,6 +292,10 @@ export function useCurveTrades(
   useEffect(() => {
     if (!publicClient || !curveAddress || !tokenAddress) return;
     const client = publicClient as PublicClient;
+    // Narrowed local const: closures below capture this rather than the
+    // outer `Address | undefined` param, which TS can't narrow across an
+    // async closure boundary.
+    const curveAddr: Address = curveAddress;
 
     let cancelled = false;
     // Uniswap sorts pool currencies by address; the token's side decides
@@ -327,10 +319,12 @@ export function useCurveTrades(
       }
     }
 
-    async function readRange(fromBlock: bigint, toBlock: bigint | "latest") {
+    /** A single request, for exactly one window ≤ `LOG_RANGE_LIMIT` blocks
+     *  wide. Never call this with a wider range — see `LOG_RANGE_LIMIT`. */
+    async function readRange(fromBlock: bigint, toBlock: bigint) {
       const requests: Promise<Log[]>[] = [
-        client.getLogs({ address: curveAddress, event: BUY_EVENT, fromBlock, toBlock }),
-        client.getLogs({ address: curveAddress, event: SELL_EVENT, fromBlock, toBlock }),
+        client.getLogs({ address: curveAddr, event: BUY_EVENT, fromBlock, toBlock }),
+        client.getLogs({ address: curveAddr, event: SELL_EVENT, fromBlock, toBlock }),
       ];
       if (pool) {
         requests.push(client.getLogs({ address: pool, event: SWAP_EVENT, fromBlock, toBlock }));
@@ -342,12 +336,20 @@ export function useCurveTrades(
         ...buyLogs.map((log) => toCurveTrade(log, "buy")),
         ...sellLogs.map((log) => toCurveTrade(log, "sell")),
         ...swapLogs.map((log) => toPoolTrade(log, tokenIsToken0)),
-      ]
-        .filter((raw): raw is RawTradeLog => raw !== null)
-        .sort((a, b) => {
-          if (a.blockNumber !== b.blockNumber) return a.blockNumber < b.blockNumber ? -1 : 1;
-          return a.logIndex - b.logIndex;
-        });
+      ].filter((raw): raw is RawTradeLog => raw !== null);
+    }
+
+    /**
+     * `readRange` above only ever handles ONE window ≤10 blocks wide — see
+     * `chunkedLogs.ts` for why. This is the entry point everything else in
+     * this effect actually calls.
+     */
+    async function readRangeChunked(fromBlock: bigint, toBlock: bigint): Promise<RawTradeLog[]> {
+      const collected = await getLogsChunked(readRange, fromBlock, toBlock);
+      return collected.sort((a, b) => {
+        if (a.blockNumber !== b.blockNumber) return a.blockNumber < b.blockNumber ? -1 : 1;
+        return a.logIndex - b.logIndex;
+      });
     }
 
     async function backfill() {
@@ -357,32 +359,23 @@ export function useCurveTrades(
         pool = await resolvePool();
         if (!cancelled) setPoolAddress(pool);
 
-        const head = await client.getBlockNumber();
-        let raws: RawTradeLog[];
+        // Anchor on the curve's OWN launch block rather than 0 — the
+        // difference between scanning a few thousand blocks and scanning
+        // the chain's entire history in 10-block slices.
+        let startBlock = 0n;
         try {
-          // Prefer a complete history.
-          raws = await readRange(0n, head);
+          startBlock = (await client.readContract({
+            address: curveAddr,
+            abi: BONDING_CURVE_ABI,
+            functionName: "launchBlock",
+          })) as bigint;
         } catch {
-          // Some RPCs cap the scannable range. Walk backwards in chunks so
-          // each request stays inside that cap while still covering enough
-          // history to include a token's whole life.
-          const collected: RawTradeLog[] = [];
-          let to = head;
-          for (let i = 0; i < FALLBACK_MAX_CHUNKS && to > 0n; i++) {
-            const from = to > FALLBACK_CHUNK_BLOCKS ? to - FALLBACK_CHUNK_BLOCKS : 0n;
-            try {
-              collected.push(...(await readRange(from, to)));
-            } catch {
-              // Skip an unreadable window rather than losing every other one.
-            }
-            if (from === 0n) break;
-            to = from - 1n;
-          }
-          raws = collected.sort((a, b) => {
-            if (a.blockNumber !== b.blockNumber) return a.blockNumber < b.blockNumber ? -1 : 1;
-            return a.logIndex - b.logIndex;
-          });
+          // Older/non-standard curve without this getter — fall back to a
+          // full scan from genesis rather than failing outright.
         }
+
+        const head = await client.getBlockNumber();
+        const raws = await readRangeChunked(startBlock, head);
         if (cancelled) return;
         cursorRef.current = head;
         await ingest(client, raws);
@@ -397,8 +390,9 @@ export function useCurveTrades(
 
     backfill();
 
-    // Poll the delta. Watching via filters isn't reliable across the public
-    // Arbitrum Sepolia RPC, so this re-reads only new blocks each tick.
+    // Poll the delta. Every few seconds is enough of a gap on its own to
+    // exceed LOG_RANGE_LIMIT on Robinhood Chain's ~100ms block time, so
+    // this MUST go through the chunked reader too, not a single wide call.
     const interval = setInterval(async () => {
       if (cancelled || cursorRef.current === null) return;
       try {
@@ -412,7 +406,7 @@ export function useCurveTrades(
 
         const head = await client.getBlockNumber();
         if (head <= cursorRef.current) return;
-        const raws = await readRange(cursorRef.current + 1n, head);
+        const raws = await readRangeChunked(cursorRef.current + 1n, head);
         cursorRef.current = head;
         if (!cancelled) await ingest(client, raws);
       } catch {

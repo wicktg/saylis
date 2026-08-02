@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useReadContracts, usePublicClient } from "wagmi";
 import { parseAbiItem, type Address } from "viem";
 import { BONDING_CURVE_ABI } from "@/app/_lib/contracts/BondingCurve";
+import { getLogsChunked } from "@/app/_lib/chunkedLogs";
 import { IMMUTABLE_LAUNCH_TOKEN_ABI } from "@/app/_lib/contracts/ImmutableLaunchToken";
 import {
   UNISWAP_V3_FACTORY_ADDRESS,
@@ -264,12 +265,30 @@ export function useTokenMarketData(
       const found: Record<Address, bigint> = {};
       for (const { curveAddress, tokenAddress, pool } of entries) {
         try {
-          const logs = await publicClient.getLogs({
-            address: pool,
-            event: SWAP_EVENT,
-            fromBlock: 0n,
-            toBlock: "latest",
-          });
+          // `fromBlock: 0n, toBlock: "latest"` used to sit here directly.
+          // The RPC this app is configured with (Alchemy free tier) hard-caps
+          // a single eth_getLogs call at 10 blocks — see chunkedLogs.ts — so
+          // that request 400'd every time, was swallowed by this same catch,
+          // and pool volume silently stayed at 0 for every migrated token.
+          // Anchoring on the curve's own launchBlock (rather than genesis)
+          // keeps the chunked scan's block count small.
+          let startBlock = 0n;
+          try {
+            startBlock = (await publicClient.readContract({
+              address: curveAddress,
+              abi: BONDING_CURVE_ABI,
+              functionName: "launchBlock",
+            })) as bigint;
+          } catch {
+            // Fall back to a full scan from genesis rather than failing.
+          }
+          const head = await publicClient.getBlockNumber();
+          const logs = await getLogsChunked(
+            (from, to) =>
+              publicClient.getLogs({ address: pool, event: SWAP_EVENT, fromBlock: from, toBlock: to }),
+            startBlock,
+            head
+          );
           const tokenIsToken0 = isTokenToken0(tokenAddress);
           let total = 0n;
           for (const log of logs) {
