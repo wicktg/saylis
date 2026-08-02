@@ -83,6 +83,36 @@ export type LaunchStatus =
 export type LaunchResult = {
   tokenAddress: Address;
   curveAddress: Address;
+  /**
+   * The EXACT constructor arguments both contracts were deployed with,
+   * captured here rather than recomputed by the caller.
+   *
+   * Source verification has to re-encode these byte-for-byte or the
+   * explorer rejects the submission, so anything that rebuilds them from
+   * config separately would silently break the moment a default changed.
+   * This is the one place that knows what was really sent.
+   */
+  constructorArgs: {
+    name: string;
+    symbol: string;
+    decimals: number;
+    totalSupply: string;
+    sellTaxBps: string;
+    ethUsdPriceFeed: string;
+    pairSetter: string;
+    virtualEthReserve: string;
+    virtualTokenReserve: string;
+    creator: string;
+    protocolTreasury: string;
+    ethUsdPrice: string;
+    delayBlocks: string;
+    graduationThreshold: string;
+    migrator: string;
+    creatorFeeRecipient: string;
+    infoFiBps: string;
+    infoFiCampaign: string;
+    referralVault: string;
+  };
 };
 
 /**
@@ -244,7 +274,36 @@ export function useLaunchToken() {
         const curveAddress = curveReceipt.contractAddress;
         if (!curveAddress) throw new Error("Curve deployment did not return an address.");
 
-        const launchResult: LaunchResult = { tokenAddress, curveAddress };
+        const launchResult: LaunchResult = {
+          tokenAddress,
+          curveAddress,
+          // Mirrors the two `args` arrays above exactly — see the type's
+          // doc comment for why these are captured rather than recomputed.
+          constructorArgs: {
+            name: params.name,
+            symbol: params.symbol,
+            decimals: TOKEN_DECIMALS,
+            totalSupply: totalSupplyBaseUnits.toString(),
+            sellTaxBps: sellTaxBps.toString(),
+            ethUsdPriceFeed: ETH_USD_PRICE_FEED_ADDRESS,
+            pairSetter: GRADUATION_MIGRATOR_ADDRESS,
+            virtualEthReserve: virtualEthReserveWei.toString(),
+            virtualTokenReserve: virtualTokenReserveBaseUnits.toString(),
+            creator: account,
+            protocolTreasury: PROTOCOL_TREASURY_ADDRESS,
+            ethUsdPrice: ethUsdPriceWei.toString(),
+            delayBlocks: DEFAULT_DELAY_BLOCKS.toString(),
+            graduationThreshold: DEFAULT_GRADUATION_THRESHOLD_WEI.toString(),
+            migrator: GRADUATION_MIGRATOR_ADDRESS,
+            creatorFeeRecipient,
+            infoFiBps: infoFiBps.toString(),
+            infoFiCampaign:
+              infoFiBps > 0n
+                ? INFOFI_CAMPAIGN_ADDRESS
+                : "0x0000000000000000000000000000000000000000",
+            referralVault: REFERRAL_VAULT_ADDRESS,
+          },
+        };
         setResult(launchResult);
         setStatus("success");
         return launchResult;

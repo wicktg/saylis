@@ -138,6 +138,25 @@ export default function CreateTokenModal({
           }).catch(() => {});
         }
 
+        // Submit both contracts for source verification on the block
+        // explorer. Same fire-and-forget contract as the sync above: this
+        // is metadata, it changes nothing on-chain, and it must never be
+        // able to fail a launch that already succeeded.
+        //
+        // Without it every launched token reads as "Unknown Contract" to
+        // explorers and automated auditors, which then decompile and guess
+        // — and they guess badly (see /api/verify-contract for the honeypot
+        // false-positive this exists to prevent).
+        fetch("/api/verify-contract", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tokenAddress: result.tokenAddress,
+            curveAddress: result.curveAddress,
+            ...result.constructorArgs,
+          }),
+        }).catch(() => {});
+
         recordLaunchedToken(account, {
           tokenAddress: result.tokenAddress,
           curveAddress: result.curveAddress,
