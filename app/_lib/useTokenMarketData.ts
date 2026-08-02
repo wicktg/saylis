@@ -10,63 +10,21 @@ import {
   UNISWAP_V3_POOL_FEE,
   WETH9_ADDRESS,
 } from "@/app/_lib/contracts/config";
+import {
+  GET_POOL_ABI,
+  SLOT0_ABI,
+  isTokenToken0,
+  spotPriceFromSqrtX96,
+} from "@/app/_lib/poolPrice";
 
 const CALLS_PER_TOKEN = 7;
 const LIVE_REFETCH_INTERVAL_MS = 8_000;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-const ONE_TOKEN = 10n ** 18n;
-const Q96 = 2n ** 96n;
 
 /** Uniswap V3's pool swap event — amounts are signed, pool-relative. */
 const SWAP_EVENT = parseAbiItem(
   "event Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)"
 );
-
-const GET_POOL_ABI = [
-  {
-    type: "function",
-    name: "getPool",
-    stateMutability: "view",
-    inputs: [
-      { name: "tokenA", type: "address" },
-      { name: "tokenB", type: "address" },
-      { name: "fee", type: "uint24" },
-    ],
-    outputs: [{ name: "pool", type: "address" }],
-  },
-] as const;
-
-const SLOT0_ABI = [
-  {
-    type: "function",
-    name: "slot0",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [
-      { name: "sqrtPriceX96", type: "uint160" },
-      { name: "tick", type: "int24" },
-      { name: "observationIndex", type: "uint16" },
-      { name: "observationCardinality", type: "uint16" },
-      { name: "observationCardinalityNext", type: "uint16" },
-      { name: "feeProtocol", type: "uint8" },
-      { name: "unlocked", type: "bool" },
-    ],
-  },
-] as const;
-
-/**
- * Converts a Uniswap `sqrtPriceX96` into wei of ETH per one whole token.
- * Mirrors `useCurveTrades.ts`'s identical helper — kept separate rather
- * than shared since each hook batches it into a different multicall shape.
- */
-function spotPriceFromSqrtX96(sqrtPriceX96: bigint, tokenIsToken0: boolean): bigint {
-  if (sqrtPriceX96 <= 0n) return 0n;
-  const numerator = sqrtPriceX96 * sqrtPriceX96;
-  const denominator = Q96 * Q96;
-  return tokenIsToken0
-    ? (numerator * ONE_TOKEN) / denominator
-    : (denominator * ONE_TOKEN) / numerator;
-}
 
 export type MarketData = {
   /** Wei per one whole token — curve price pre-migration, live pool spot
@@ -263,7 +221,7 @@ export function useTokenMarketData(
       const result = slot0Data[index];
       if (result?.status !== "success") return;
       const sqrtPriceX96 = (result.result as readonly [bigint, ...unknown[]])[0];
-      const tokenIsToken0 = tokenAddress.toLowerCase() < WETH9_ADDRESS.toLowerCase();
+      const tokenIsToken0 = isTokenToken0(tokenAddress);
       map[curveAddress] = spotPriceFromSqrtX96(sqrtPriceX96, tokenIsToken0);
     });
     return map;
@@ -312,7 +270,7 @@ export function useTokenMarketData(
             fromBlock: 0n,
             toBlock: "latest",
           });
-          const tokenIsToken0 = tokenAddress.toLowerCase() < WETH9_ADDRESS.toLowerCase();
+          const tokenIsToken0 = isTokenToken0(tokenAddress);
           let total = 0n;
           for (const log of logs) {
             const args = log.args as { amount0?: bigint; amount1?: bigint };
@@ -341,7 +299,19 @@ export function useTokenMarketData(
   const result = useMemo(() => {
     const map: Record<Address, MarketData | undefined> = {};
     for (const [curveAddress, entry] of Object.entries(stage1) as [Address, (typeof stage1)[Address]][]) {
-      const priceWei = entry.migrated ? (poolPrices[curveAddress] ?? entry.priceWei) : entry.priceWei;
+      // A migrated token is priced by its pool or not at all. The curve's
+      // `getPrice()` is frozen once migration drains `realEthReserve` to
+      // zero, so falling back to it here — as this did — rendered a
+      // plausible but WRONG price on every load, for the second or two
+      // before the pool lookup resolved, then silently corrected itself.
+      //
+      // Leaving the entry out instead makes the card show its normal
+      // loading state, which is honest. Pool resolution is two chained
+      // reads (getPool, then slot0), so this window is real on every mount.
+      const poolPrice = poolPrices[curveAddress];
+      if (entry.migrated && poolPrice === undefined) continue;
+
+      const priceWei = entry.migrated ? poolPrice! : entry.priceWei;
       map[curveAddress] = {
         priceWei,
         marketCapWei: priceWei * entry.totalSupplyWhole,

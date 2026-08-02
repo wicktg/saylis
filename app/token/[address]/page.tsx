@@ -23,6 +23,7 @@ import type { ToolId } from "@/app/_lib/drawings";
 import { BONDING_CURVE_ABI } from "@/app/_lib/contracts/BondingCurve";
 import { IMMUTABLE_LAUNCH_TOKEN_ABI } from "@/app/_lib/contracts/ImmutableLaunchToken";
 import { useEthUsdPrice } from "@/app/_lib/useEthUsdPrice";
+import { usePoolSpotPrice } from "@/app/_lib/poolPrice";
 import { resolveIpfsUrl } from "@/app/_lib/ipfs";
 import { formatUsdCompact, formatWeiAsUsdPrice, truncateAddress } from "@/app/_lib/format";
 import type { TokenRecord } from "@/app/_lib/types";
@@ -188,19 +189,23 @@ export default function TokenDetailPage() {
    * token trades on the pool, the most recent trade IS the market price,
    * so the header, market cap and chart all agree on one source.
    */
+  // Read the pool directly rather than inferring price from the trade feed.
+  // See app/_lib/poolPrice.ts — one definition, shared with the token grid.
+  const { priceWei: poolPriceWei } = usePoolSpotPrice(tokenAddress, migrationExecuted);
+
   const livePriceWei = useMemo(() => {
-    if (graduated) {
-      const lastPoolTrade = [...trades].reverse().find((trade) => trade.venue === "pool");
-      // `spotPriceWei` (decoded from the swap's `sqrtPriceX96`), never
-      // `priceWei`. The latter is a slippage-inclusive average of one
-      // trade, so a single large sell would leave the header and market cap
-      // reading ABOVE the real market — and disagreeing with both the chart
-      // and the token grid, which price migrated tokens off the pool's
-      // marginal `slot0`. All three now report the same quantity.
-      if (lastPoolTrade?.spotPriceWei !== undefined) return lastPoolTrade.spotPriceWei;
-    }
+    // Once migrated, `getPrice()` is frozen garbage: migration drains
+    // `realEthReserve` to zero, leaving it derived from virtual reserves
+    // alone. So a migrated token is priced by its pool or not at all.
+    //
+    // This previously fell back to the curve price whenever a pool price
+    // was not yet available, which on every refresh meant a real, plausible,
+    // WRONG price rendered for the second or two before the data arrived —
+    // header and market cap disagreeing with the chart, then silently
+    // correcting. `undefined` makes the loading state honest instead.
+    if (migrationExecuted) return poolPriceWei;
     return priceWei;
-  }, [graduated, trades, priceWei]);
+  }, [migrationExecuted, poolPriceWei, priceWei]);
 
   const marketCapWei =
     livePriceWei !== undefined && totalSupplyWhole > 0n
