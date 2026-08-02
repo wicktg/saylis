@@ -14,17 +14,18 @@ if (!walletConnectProjectId) {
 // here); `getDefaultConfig` just builds the matching wagmi connector set
 // for whatever it renders.
 // MAINNET as of 2026-08-02 — Robinhood Chain (chain id 4663), real ETH.
-// NEXT_PUBLIC_ROBINHOOD_RPC_URL should be set to the funded Alchemy
-// endpoint in Vercel; the public default is a fallback only and may be
-// rate-limited under real traffic.
+//
+// The browser talks to our own /api/rpc route, never to Alchemy directly.
+// Calling Alchemy from the page failed CORS preflight (it sends no
+// Access-Control-Allow-Origin for saylis.wtf), and doing it via a
+// NEXT_PUBLIC_ URL also inlined the Alchemy API key into the client
+// bundle. The proxy is same-origin and keeps the key server-side — see
+// app/api/rpc/route.ts.
 export const wagmiConfig = createConfig(
   getDefaultConfig({
     chains: [robinhood],
     transports: {
-      [robinhood.id]: http(
-        process.env.NEXT_PUBLIC_ROBINHOOD_RPC_URL ??
-          "https://rpc.mainnet.chain.robinhood.com"
-      ),
+      [robinhood.id]: http("/api/rpc"),
     },
     walletConnectProjectId,
     appName: "saylis.wtf",

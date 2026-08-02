@@ -22,16 +22,12 @@ import { privateKeyToAccount } from "viem/accounts";
 import { robinhood } from "viem/chains";
 import { INFO_FI_CAMPAIGN_ABI } from "@/app/_lib/contracts/InfoFiCampaign";
 import { INFOFI_CAMPAIGN_ADDRESS } from "@/app/_lib/contracts/config";
-
-function rpcUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_ROBINHOOD_RPC_URL ||
-    "https://rpc.mainnet.chain.robinhood.com"
-  );
-}
+import { upstreamRpcUrl } from "@/app/_lib/serverRpcUrl";
 
 export function publicClient() {
-  return createPublicClient({ chain: robinhood, transport: http(rpcUrl()) });
+  // Server-side, so it uses the real upstream endpoint directly rather than
+  // the browser's /api/rpc proxy.
+  return createPublicClient({ chain: robinhood, transport: http(upstreamRpcUrl()) });
 }
 
 /** `null` when no poker key is configured — callers should skip, not throw. */
@@ -46,7 +42,7 @@ export function pokerWallet() {
     client: createWalletClient({
       account,
       chain: robinhood,
-      transport: http(rpcUrl()),
+      transport: http(upstreamRpcUrl()),
     }),
   };
 }

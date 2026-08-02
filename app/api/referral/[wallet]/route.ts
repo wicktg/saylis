@@ -28,6 +28,7 @@ import { robinhood } from "viem/chains";
 import { getSupabaseAdmin } from "@/app/_lib/supabaseAdmin";
 import { REFERRAL_VAULT_ADDRESS } from "@/app/_lib/contracts/config";
 import { REFERRAL_VAULT_ABI } from "@/app/_lib/contracts/ReferralVault";
+import { upstreamRpcUrl } from "@/app/_lib/serverRpcUrl";
 
 export const dynamic = "force-dynamic";
 
@@ -41,15 +42,10 @@ const ACCRUED_EVENT = parseAbiItem(
 const FALLBACK_CHUNK_BLOCKS = 500_000n;
 const FALLBACK_MAX_CHUNKS = 24;
 
-function rpcUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_ROBINHOOD_RPC_URL ||
-    "https://rpc.mainnet.chain.robinhood.com"
-  );
-}
-
 function client() {
-  return createPublicClient({ chain: robinhood, transport: http(rpcUrl()) });
+  // Server-side route, so it hits the upstream endpoint directly rather
+  // than the browser's /api/rpc proxy.
+  return createPublicClient({ chain: robinhood, transport: http(upstreamRpcUrl()) });
 }
 
 /** Same "try the full range, fall back to chunked scanning" pattern
