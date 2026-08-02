@@ -9,18 +9,11 @@ import { TOKEN_DECIMALS } from "@/app/_lib/contracts/config";
 import type { MyCampaign } from "@/app/_lib/useMyCampaigns";
 import { useWalletAuth } from "@/app/_lib/useWalletAuth";
 import SendSupplyModal from "./SendSupplyModal";
+import WinnerCountStepper from "./WinnerCountStepper";
 
-const WINNER_MIN = 25;
-const WINNER_MAX = 100;
-const WINNER_STEP = 5;
 const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 500;
 
-/** Every legal airdrop size: 25, 30, ... 100. */
-const WINNER_OPTIONS = Array.from(
-  { length: (WINNER_MAX - WINNER_MIN) / WINNER_STEP + 1 },
-  (_, i) => WINNER_MIN + i * WINNER_STEP
-);
 
 function formatTokens(raw: string | null): string {
   try {
@@ -257,25 +250,36 @@ export default function CampaignCard({
           <p className="text-[10px] uppercase tracking-wide text-white/30 mb-1">
             Airdrop winners
           </p>
-          {sizeLocked ? (
-            <p className="text-xs font-bold">{campaign.winnerCount ?? "Not set"}</p>
+          {/* Locked once the campaign has opened OR once a count has already
+              been committed — the number decides everyone's odds, so it is
+              chosen once and then fixed rather than quietly adjustable. */}
+          {sizeLocked || campaign.winnerCount != null ? (
+            <p className="text-xs font-bold">
+              {campaign.winnerCount != null ? (
+                <>
+                  {campaign.winnerCount}{" "}
+                  <span className="font-normal text-white/40">winners</span>
+                </>
+              ) : (
+                "Not set"
+              )}
+            </p>
           ) : (
-            <select
-              value={winnerCount}
-              onChange={(event) => {
-                const next = Number(event.target.value);
-                setWinnerCount(next);
-                post({ winnerCount: next }, "winners");
-              }}
-              disabled={busy !== null}
-              className="pixel-frame pixel-input bg-transparent text-xs px-2 py-1 focus:outline-none disabled:opacity-50"
-            >
-              {WINNER_OPTIONS.map((n) => (
-                <option key={n} value={n} className="bg-[var(--bg-main)]">
-                  {n} winners
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2">
+              <WinnerCountStepper
+                value={winnerCount}
+                onChange={setWinnerCount}
+                disabled={busy !== null}
+              />
+              <button
+                type="button"
+                onClick={() => post({ winnerCount }, "winners")}
+                disabled={busy !== null}
+                className="pixel-frame pixel-btn px-2.5 py-1.5 text-[10px] font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {busy === "winners" ? "Setting..." : "Set"}
+              </button>
+            </div>
           )}
         </div>
 

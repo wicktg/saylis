@@ -15,6 +15,7 @@ import { supabase } from "@/app/_lib/supabase";
 import { useCurveTrades } from "@/app/_lib/useCurveTrades";
 import {
   buildCandles,
+  anchorToLivePrice,
   reconstructSpotPrices,
   TIMEFRAMES,
   type TimeframeLabel,
@@ -280,10 +281,14 @@ export default function TokenDetailPage() {
     );
   }, [trades, curveK, tokenReserve]);
 
-  const candles = useMemo(
-    () => buildCandles(trades, spotPricesWei, bucketSeconds, ethUsd),
-    [trades, spotPricesWei, bucketSeconds, ethUsd]
-  );
+  const candles = useMemo(() => {
+    const built = buildCandles(trades, spotPricesWei, bucketSeconds, ethUsd);
+    // Pin the last bar to the same price the header prints, so the chart can
+    // never visibly disagree with it. See `anchorToLivePrice`.
+    const liveUsd =
+      livePriceWei !== undefined ? (Number(livePriceWei) / 1e18) * ethUsd : undefined;
+    return anchorToLivePrice(built, liveUsd, bucketSeconds, Math.floor(Date.now() / 1000));
+  }, [trades, spotPricesWei, bucketSeconds, ethUsd, livePriceWei]);
 
   const progressPct =
     graduated === true

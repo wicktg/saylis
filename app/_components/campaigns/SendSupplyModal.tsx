@@ -7,18 +7,12 @@ import { INFOFI_CAMPAIGN_ADDRESS, TOKEN_DECIMALS } from "@/app/_lib/contracts/co
 import { IMMUTABLE_LAUNCH_TOKEN_ABI } from "@/app/_lib/contracts/ImmutableLaunchToken";
 import type { MyCampaign } from "@/app/_lib/useMyCampaigns";
 import { useWalletAuth } from "@/app/_lib/useWalletAuth";
+import WinnerCountStepper from "./WinnerCountStepper";
 
 const BALANCE_POLL_MS = 4_000;
 
 const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 500;
-const WINNER_MIN = 25;
-const WINNER_MAX = 100;
-const WINNER_STEP = 5;
-const WINNER_OPTIONS = Array.from(
-  { length: (WINNER_MAX - WINNER_MIN) / WINNER_STEP + 1 },
-  (_, i) => WINNER_MIN + i * WINNER_STEP
-);
 
 /**
  * Path B, step 3 of the admin-gated flow: the creator has already been
@@ -205,19 +199,19 @@ export default function SendSupplyModal({
             />
           </div>
 
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-white/40">Airdrop winners</span>
-            <select
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <span className="text-[10px] text-white/40">Airdrop winners</span>
+              {/* Submitting is what fixes this, so say so before they do. */}
+              <p className="text-[10px] text-white/25 leading-snug">
+                Set once — cannot be changed after submitting.
+              </p>
+            </div>
+            <WinnerCountStepper
               value={winnerCount}
-              onChange={(event) => setWinnerCount(Number(event.target.value))}
-              className="pixel-frame pixel-input bg-transparent text-xs px-2 py-1 focus:outline-none"
-            >
-              {WINNER_OPTIONS.map((n) => (
-                <option key={n} value={n} className="bg-[var(--bg-main)]">
-                  {n} winners
-                </option>
-              ))}
-            </select>
+              onChange={setWinnerCount}
+              disabled={submitting}
+            />
           </div>
 
           {error && <p className="text-[11px] text-red-400 leading-snug">{error}</p>}

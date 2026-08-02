@@ -142,3 +142,63 @@ export function buildCandles(
   if (current) candles.push(current);
   return candles;
 }
+
+/**
+ * Forces the series to close at the price the rest of the page is showing.
+ *
+ * A curve-only chart needs no help here: `reconstructSpotPrices` anchors its
+ * last entry to the LIVE token reserve, so the final close already equals
+ * `getPrice()` by construction. Nothing plays that role after migration —
+ * candles there are built purely from historical swap logs, so the series
+ * ends at whatever the last indexed trade was, while the header reads the
+ * pool's current `slot0`. Between a log-fetch window that misses recent
+ * swaps and the re-pricing that migration itself performs, those two can sit
+ * visibly apart, and a chart that disagrees with the price printed above it
+ * reads as broken no matter which number is "right".
+ *
+ * @param livePriceUsd The same price the header shows, in USD.
+ * @param nowSeconds Injected rather than read from the clock so callers can
+ *        bucket deterministically (and so this stays testable).
+ */
+export function anchorToLivePrice(
+  candles: Candle[],
+  livePriceUsd: number | undefined,
+  bucketSeconds: number,
+  nowSeconds: number
+): Candle[] {
+  if (livePriceUsd === undefined || !Number.isFinite(livePriceUsd) || livePriceUsd <= 0) {
+    return candles;
+  }
+  if (candles.length === 0) return candles;
+
+  const bucket = Math.floor(nowSeconds / bucketSeconds) * bucketSeconds;
+  const last = candles[candles.length - 1];
+
+  // Still inside the newest bucket: extend it rather than opening a second
+  // bar for the same slot, which klinecharts would reject as out of order.
+  if (last.time === bucket) {
+    if (last.close === livePriceUsd) return candles;
+    const updated: Candle = {
+      ...last,
+      high: Math.max(last.high, livePriceUsd),
+      low: Math.min(last.low, livePriceUsd),
+      close: livePriceUsd,
+    };
+    return [...candles.slice(0, -1), updated];
+  }
+
+  // A newer bucket: open where the last one closed, so the line stays
+  // continuous. Zero volume, because no trade produced this bar — it only
+  // carries the current price forward.
+  return [
+    ...candles,
+    {
+      time: bucket,
+      open: last.close,
+      high: Math.max(last.close, livePriceUsd),
+      low: Math.min(last.close, livePriceUsd),
+      close: livePriceUsd,
+      volume: 0,
+    },
+  ];
+}
