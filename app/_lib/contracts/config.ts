@@ -141,6 +141,14 @@ export const WETH9_ADDRESS = "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73" as con
 export const UNISWAP_V3_POOL_FEE = 3000;
 
 /**
+ * Robinhood Chain's real Uniswap SwapRouter02 — confirmed to have deployed
+ * bytecode on chain 4663 before use. Used by SwapPanel to trade a migrated
+ * token directly against its pool, once the curve itself is closed.
+ */
+export const UNISWAP_SWAP_ROUTER_ADDRESS =
+  "0xcaf681a66d020601342297493863e78c959e5cb2" as const;
+
+/**
  * Protocol-wide ReferralVault on Robinhood Chain mainnet. Every curve the
  * frontend deploys points at this same vault — see BondingCurve.sol's
  * "REFERRALS" NatSpec. A referrer's earnings unify across every creator

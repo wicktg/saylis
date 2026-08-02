@@ -10,6 +10,7 @@ import AppShell from "@/app/_components/AppShell";
 import ChartToolbar from "@/app/_components/token/ChartToolbar";
 import TokenChart from "@/app/_components/token/TokenChart";
 import TransactionsFeed from "@/app/_components/token/TransactionsFeed";
+import SwapPanel from "@/app/_components/token/SwapPanel";
 import TokenSocialLinks from "@/app/_components/token/TokenSocialLinks";
 import { supabase } from "@/app/_lib/supabase";
 import { useCurveTrades } from "@/app/_lib/useCurveTrades";
@@ -446,6 +447,20 @@ export default function TokenDetailPage() {
               />
             )}
           </div>
+
+          {/* ---- Buy/Sell, docked beside the chart ----
+              Same placement every trading UI converges on (DexScreener,
+              Photon, pump.fun): always visible next to the thing the user
+              is watching, never a click or a scroll away. */}
+          {tokenAddress && (
+            <SwapPanel
+              tokenAddress={tokenAddress}
+              curveAddress={curveAddress}
+              migrated={migrationExecuted}
+              poolPriceWei={poolPriceWei}
+              ethUsdPrice={ethUsd}
+            />
+          )}
         </div>
 
         {/* ---- Live transactions ---- */}
