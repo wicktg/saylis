@@ -156,6 +156,29 @@ function TabButton({
   );
 }
 
+/**
+ * Force the Supabase mirror to agree with on-chain state for one token.
+ *
+ * Every admin action here is a wallet-signed transaction followed by a POST
+ * that records it. The transaction is the real event; the POST is only
+ * bookkeeping — so whenever the two can come apart, the chain wins and the
+ * mirror has to be brought back to it.
+ *
+ * Best-effort by design: this runs in a `finally`, so it must never itself
+ * throw and mask the original error the admin needs to see.
+ */
+async function syncCampaignFromChain(tokenAddress: string): Promise<void> {
+  try {
+    await fetch("/api/campaigns/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tokenAddress }),
+    });
+  } catch {
+    // The poke cron reconciles it on its next pass regardless.
+  }
+}
+
 function CampaignsTab({ account }: { account: string }) {
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
@@ -235,6 +258,20 @@ function CampaignsTab({ account }: { account: string }) {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not open the campaign.");
     } finally {
+      // Reconcile the mirror against the chain no matter how the above went.
+      //
+      // The transaction is what actually opens a campaign; the POST above
+      // only records that it happened. So any failure AFTER the tx confirms
+      // — the route 409ing because the server's RPC has not yet caught up,
+      // an expired signature, a dropped request — leaves a campaign open
+      // on-chain while the dashboard still shows an Approve button. Clicking
+      // it again then reverts with WrongState, which wallets surface as an
+      // absurd gas estimate rather than anything an admin can act on.
+      //
+      // Syncing from chain here makes that state unreachable: the mirror
+      // ends up agreeing with the chain whether or not the POST landed.
+      await syncCampaignFromChain(tokenAddress);
+      await refresh();
       setBusy(null);
     }
   }
@@ -301,6 +338,11 @@ function CampaignsTab({ account }: { account: string }) {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create the pool.");
     } finally {
+      // Same reasoning as `approve`: registerExternalPool has already landed
+      // on-chain by this point, so the mirror must follow it regardless of
+      // what the confirm-lock POST did.
+      await syncCampaignFromChain(item.tokenAddress);
+      await refresh();
       setBusy(null);
     }
   }
@@ -817,6 +859,10 @@ function BurnSection({ account }: { account: string }) {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not burn.");
     } finally {
+      // burnUnclaimed is terminal on-chain, so a mirror left saying
+      // otherwise would keep offering a Burn button that can only revert.
+      await syncCampaignFromChain(tokenAddress);
+      await refresh();
       setBusy(null);
     }
   }
