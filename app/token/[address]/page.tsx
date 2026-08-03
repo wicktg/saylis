@@ -109,7 +109,7 @@ export default function TokenDetailPage() {
           },
         ]
       : [],
-    query: { enabled: Boolean(curveAddress && tokenAddress), refetchInterval: 8_000 },
+    query: { enabled: Boolean(curveAddress && tokenAddress), refetchInterval: 12_000 },
   });
 
   const priceWei = stats?.[0]?.status === "success" ? (stats[0].result as bigint) : undefined;

@@ -19,7 +19,16 @@ import {
 } from "@/app/_lib/poolPrice";
 
 const CALLS_PER_TOKEN = 7;
-const LIVE_REFETCH_INTERVAL_MS = 8_000;
+/**
+ * Poll interval for the live multicalls.
+ *
+ * Raised from 8s. This hook runs once per token ON THE GRID, so at 8s a
+ * screen of 20 tokens meant a multicall burst every 8 seconds -- a major
+ * contributor to the upstream 429s. Market caps do not move fast enough
+ * for the difference to be visible, and /api/rpc caches identical calls
+ * for 2.5s on top of this.
+ */
+const LIVE_REFETCH_INTERVAL_MS = 15_000;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 /** Uniswap V3's pool swap event — amounts are signed, pool-relative. */

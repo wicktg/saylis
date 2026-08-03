@@ -99,7 +99,7 @@ export function isTokenToken0(tokenAddress: string): boolean {
 export function usePoolSpotPrice(
   tokenAddress: Address | undefined,
   enabled: boolean | undefined,
-  refetchIntervalMs = 8_000
+  refetchIntervalMs = 15_000
 ): { priceWei: bigint | undefined; isPending: boolean } {
   const active = Boolean(tokenAddress && enabled === true);
 
