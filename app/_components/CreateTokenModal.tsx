@@ -18,6 +18,7 @@ import {
 } from "@/app/_lib/contracts/config";
 import type { Address } from "viem";
 import Icon from "@/app/_components/Icon";
+import AsciiSlider from "@/app/_components/AsciiSlider";
 
 const DESCRIPTION_LIMIT = 280;
 // Mirrors BondingCurve's MAX_SELL_TAX_BPS (300 = 3%) in the slider's own
@@ -424,18 +425,14 @@ export default function CreateTokenModal({
                     {whaleSellTax.toFixed(1)}%
                   </span>
                 </div>
-                <input
-                  type="range"
+                <AsciiSlider
                   min={0}
                   max={WHALE_TAX_MAX}
                   step={0.1}
                   value={whaleSellTax}
-                  onChange={(event) => setWhaleSellTax(parseFloat(event.target.value))}
-                  className="slider-clean w-full"
-                  style={{
-                    background: `linear-gradient(to right, var(--accent) ${(whaleSellTax / WHALE_TAX_MAX) * 100}%, rgba(255,255,255,0.15) ${(whaleSellTax / WHALE_TAX_MAX) * 100}%)`,
-                  }}
+                  onChange={setWhaleSellTax}
                   disabled={!advancedOpen}
+                  ariaLabel="Whale sell tax percentage"
                 />
               </div>
 
@@ -478,18 +475,14 @@ export default function CreateTokenModal({
                     {infoFiAllocation.toFixed(1)}%
                   </span>
                 </div>
-                <input
-                  type="range"
+                <AsciiSlider
                   min={0}
                   max={INFOFI_MAX_PCT}
                   step={0.1}
                   value={infoFiAllocation}
-                  onChange={(event) => setInfoFiAllocation(parseFloat(event.target.value))}
-                  className="slider-clean w-full"
-                  style={{
-                    background: `linear-gradient(to right, var(--accent) ${(infoFiAllocation / INFOFI_MAX_PCT) * 100}%, rgba(255,255,255,0.15) ${(infoFiAllocation / INFOFI_MAX_PCT) * 100}%)`,
-                  }}
+                  onChange={setInfoFiAllocation}
                   disabled={!advancedOpen}
+                  ariaLabel="InfoFi allocation percentage"
                 />
                 <p className="text-[10px] text-white/30 leading-snug">
                   {infoFiAllocation > 0

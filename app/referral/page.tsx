@@ -22,6 +22,15 @@ type ReferralData = {
   currentBalanceRaw: string;
   lifetimeTotalRaw: string;
   referred: ReferredWallet[];
+  /**
+   * False when the RPC could not be asked for the vault's event history
+   * (its free tier caps `eth_getLogs` at a 10-block range). The link, the
+   * owed balance, and claiming all still work; only the referred-wallet
+   * breakdown and lifetime total are unknown. Distinguishing this from
+   * "genuinely zero referrals" matters -- telling a real referrer they
+   * have none would be a confident lie.
+   */
+  historyAvailable?: boolean;
 };
 
 /**
@@ -99,6 +108,9 @@ export default function ReferralPage() {
     : null;
   const currentBalance = data ? BigInt(data.currentBalanceRaw) : 0n;
   const lifetimeTotal = data ? BigInt(data.lifetimeTotalRaw) : 0n;
+  // Only true once data has actually loaded and the server said so, so a
+  // pending/failed request never renders the "unavailable" explanation.
+  const historyUnavailable = data?.historyAvailable === false;
 
   return (
     <AppShell>
@@ -158,7 +170,14 @@ export default function ReferralPage() {
                 <p className="text-[9px] uppercase tracking-wide text-white/30">
                   Lifetime earnings
                 </p>
-                <p className="text-lg font-bold mt-1">{formatWeiAsUsdPrice(lifetimeTotal, ethUsdPrice)}</p>
+                {/* A zero here would be indistinguishable from a real zero,
+                    so when history could not be read we show nothing at all
+                    rather than a number we cannot stand behind. */}
+                <p className="text-lg font-bold mt-1">
+                  {historyUnavailable
+                    ? "n/a"
+                    : formatWeiAsUsdPrice(lifetimeTotal, ethUsdPrice)}
+                </p>
               </div>
               <div className="pixel-frame pixel-card p-4">
                 <p className="text-[9px] uppercase tracking-wide text-white/30">
@@ -189,9 +208,19 @@ export default function ReferralPage() {
             {/* ---- Referred wallets ---- */}
             <div>
               <h2 className="text-[10px] uppercase tracking-wide text-white/30 mb-3">
-                Referred ({data?.referred.length ?? 0})
+                Referred {historyUnavailable ? "" : `(${data?.referred.length ?? 0})`}
               </h2>
-              {!data || data.referred.length === 0 ? (
+              {historyUnavailable ? (
+                <div className="flex flex-col items-center justify-center text-center py-16 gap-2 pixel-frame pixel-card">
+                  <h3 className="text-sm font-bold text-white/70">History unavailable</h3>
+                  <p className="text-[11px] text-white/35 max-w-sm leading-relaxed">
+                    The configured RPC caps log queries at a 10-block range, so the
+                    list of wallets you have referred cannot be read right now. Your
+                    link still works, and any balance shown above is live and
+                    claimable.
+                  </p>
+                </div>
+              ) : !data || data.referred.length === 0 ? (
                 <div className="flex flex-col items-center justify-center text-center py-16 gap-2 pixel-frame pixel-card">
                   <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-1">
                     <Icon icon="pixelarticons:users" className="text-xl text-white/25" />

@@ -12,10 +12,23 @@ const FILLED = "█";
 const EMPTY = "░";
 
 export function asciiBar(pct: number, width = 14): string {
+  const { filled, empty } = asciiBarParts(pct, width);
+  return filled + empty;
+}
+
+/**
+ * Same bar, split into its two runs so a caller can colour them
+ * independently (the slider draws the filled run in the accent colour and
+ * the remainder dimmed, which a single string cannot express).
+ */
+export function asciiBarParts(pct: number, width = 14): { filled: string; empty: string } {
   // Guard NaN/Infinity as well as out-of-range: market data arrives async
   // and a malformed percentage would otherwise produce a negative repeat
   // count, which throws.
   const safePct = Number.isFinite(pct) ? Math.min(100, Math.max(0, pct)) : 0;
-  const filled = Math.round((safePct / 100) * width);
-  return FILLED.repeat(filled) + EMPTY.repeat(width - filled);
+  const filledCells = Math.round((safePct / 100) * width);
+  return {
+    filled: FILLED.repeat(filledCells),
+    empty: EMPTY.repeat(width - filledCells),
+  };
 }

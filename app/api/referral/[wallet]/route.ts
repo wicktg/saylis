@@ -39,8 +39,13 @@ const ACCRUED_EVENT = parseAbiItem(
   "event ReferralAccrued(address indexed referrer, address indexed curve, uint256 amount)"
 );
 
-const FALLBACK_CHUNK_BLOCKS = 500_000n;
-const FALLBACK_MAX_CHUNKS = 24;
+/**
+ * Block ReferralVault was deployed in. Scanning from 0 is both wasteful and
+ * rejected outright by the configured RPC, and no vault event can predate
+ * this block. Verified against the contract-creation transaction
+ * (0xdb907779...e829) on Robinhood Chain's Blockscout.
+ */
+const VAULT_DEPLOY_BLOCK = 25_747_533n;
 
 function client() {
   // Server-side route, so it hits the upstream endpoint directly rather
@@ -48,35 +53,47 @@ function client() {
   return createPublicClient({ chain: robinhood, transport: http(upstreamRpcUrl()) });
 }
 
-/** Same "try the full range, fall back to chunked scanning" pattern
- *  useCurveTrades.ts uses — some RPCs reject an unbounded fromBlock:0. */
-async function getLogsSafely<const abiEvent extends AbiEvent>(
+/**
+ * Attempts one wide `eth_getLogs` over the vault's whole lifetime.
+ *
+ * This used to fall back to scanning in 500,000-block chunks when the wide
+ * call failed. That fallback could never work: the configured RPC caps
+ * `eth_getLogs` at a 10-BLOCK range (see app/_lib/chunkedLogs.ts), so every
+ * chunk was rejected exactly like the wide call, the error escaped the
+ * handler, and Next returned a 500 with an EMPTY body -- which reached the
+ * browser as "Failed to execute 'json' on 'Response'", a parse error that
+ * gave no hint the real problem was an RPC range limit.
+ *
+ * Chunking correctly is not an option either: ~452,000 blocks have elapsed
+ * since deployment, which at 10 blocks per request is ~45,200 requests --
+ * far beyond what a single serverless invocation can do.
+ *
+ * So this tries once and reports failure honestly rather than pretending.
+ * `null` means "could not read history", which the caller surfaces as an
+ * explicit flag; it must never be conflated with `[]` ("no referrals"),
+ * since showing a real referrer a confident zero would be worse than
+ * showing them nothing. If the RPC is ever upgraded to a paid tier or
+ * swapped for one without a range cap, this call starts succeeding and
+ * full history returns with no code change.
+ */
+async function tryGetLogs<const abiEvent extends AbiEvent>(
   publicClient: ReturnType<typeof client>,
   params: { address: Address; event: abiEvent; args?: Record<string, unknown> }
-): Promise<Log[]> {
-  // viem's `getLogs` types `args` against the exact literal event shape,
-  // which this generic wrapper deliberately erases (callers pass whatever
-  // indexed-arg filter their own event needs) — narrowed back with `as
-  // never` at this one boundary rather than losing the wrapper entirely.
-  const baseParams = {
-    address: params.address,
-    event: params.event,
-    args: params.args as never,
-  };
+): Promise<Log[] | null> {
   try {
-    return await publicClient.getLogs({ ...baseParams, fromBlock: 0n, toBlock: "latest" });
+    return await publicClient.getLogs({
+      address: params.address,
+      event: params.event,
+      // viem types `args` against the exact literal event shape, which this
+      // generic wrapper deliberately erases (callers pass whatever
+      // indexed-arg filter their own event needs) -- narrowed back with
+      // `as never` at this one boundary rather than losing the wrapper.
+      args: params.args as never,
+      fromBlock: VAULT_DEPLOY_BLOCK,
+      toBlock: "latest",
+    });
   } catch {
-    const latest = await publicClient.getBlockNumber();
-    let toBlock = latest;
-    let all: Log[] = [];
-    for (let i = 0; i < FALLBACK_MAX_CHUNKS; i++) {
-      const fromBlock = toBlock > FALLBACK_CHUNK_BLOCKS ? toBlock - FALLBACK_CHUNK_BLOCKS : 0n;
-      const logs = await publicClient.getLogs({ ...baseParams, fromBlock, toBlock });
-      all = [...logs, ...all];
-      if (fromBlock === 0n) break;
-      toBlock = fromBlock - 1n;
-    }
-    return all;
+    return null;
   }
 }
 
@@ -89,6 +106,22 @@ export async function GET(
     return NextResponse.json({ error: "Invalid wallet address." }, { status: 400 });
   }
 
+  try {
+    return await buildResponse(wallet);
+  } catch (error) {
+    // Anything escaping here previously produced a 500 with an empty body,
+    // which the browser reported as a JSON parse error rather than as a
+    // server failure. Always emit a JSON body so the client's
+    // `payload?.error` path has something real to show.
+    console.error("[referral] failed for", wallet, error);
+    return NextResponse.json(
+      { error: "Could not load referral data. Please try again." },
+      { status: 500 }
+    );
+  }
+}
+
+async function buildResponse(wallet: string) {
   const admin = getSupabaseAdmin();
   const publicClient = client();
 
@@ -105,17 +138,31 @@ export async function GET(
       functionName: "referralFeesOwed",
       args: [wallet as Address],
     }) as Promise<bigint>,
-    getLogsSafely(publicClient, {
+    tryGetLogs(publicClient, {
       address: REFERRAL_VAULT_ADDRESS as Address,
       event: REGISTERED_EVENT,
       args: { referrer: wallet as Address },
     }),
-    getLogsSafely(publicClient, {
+    tryGetLogs(publicClient, {
       address: REFERRAL_VAULT_ADDRESS as Address,
       event: ACCRUED_EVENT,
       args: { referrer: wallet as Address },
     }),
   ]);
+
+  // The balance is a plain contract read and always works, so the page can
+  // still show what is owed and still let the user claim it even when log
+  // history is unavailable. Those are the two things that involve real
+  // money; the referred-wallet breakdown is reporting.
+  if (registeredLogs === null || accruedLogs === null) {
+    return NextResponse.json({
+      code: codeRow?.code ?? null,
+      currentBalanceRaw: currentBalance.toString(),
+      lifetimeTotalRaw: "0",
+      referred: [],
+      historyAvailable: false,
+    });
+  }
 
   // Join dates: one block-timestamp lookup per distinct block among the
   // (usually small) set of registration events.
@@ -188,5 +235,6 @@ export async function GET(
     currentBalanceRaw: currentBalance.toString(),
     lifetimeTotalRaw: lifetimeTotal.toString(),
     referred,
+    historyAvailable: true,
   });
 }

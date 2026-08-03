@@ -232,55 +232,6 @@ select,
   background-color: var(--bg-main);
 }
 
-/*
- * Fully custom range-input skin (Whale Sell Tax slider, etc.) — the bare
- * `accent-color` utility only tints the native thumb/fill and leaves the
- * unfilled track browser-default (usually light gray), which read as a
- * mismatched native widget against the app's dark custom UI. The filled
- * portion itself comes from an inline `background: linear-gradient(...)`
- * set per-instance (computed from the current value), not from this class.
- */
-.slider-clean {
-  -webkit-appearance: none;
-  appearance: none;
-  height: 4px;
-  border-radius: 0;
-  cursor: pointer;
-  outline: none;
-}
-.slider-clean::-webkit-slider-runnable-track {
-  height: 4px;
-  border-radius: 0;
-  background: transparent;
-}
-.slider-clean::-moz-range-track {
-  height: 4px;
-  border-radius: 0;
-  background: transparent;
-}
-.slider-clean::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  margin-top: -5px;
-  border-radius: 0;
-  background: var(--accent);
-  border: 2px solid var(--bg-main);
-  box-shadow: 0 0 0 1px var(--accent);
-}
-.slider-clean::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--bg-main);
-  border-radius: 0;
-  background: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
-}
-.slider-clean:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
 
 /**
  * Scrollbars are hidden everywhere — every scrollable surface in this app
