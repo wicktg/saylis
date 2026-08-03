@@ -108,8 +108,8 @@ export default function ConnectXModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
-      <div className="pixel-frame pixel-panel relative w-full max-w-sm mx-4 p-6">
+    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/50">
+      <div className="mobile-sheet pixel-frame pixel-panel relative w-full max-w-sm mx-4 p-6">
         <button
           onClick={onClose}
           disabled={step === "confirming"}

@@ -118,8 +118,8 @@ export default function SendSupplyModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
-      <div className="pixel-frame pixel-panel relative w-full max-w-sm mx-4 p-5">
+    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/50">
+      <div className="mobile-sheet pixel-frame pixel-panel relative w-full max-w-sm mx-4 p-5">
         <button
           onClick={handleClose}
           disabled={submitting}

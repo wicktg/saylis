@@ -22,15 +22,15 @@ export default function TokenCard({
   const progressPct = marketData?.graduated ? 100 : marketData?.progressPct ?? 0;
 
   return (
-    <div className="ascii ascii-box relative p-3 cursor-pointer group h-full flex flex-col">
+    <div className="ascii ascii-box relative p-4 sm:p-3 cursor-pointer group h-full flex flex-col">
       <div className="flex gap-3">
-        <div className="w-14 h-14 shrink-0 bg-black border border-white/15 relative overflow-hidden">
+        <div className="w-16 h-16 sm:w-14 sm:h-14 shrink-0 bg-black border border-white/15 relative overflow-hidden">
           {imageUrl ? (
             <Image
               src={imageUrl}
               alt={token.ticker}
               fill
-              sizes="56px"
+              sizes="(max-width: 640px) 64px, 56px"
               className="object-cover"
               // Every card ships through here (a live-updating grid, not a
               // fixed handful) — never worth marking any one of them

@@ -61,6 +61,8 @@ export default function SwapPanel({
   migrated,
   poolPriceWei,
   ethUsdPrice,
+  fill = false,
+  initialMode,
 }: {
   tokenAddress: Address;
   curveAddress: Address | undefined;
@@ -70,12 +72,18 @@ export default function SwapPanel({
    *  estimate only. `undefined` pre-graduation / while loading. */
   poolPriceWei: bigint | undefined;
   ethUsdPrice: number;
+  /** Fill the parent instead of being a fixed-width docked column. Set by
+   *  the mobile sheet; the desktop panel leaves it false and is unchanged. */
+  fill?: boolean;
+  /** Which tab to open on. The mobile bar has separate Buy and Sell
+   *  buttons, so it opens the sheet already on the right one. */
+  initialMode?: "buy" | "sell";
 }) {
   const { address: account } = useAccount();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
 
-  const [mode, setMode] = useState<"buy" | "sell">("buy");
+  const [mode, setMode] = useState<"buy" | "sell">(initialMode ?? "buy");
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -346,7 +354,16 @@ export default function SwapPanel({
     (mode === "sell" ? amountWei <= maxSellable : true);
 
   return (
-    <div className="w-72 shrink-0 flex flex-col border-l border-white/10">
+    <div
+      className={
+        // Mobile renders this inside a full-height sheet, where a fixed
+        // 288px column with a left border would be wrong. Same component,
+        // same logic -- only the container changes.
+        fill
+          ? "w-full flex-1 flex flex-col min-h-0"
+          : "w-72 shrink-0 flex flex-col border-l border-white/10"
+      }
+    >
       {/* ---- Buy / Sell tabs ---- */}
       <div className="grid grid-cols-2 border-b border-white/10 shrink-0">
         <button

@@ -260,8 +260,8 @@ export default function CreateTokenModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
-      <div className="surface-circuit relative w-full max-w-sm mx-4 bg-[var(--bg-main)] border border-white/20 rounded-2xl p-6">
+    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/50">
+      <div className="mobile-sheet surface-circuit relative w-full max-w-sm mx-4 bg-[var(--bg-main)] border border-white/20 rounded-2xl p-6">
         <button
           onClick={handleClose}
           disabled={stage === "launching" || stage === "saving"}

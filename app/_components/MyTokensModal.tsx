@@ -62,8 +62,8 @@ export default function MyTokensModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
-      <div className="pixel-frame pixel-panel relative w-full max-w-sm mx-4 p-6 max-h-[80vh] flex flex-col">
+    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/50">
+      <div className="mobile-sheet pixel-frame pixel-panel relative w-full max-w-sm mx-4 p-6 max-h-[80vh] flex flex-col">
         <button
           onClick={onClose}
           aria-label="Close"

@@ -7,8 +7,32 @@ import { useParams } from "next/navigation";
 import { useReadContracts } from "wagmi";
 import { isAddress, type Address } from "viem";
 import AppShell from "@/app/_components/AppShell";
-import ChartToolbar from "@/app/_components/token/ChartToolbar";
-import TokenChart from "@/app/_components/token/TokenChart";
+import dynamic from "next/dynamic";
+/**
+ * Code-split. The drawing toolset (trendline, Fibonacci, XABCD, brush,
+ * text, scale) is desktop-only and never rendered under the mobile
+ * breakpoint, so a dynamic import keeps it and its drawing machinery out
+ * of the bundle a phone downloads entirely -- not merely out of the DOM.
+ * `ssr: false` because it is interactive chrome with no server-rendered
+ * value.
+ */
+const ChartToolbar = dynamic(() => import("@/app/_components/token/ChartToolbar"), {
+  ssr: false,
+});
+/**
+ * Lazy. klinecharts is by far the heaviest dependency on this page and
+ * nothing above it depends on the module being present, so deferring it
+ * lets the header, timeframes and trade bar paint first -- which matters
+ * most on a phone on a slow connection.
+ */
+const TokenChart = dynamic(() => import("@/app/_components/token/TokenChart"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 flex items-center justify-center">
+      <p className="text-[11px] text-white/30">loading chart...</p>
+    </div>
+  ),
+});
 import TransactionsFeed from "@/app/_components/token/TransactionsFeed";
 import SwapPanel from "@/app/_components/token/SwapPanel";
 import TokenSocialLinks from "@/app/_components/token/TokenSocialLinks";
@@ -29,6 +53,8 @@ import { usePoolSpotPrice } from "@/app/_lib/poolPrice";
 import { resolveIpfsUrl } from "@/app/_lib/ipfs";
 import { formatUsdCompact, formatWeiAsUsdPrice, truncateAddress } from "@/app/_lib/format";
 import type { TokenRecord } from "@/app/_lib/types";
+import MobileSwapBar from "@/app/_components/mobile/MobileSwapBar";
+import { useIsMobile } from "@/app/_lib/useIsMobile";
 import Icon from "@/app/_components/Icon";
 
 const ONE_TOKEN = 10n ** 18n;
@@ -43,6 +69,13 @@ export default function TokenDetailPage() {
   const [timeframe, setTimeframe] = useState<TimeframeLabel>("1m");
   const [activeTool, setActiveTool] = useState<ToolId>("cursor");
   const [clearSignal, setClearSignal] = useState(0);
+  /**
+   * Chart Y axis: raw token price, or price scaled to market cap. Purely a
+   * display transform -- market cap IS price x total supply, so no separate
+   * data source is involved and nothing about the candles changes.
+   */
+  const [chartMode, setChartMode] = useState<"price" | "mcap">("price");
+  const isMobile = useIsMobile();
 
   // Resolve the token record by either its token address or curve address,
   // so links from anywhere in the app land correctly.
@@ -241,6 +274,7 @@ export default function TokenDetailPage() {
   // whale-tax gating, refreshed periodically rather than a fixed constant.
   const ethUsd = useEthUsdPrice();
 
+
   const bucketSeconds = useMemo(
     () => TIMEFRAMES.find((frame) => frame.label === timeframe)?.seconds ?? 60,
     [timeframe]
@@ -291,6 +325,23 @@ export default function TokenDetailPage() {
       livePriceWei !== undefined ? (Number(livePriceWei) / 1e18) * ethUsd : undefined;
     return anchorToLivePrice(built, liveUsd, bucketSeconds, Math.floor(Date.now() / 1000));
   }, [trades, spotPricesWei, bucketSeconds, ethUsd, livePriceWei]);
+  /**
+   * Candles as displayed. In mcap mode every OHLC value is scaled by total
+   * supply, since market cap is exactly price x supply -- so the curve's
+   * SHAPE is identical and only the axis labels change. Scaling here rather
+   * than rebuilding the series keeps one source of truth for the data.
+   */
+  const displayCandles = useMemo(() => {
+    if (chartMode === "price" || totalSupplyWhole === 0n) return candles;
+    const supply = Number(totalSupplyWhole);
+    return candles.map((candle) => ({
+      ...candle,
+      open: candle.open * supply,
+      high: candle.high * supply,
+      low: candle.low * supply,
+      close: candle.close * supply,
+    }));
+  }, [candles, chartMode, totalSupplyWhole]);
 
   const progressPct =
     graduated === true
@@ -400,13 +451,13 @@ export default function TokenDetailPage() {
           </div>
         </div>
 
-        {/* ---- Chart top bar: timeframes ---- */}
-        <div className="flex items-center gap-1 px-2 py-1.5 border-b border-white/10 shrink-0">
+        {/* ---- Chart top bar: timeframes + price/mcap ---- */}
+        <div className="flex items-center gap-1 px-2 py-1.5 border-b border-white/10 shrink-0 overflow-x-auto no-scrollbar">
           {TIMEFRAMES.map((frame) => (
             <button
               key={frame.label}
               onClick={() => setTimeframe(frame.label)}
-              className={`px-2 py-1 text-[11px] font-medium transition-colors ${
+              className={`shrink-0 px-2 py-1.5 md:py-1 text-[11px] font-medium transition-colors ${
                 timeframe === frame.label
                   ? "bg-[var(--accent-tint)] text-[var(--accent)]"
                   : "text-white/40 hover:text-white hover:bg-white/5"
@@ -416,15 +467,40 @@ export default function TokenDetailPage() {
             </button>
           ))}
 
+          {/* Price / market-cap axis switch. Mobile drops the drawing
+              toolset entirely, so this and the timeframes are the only
+              chart controls a phone gets -- both live here. */}
+          <div className="ml-auto flex items-center gap-1 shrink-0 pl-2">
+            {(["price", "mcap"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setChartMode(mode)}
+                aria-pressed={chartMode === mode}
+                className={`px-2 py-1.5 md:py-1 text-[11px] lowercase transition-colors ${
+                  chartMode === mode
+                    ? "text-[var(--accent)]"
+                    : "text-white/40 hover:text-white"
+                }`}
+              >
+                {chartMode === mode ? `[${mode}]` : mode}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* ---- Chart + left drawing toolbar ---- */}
         <div className="flex flex-1 min-h-0">
-          <ChartToolbar
-            activeTool={activeTool}
-            onSelectTool={setActiveTool}
-            onClear={() => setClearSignal((n) => n + 1)}
-          />
+          {/* Desktop only, and genuinely ABSENT rather than hidden: the
+              whole drawing toolset is meaningless without a pointer, and
+              its bundle is dynamically imported so a phone never fetches
+              it either. */}
+          {!isMobile && (
+            <ChartToolbar
+              activeTool={activeTool}
+              onSelectTool={setActiveTool}
+              onClear={() => setClearSignal((n) => n + 1)}
+            />
+          )}
           <div className="flex-1 flex flex-col min-w-0">
             {tradesLoading && trades.length === 0 ? (
               <div className="flex-1 flex items-center justify-center">
@@ -438,8 +514,8 @@ export default function TokenDetailPage() {
               </div>
             ) : (
               <TokenChart
-                candles={candles}
-                activeTool={activeTool}
+                candles={displayCandles}
+                activeTool={isMobile ? "cursor" : activeTool}
                 onToolConsumed={() => setActiveTool("cursor")}
                 clearSignal={clearSignal}
               />
@@ -450,7 +526,7 @@ export default function TokenDetailPage() {
               Same placement every trading UI converges on (DexScreener,
               Photon, pump.fun): always visible next to the thing the user
               is watching, never a click or a scroll away. */}
-          {tokenAddress && (
+          {tokenAddress && !isMobile && (
             <SwapPanel
               tokenAddress={tokenAddress}
               curveAddress={curveAddress}
@@ -462,15 +538,29 @@ export default function TokenDetailPage() {
         </div>
 
         {/* ---- Live transactions ---- */}
-        <div className="h-[38%] shrink-0 flex flex-col min-h-0">
+        <div className="h-[32%] md:h-[38%] shrink-0 flex flex-col min-h-0">
           <TransactionsFeed
             trades={trades}
             isLoading={tradesLoading}
             error={tradesError}
             ethUsdPrice={ethUsd}
+            compact={isMobile}
           />
         </div>
+
+        {/* Clears the fixed trade bar so the feed's last row is reachable. */}
+        {isMobile && <div aria-hidden="true" className="h-16 shrink-0" />}
       </div>
+
+      {isMobile && tokenAddress && (
+        <MobileSwapBar
+          tokenAddress={tokenAddress}
+          curveAddress={curveAddress}
+          migrated={migrationExecuted}
+          poolPriceWei={poolPriceWei}
+          ethUsdPrice={ethUsd}
+        />
+      )}
     </AppShell>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { formatWeiAsUsdPrice, truncateAddress } from "@/app/_lib/format";
 import type { Trade } from "@/app/_lib/useCurveTrades";
 import AsciiSpinner from "@/app/_components/AsciiSpinner";
@@ -28,15 +28,25 @@ export default function TransactionsFeed({
   isLoading,
   error,
   ethUsdPrice,
+  compact = false,
 }: {
   trades: Trade[];
   isLoading: boolean;
   error: string | null;
   ethUsdPrice: number;
+  /** Mobile: three columns instead of six, wallet behind a tap. */
+  compact?: boolean;
 }) {
   // Re-render on a tick so the relative timestamps stay honest without
   // needing new trades to arrive.
   const [now, setNow] = useState(() => Date.now());
+  /**
+   * Which compact row has been tapped open. A phone has room for amount,
+   * side and time -- not a wallet address as well -- but the address is
+   * still the thing that makes a trade verifiable, so it is one tap away
+   * rather than dropped.
+   */
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 1_000);
     return () => clearInterval(interval);
@@ -81,17 +91,80 @@ export default function TransactionsFeed({
           <table className="w-full text-[11px]">
             <thead className="sticky top-0 bg-[var(--bg-main)] z-10">
               <tr className="text-white/40 text-[10px] uppercase tracking-wide">
+                {compact ? (
+                  <>
+                    <th className="text-left font-medium px-3 py-2">Amount</th>
+                    <th className="text-left font-medium px-2 py-2">Type</th>
+                    <th className="text-right font-medium px-3 py-2">Time</th>
+                  </>
+                ) : (
+                  <>
                 <th className="text-left font-medium px-4 py-2">Time</th>
                 <th className="text-left font-medium px-2 py-2">Type</th>
                 <th className="text-right font-medium px-2 py-2">Amount</th>
                 <th className="text-right font-medium px-2 py-2">Value</th>
                 <th className="text-right font-medium px-2 py-2">Price</th>
                 <th className="text-right font-medium px-4 py-2">Wallet</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
               {rows.map((trade) => {
                 const isBuy = trade.type === "buy";
+                if (compact) {
+                  const isOpen = expandedId === trade.id;
+                  return (
+                    <Fragment key={trade.id}>
+                      <tr
+                        onClick={() => setExpandedId(isOpen ? null : trade.id)}
+                        aria-expanded={isOpen}
+                        className={`border-t border-white/5 active:bg-white/5 cursor-pointer ${
+                          entering.has(trade.id) ? "tx-row-enter" : ""
+                        }`}
+                      >
+                        <td className="px-3 py-2.5 font-mono whitespace-nowrap">
+                          {formatTokenAmount(trade.tokensWei)}
+                        </td>
+                        <td
+                          className={`px-2 py-2.5 lowercase ${
+                            isBuy ? "text-[#2ebd85]" : "text-[#e2444b]"
+                          }`}
+                        >
+                          {trade.type}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-white/45 whitespace-nowrap">
+                          {timeAgo(trade.timestamp, now)}
+                        </td>
+                      </tr>
+                      {isOpen && (
+                        <tr className="bg-white/[0.03]">
+                          <td colSpan={3} className="px-3 pb-2.5 text-[10px] text-white/45">
+                            <div className="flex justify-between gap-2">
+                              <span className="ascii-label">wallet</span>
+                              <span className="font-mono text-white/70">
+                                {truncateAddress(trade.wallet)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <span className="ascii-label">value</span>
+                              <span className="font-mono text-white/70">
+                                {formatWeiAsUsdPrice(trade.ethWei, ethUsdPrice)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <span className="ascii-label">price</span>
+                              <span className="font-mono text-white/70">
+                                {formatWeiAsUsdPrice(trade.priceWei, ethUsdPrice)}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                }
+
                 return (
                   <tr
                     key={trade.id}

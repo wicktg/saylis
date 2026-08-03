@@ -57,10 +57,13 @@ export default function TokenGrid({ sortBy, search = "" }: { sortBy: SortOption;
   }
 
   return (
-    // Fewer columns than the old square cards used: these are landscape
-    // (thumbnail beside a stat block), so they need roughly double the width
-    // to keep the numeric column from wrapping.
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+    // Single column below `sm`, which is the mobile list view: a landscape
+    // card (thumbnail beside a stat block) already reads as a list row, so
+    // the mobile layout is the same component at full width rather than a
+    // separate one. Above that, fewer columns than the old square cards
+    // used, since these need roughly double the width to keep the numeric
+    // column from wrapping.
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
       {sortedTokens.map((token) => (
         <Link key={token.id} href={`/token/${token.contract_address}`}>
           <TokenCard token={token} marketData={marketData[token.curve_address as Address]} />
