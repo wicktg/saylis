@@ -25,7 +25,12 @@ export const wagmiConfig = createConfig(
   getDefaultConfig({
     chains: [robinhood],
     transports: {
-      [robinhood.id]: http("/api/rpc"),
+      // `batch` coalesces calls made in the same tick into ONE HTTP POST
+      // carrying a JSON-RPC array. The chunked log reader issues many small
+      // getLogs in quick succession, and without this each was its own
+      // request -- which is what filled the console with 429s on /api/rpc.
+      // The proxy already handles array bodies.
+      [robinhood.id]: http("/api/rpc", { batch: { wait: 16 } }),
     },
     walletConnectProjectId,
     appName: "saylis.wtf",

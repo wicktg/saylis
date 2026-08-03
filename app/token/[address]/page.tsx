@@ -82,6 +82,7 @@ export default function TokenDetailPage() {
     trades,
     isLoading: tradesLoading,
     error: tradesError,
+    historyTruncated,
   } = useCurveTrades(curveAddress, tokenAddress);
 
   const { data: stats } = useReadContracts({
@@ -418,6 +419,16 @@ export default function TokenDetailPage() {
 
           <span className="ml-auto text-[10px] text-white/30 pr-2">
             {candles.length} candles - {trades.length} trades
+            {/* Say so when the backfill was capped, rather than letting a
+                short chart read as "this token barely traded". */}
+            {historyTruncated && (
+              <span
+                className="text-[var(--accent)] ml-1"
+                title="The configured RPC caps log queries at a 10-block range, so only recent history could be loaded."
+              >
+                [recent only]
+              </span>
+            )}
           </span>
         </div>
 

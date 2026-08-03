@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useReadContracts, usePublicClient } from "wagmi";
 import { parseAbiItem, type Address } from "viem";
 import { BONDING_CURVE_ABI } from "@/app/_lib/contracts/BondingCurve";
-import { getLogsChunked } from "@/app/_lib/chunkedLogs";
+import { getLogsChunked, clampScanRange } from "@/app/_lib/chunkedLogs";
 import { IMMUTABLE_LAUNCH_TOKEN_ABI } from "@/app/_lib/contracts/ImmutableLaunchToken";
 import {
   UNISWAP_V3_FACTORY_ADDRESS,
@@ -283,10 +283,15 @@ export function useTokenMarketData(
             // Fall back to a full scan from genesis rather than failing.
           }
           const head = await publicClient.getBlockNumber();
+          // Bounded for the same reason as the trade backfill: this runs
+          // once PER GRADUATED TOKEN on the explore grid, so an unbounded
+          // scan here multiplied the 429 storm by the number of tokens on
+          // screen. See MAX_SCAN_WINDOWS.
+          const { fromBlock: scanFrom } = clampScanRange(startBlock, head);
           const logs = await getLogsChunked(
             (from, to) =>
               publicClient.getLogs({ address: pool, event: SWAP_EVENT, fromBlock: from, toBlock: to }),
-            startBlock,
+            scanFrom,
             head
           );
           const tokenIsToken0 = isTokenToken0(tokenAddress);

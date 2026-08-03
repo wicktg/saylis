@@ -351,19 +351,19 @@ export default function SwapPanel({
       <div className="grid grid-cols-2 border-b border-white/10 shrink-0">
         <button
           onClick={() => setMode("buy")}
-          className={`py-2.5 text-[12px] font-bold uppercase tracking-wide transition-colors ${
-            mode === "buy" ? "bg-[#2ebd85]/15 text-[#2ebd85]" : "text-white/40 hover:text-white"
+          className={`py-2.5 text-[12px] lowercase transition-colors ${
+            mode === "buy" ? "text-[#2ebd85]" : "text-white/35 hover:text-white"
           }`}
         >
-          Buy
+          {mode === "buy" ? "[ buy ]" : "  buy  "}
         </button>
         <button
           onClick={() => setMode("sell")}
-          className={`py-2.5 text-[12px] font-bold uppercase tracking-wide transition-colors ${
-            mode === "sell" ? "bg-[#e2444b]/15 text-[#e2444b]" : "text-white/40 hover:text-white"
+          className={`py-2.5 text-[12px] lowercase transition-colors ${
+            mode === "sell" ? "text-[#e2444b]" : "text-white/35 hover:text-white"
           }`}
         >
-          Sell
+          {mode === "sell" ? "[ sell ]" : "  sell  "}
         </button>
       </div>
 
@@ -371,12 +371,12 @@ export default function SwapPanel({
         {/* ---- Amount input ---- */}
         <div>
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-white/40 uppercase tracking-wide">
-              {mode === "buy" ? "Pay (ETH)" : "Sell (tokens)"}
+            <span className="ascii-label text-[10px]">
+              {mode === "buy" ? "pay (eth)" : "sell (tokens)"}
             </span>
             {account && (
               <span className="text-[10px] text-white/30">
-                Balance:{" "}
+                bal{" "}
                 {mode === "buy"
                   ? `${Number(formatUnits(maxBuyable, 18)).toFixed(4)} ETH`
                   : `${Number(formatUnits(maxSellable, TOKEN_DECIMALS)).toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
@@ -402,7 +402,7 @@ export default function SwapPanel({
                 <button
                   key={p}
                   onClick={() => applyBuyPreset(p)}
-                  className="pixel-frame pixel-btn-ghost py-1.5 text-[10px] font-medium text-white/70 hover:text-white"
+                  className="pixel-frame pixel-btn-ghost py-1.5 text-[10px] text-white/70 hover:text-white"
                 >
                   {p}
                 </button>
@@ -411,19 +411,17 @@ export default function SwapPanel({
                 <button
                   key={p}
                   onClick={() => applySellPreset(p)}
-                  className="pixel-frame pixel-btn-ghost py-1.5 text-[10px] font-medium text-white/70 hover:text-white col-span-1"
+                  className="pixel-frame pixel-btn-ghost py-1.5 text-[10px] text-white/70 hover:text-white col-span-1"
                 >
-                  {p === 100 ? "MAX" : `${p}%`}
+                  {p === 100 ? "max" : `${p}%`}
                 </button>
               ))}
         </div>
 
         {/* ---- Estimated output ---- */}
         <div className="pixel-frame pixel-input px-3 py-2 flex items-center justify-between">
-          <span className="text-[10px] text-white/40 uppercase tracking-wide">
-            {mode === "buy" ? "Est. Receive" : "Est. Receive"}
-          </span>
-          <span className="text-[12px] font-mono text-white">
+          <span className="ascii-label text-[10px]">est. receive</span>
+          <span className="ascii-value text-[12px]">
             {estimatedOut !== null
               ? mode === "buy"
                 ? `${Number(formatUnits(estimatedOut, TOKEN_DECIMALS)).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
@@ -447,9 +445,9 @@ export default function SwapPanel({
               {({ show }) => (
                 <button
                   onClick={show}
-                  className="pixel-frame pixel-btn w-full text-white font-bold py-2.5 text-sm"
+                  className="pixel-frame pixel-btn w-full text-white py-2.5 text-sm lowercase"
                 >
-                  Connect Wallet
+                  [ connect wallet ]
                 </button>
               )}
             </ConnectKitButton.Custom>
@@ -457,17 +455,17 @@ export default function SwapPanel({
             <button
               onClick={handleTrade}
               disabled={!canSubmit}
-              className={`pixel-frame w-full font-bold py-2.5 text-sm text-white transition-opacity disabled:opacity-40 disabled:cursor-not-allowed ${
+              className={`pixel-frame w-full py-2.5 text-sm text-white lowercase transition-opacity disabled:opacity-40 disabled:cursor-not-allowed ${
                 mode === "buy" ? "pixel-btn" : "bg-[#e2444b]"
               }`}
             >
               {busy
                 ? mode === "buy"
-                  ? "Buying..."
-                  : "Selling..."
+                  ? "buying..."
+                  : "selling..."
                 : mode === "buy"
-                  ? "Buy"
-                  : "Sell"}
+                  ? "[ buy ]"
+                  : "[ sell ]"}
             </button>
           )}
         </div>

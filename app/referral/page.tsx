@@ -10,6 +10,7 @@ import { REFERRAL_VAULT_ADDRESS } from "@/app/_lib/contracts/config";
 import { REFERRAL_VAULT_ABI } from "@/app/_lib/contracts/ReferralVault";
 import { useEthUsdPrice } from "@/app/_lib/useEthUsdPrice";
 import Icon from "@/app/_components/Icon";
+import AsciiSpinner from "@/app/_components/AsciiSpinner";
 
 type ReferredWallet = {
   walletAddress: string;
@@ -135,7 +136,7 @@ export default function ReferralPage() {
           </div>
         ) : loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="w-8 h-8 border-2 border-[rgba(207,56,221,0.3)] border-t-[#cf38dd] spinner-circle animate-spin" />
+            <AsciiSpinner className="text-xl text-[#cf38dd]" />
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center text-center py-20 gap-2">

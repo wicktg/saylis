@@ -19,6 +19,7 @@ import {
 import type { Address } from "viem";
 import Icon from "@/app/_components/Icon";
 import AsciiSlider from "@/app/_components/AsciiSlider";
+import AsciiSpinner from "@/app/_components/AsciiSpinner";
 
 const DESCRIPTION_LIMIT = 280;
 // Mirrors BondingCurve's MAX_SELL_TAX_BPS (300 = 3%) in the slider's own
@@ -496,7 +497,7 @@ export default function CreateTokenModal({
 
         {(stage === "launching" || stage === "saving") && (
           <div className="flex flex-col items-center justify-center py-10 gap-4">
-            <div className="w-10 h-10 border-2 border-[rgba(207,56,221,0.3)] border-t-[#cf38dd] spinner-circle animate-spin" />
+            <AsciiSpinner className="text-2xl text-[#cf38dd]" />
             <p className="text-sm font-bold">Launching...</p>
             {stage === "launching" && (
               <p className="text-[11px] text-white/40 text-center leading-relaxed">

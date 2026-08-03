@@ -46,6 +46,53 @@ const ALLOWED_METHODS = new Set([
 
 type RpcRequest = { id?: unknown; method?: unknown };
 
+/**
+ * Upstream rate limits are the reason this exists. Alchemy's free tier
+ * allows roughly 330 compute units per second, and eth_getLogs costs ~75,
+ * so a burst of log queries earns a 429 almost immediately. The client
+ * already paces itself (see chunkedLogs.ts), but pacing cannot account for
+ * other tabs, other users, or a poll tick landing on top of a backfill.
+ *
+ * A 429 here is transient by definition, so it is retried with exponential
+ * backoff rather than handed to the browser -- where it surfaced as a wall
+ * of console errors and missing data. Only 429 and 5xx are retried; a 4xx
+ * like the 10-block range error is a permanent answer and returns at once.
+ */
+const MAX_RETRIES = 3;
+const BASE_BACKOFF_MS = 250;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function forwardWithRetry(body: unknown): Promise<Response> {
+  let lastResponse: Response | null = null;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      // Honour Retry-After when the upstream sends one, since it knows the
+      // real reset window better than a fixed curve does.
+      const retryAfter = Number(lastResponse?.headers.get("retry-after"));
+      const backoff = Number.isFinite(retryAfter) && retryAfter > 0
+        ? Math.min(retryAfter * 1000, 4000)
+        : BASE_BACKOFF_MS * 2 ** (attempt - 1);
+      await sleep(backoff);
+    }
+
+    const response = await fetch(upstreamRpcUrl(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+
+    if (response.status !== 429 && response.status < 500) return response;
+    lastResponse = response;
+  }
+
+  return lastResponse as Response;
+}
+
 function rejected(id: unknown, message: string) {
   // A JSON-RPC-shaped error, not an HTTP error: viem parses the body and
   // surfaces `message` instead of throwing an opaque network failure.
@@ -77,12 +124,7 @@ export async function POST(request: Request) {
 
   let upstream: Response;
   try {
-    upstream = await fetch(upstreamRpcUrl(), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      cache: "no-store",
-    });
+    upstream = await forwardWithRetry(body);
   } catch (error) {
     return NextResponse.json(
       {

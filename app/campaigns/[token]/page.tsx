@@ -14,6 +14,7 @@ import { resolveIpfsUrl } from "@/app/_lib/ipfs";
 import { truncateAddress } from "@/app/_lib/format";
 import type { TokenRecord } from "@/app/_lib/types";
 import Icon from "@/app/_components/Icon";
+import AsciiSpinner from "@/app/_components/AsciiSpinner";
 
 type LeaderboardRow = {
   walletAddress: string;
@@ -123,7 +124,7 @@ export default function CampaignDetailPage() {
     return (
       <AppShell>
         <div className="flex-1 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-[rgba(207,56,221,0.3)] border-t-[#cf38dd] spinner-circle animate-spin" />
+          <AsciiSpinner className="text-xl text-[#cf38dd]" />
         </div>
       </AppShell>
     );

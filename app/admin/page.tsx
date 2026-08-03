@@ -11,6 +11,7 @@ import { formatCompactTokenAmount, truncateAddress } from "@/app/_lib/format";
 import { INFO_FI_CAMPAIGN_ABI } from "@/app/_lib/contracts/InfoFiCampaign";
 import { IMMUTABLE_LAUNCH_TOKEN_ABI } from "@/app/_lib/contracts/ImmutableLaunchToken";
 import Icon from "@/app/_components/Icon";
+import AsciiSpinner from "@/app/_components/AsciiSpinner";
 import {
   INFOFI_CAMPAIGN_ADDRESS,
   INFOFI_TEAM_ADDRESS,
@@ -351,7 +352,7 @@ function CampaignsTab({ account }: { account: string }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <div className="w-8 h-8 border-2 border-[rgba(207,56,221,0.3)] border-t-[#cf38dd] spinner-circle animate-spin" />
+        <AsciiSpinner className="text-xl text-[#cf38dd]" />
       </div>
     );
   }

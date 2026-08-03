@@ -4,6 +4,7 @@ import Link from "next/link";
 import { formatTimeAgo } from "@/app/_lib/time";
 import type { Notification, NotificationType } from "@/app/_lib/useNotifications";
 import Icon from "@/app/_components/Icon";
+import AsciiSpinner from "@/app/_components/AsciiSpinner";
 
 const ICON_BY_TYPE: Record<NotificationType, string> = {
   eligible: "pixelarticons:trophy",
@@ -69,7 +70,7 @@ export default function NotificationsModal({
 
         {isLoading ? (
           <div className="flex items-center justify-center py-10">
-            <div className="w-6 h-6 border-2 border-[rgba(207,56,221,0.3)] border-t-[#cf38dd] spinner-circle animate-spin" />
+            <AsciiSpinner className="text-base text-[#cf38dd]" />
           </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center text-center py-8 gap-2">

@@ -9,7 +9,7 @@ import {
   WETH9_ADDRESS,
 } from "@/app/_lib/contracts/config";
 import { BONDING_CURVE_ABI } from "@/app/_lib/contracts/BondingCurve";
-import { getLogsChunked } from "@/app/_lib/chunkedLogs";
+import { getLogsChunked, clampScanRange } from "@/app/_lib/chunkedLogs";
 
 /**
  * A single executed trade, reconstructed from on-chain logs. Every field is
@@ -249,6 +249,8 @@ export function useCurveTrades(
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [poolAddress, setPoolAddress] = useState<Address | null>(null);
+  /** True when the backfill could not reach the curve's launch block. */
+  const [historyTruncated, setHistoryTruncated] = useState(false);
 
   // Block number we've already scanned through, so polling only ever asks
   // for the delta rather than re-reading the whole history each tick.
@@ -375,7 +377,13 @@ export function useCurveTrades(
         }
 
         const head = await client.getBlockNumber();
-        const raws = await readRangeChunked(startBlock, head);
+        // Bound the scan. Unbounded, "since launch" on a ~10-blocks-per-second
+        // chain meant tens of thousands of 10-block windows and a 429 storm
+        // that returned no history at all. A bounded scan returns recent
+        // history reliably; see MAX_SCAN_WINDOWS for the full reasoning.
+        const { fromBlock: scanFrom, truncated } = clampScanRange(startBlock, head);
+        if (!cancelled) setHistoryTruncated(truncated);
+        const raws = await readRangeChunked(scanFrom, head);
         if (cancelled) return;
         cursorRef.current = head;
         await ingest(client, raws);
@@ -432,5 +440,5 @@ export function useCurveTrades(
     timestampCacheRef.current = new Map();
   }, [curveAddress]);
 
-  return { trades, isLoading, error, poolAddress };
+  return { trades, isLoading, error, poolAddress, historyTruncated };
 }

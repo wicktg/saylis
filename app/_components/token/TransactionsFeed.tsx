@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { formatWeiAsUsdPrice, truncateAddress } from "@/app/_lib/format";
 import WalletAvatar from "@/app/_components/WalletAvatar";
 import type { Trade } from "@/app/_lib/useCurveTrades";
+import AsciiSpinner from "@/app/_components/AsciiSpinner";
 
 const ONE_TOKEN = 10n ** 18n;
 
@@ -131,7 +132,7 @@ export default function TransactionsFeed({
           </table>
         ) : isLoading ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-[rgba(207,56,221,0.3)] border-t-[#cf38dd] spinner-circle animate-spin" />
+            <AsciiSpinner className="text-base text-[#cf38dd]" />
           </div>
         ) : error ? (
           <div className="flex-1 flex items-center justify-center text-[11px] text-white/50 text-center px-4">

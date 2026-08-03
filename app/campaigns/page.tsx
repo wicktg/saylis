@@ -10,6 +10,7 @@ import PublicCampaignCard, {
 import TalkToTeamModal from "@/app/_components/campaigns/TalkToTeamModal";
 import { useMyCampaigns, type CampaignState } from "@/app/_lib/useMyCampaigns";
 import Icon from "@/app/_components/Icon";
+import AsciiSpinner from "@/app/_components/AsciiSpinner";
 
 /** Once a campaign reaches one of these, it's public — everyone sees it in
  *  the grid below, not just its owner. */
@@ -99,7 +100,7 @@ export default function CampaignsPage() {
           <div className="p-6">
             {loading ? (
               <div className="flex items-center justify-center py-16">
-                <div className="w-8 h-8 border-2 border-[rgba(207,56,221,0.3)] border-t-[#cf38dd] spinner-circle animate-spin" />
+                <AsciiSpinner className="text-xl text-[#cf38dd]" />
               </div>
             ) : loadError ? (
               <EmptyState
