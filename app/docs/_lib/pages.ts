@@ -21,7 +21,7 @@ When a token raises enough real ETH, it **graduates**: its liquidity moves perma
 
 This section of the docs explains what you're actually looking at as a trader: how price is set, what protections exist against sniping and whale dumps, and what graduation actually means for the token you're holding.
 
-> [!note] Every contract referenced in these docs is linked with its real deployed address on Arbitrum Sepolia; see **Reference -> Contract Addresses**. Nothing here is a claim you have to take on faith.
+> [!note] Every contract referenced in these docs is linked with its real deployed address on Robinhood Chain; see **Reference -> Contract Addresses**. Nothing here is a claim you have to take on faith.
 `,
 
   "bonding-curve": `
@@ -533,7 +533,7 @@ These are the protocol-wide singleton contracts; deployed once, shared by every 
 | **InfoFiCampaign** | Protocol-wide singleton holding every launch's InfoFi campaign pool, gating eligibility, and settling payouts against published proofs. |
 | **ReferralVault** | Tracks referral relationships and holds every referrer's unified, lifetime pull-payment balance. |
 
-> [!note] This is a testnet deployment on **Arbitrum Sepolia**. Exact addresses are shown in-app wherever a contract is referenced; every token page links its own curve and token contract directly to the block explorer, and the connect-wallet flow enforces the correct network automatically.
+> [!note] This is a **mainnet** deployment on **Robinhood Chain** (an Arbitrum Orbit L2, chain id **4663**). Trades settle in real ETH and real funds are at risk. Exact addresses are shown in-app wherever a contract is referenced; every token page links its own curve and token contract directly to the block explorer, and the connect-wallet flow enforces the correct network automatically.
 
 ## Reading the source yourself
 

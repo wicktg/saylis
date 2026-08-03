@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { formatWeiAsUsdPrice, truncateAddress } from "@/app/_lib/format";
-import WalletAvatar from "@/app/_components/WalletAvatar";
 import type { Trade } from "@/app/_lib/useCurveTrades";
 import AsciiSpinner from "@/app/_components/AsciiSpinner";
 
@@ -121,7 +120,6 @@ export default function TransactionsFeed({
                     </td>
                     <td className="px-4 py-1.5 font-mono text-white/40">
                       <div className="flex items-center justify-end gap-1.5">
-                        <WalletAvatar address={trade.wallet} size={16} />
                         {truncateAddress(trade.wallet)}
                       </div>
                     </td>

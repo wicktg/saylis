@@ -405,3 +405,24 @@ select,
   content: "> ";
   color: var(--accent);
 }
+
+/*
+ * Strip the native spinner from number inputs.
+ *
+ * The Swap panel's amount field is `type="number"` for the numeric keypad
+ * and decimal input mode it brings on mobile, but the up/down stepper
+ * arrows browsers attach on hover are a native widget: they do not follow
+ * this UI's colours, they have no ASCII equivalent, and nudging a trade
+ * size by one whole unit at a time is not a useful gesture anyway. The
+ * value is still typed or set by the preset buttons.
+ */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

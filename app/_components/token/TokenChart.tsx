@@ -68,25 +68,17 @@ export default function TokenChart({
             },
           },
           tooltip: {
-            // The "time / open / high / low / close" legend across the top
-            // of the chart. klinecharts defaults it to its own font stack,
-            // which reads as a different typeface to the rest of the app —
-            // pin it to the page font and bold it.
+            // The "time / open / high / low / close" legend klinecharts
+            // paints across the top of the chart is switched off entirely:
+            // an empty `custom` list leaves nothing to render. The same
+            // numbers are already on the axes and in the crosshair, so the
+            // legend was duplicated text sitting over the candles.
+            custom: [],
             text: {
               color: "rgba(255,255,255,0.85)",
               size: 11,
               family: UI_FONT,
-              weight: "bold",
             },
-            // Drop the trailing "volume" entry klinecharts includes by
-            // default — this app doesn't show volume on the chart itself.
-            custom: [
-              { title: "time", value: "{time}" },
-              { title: "open", value: "{open}" },
-              { title: "high", value: "{high}" },
-              { title: "low", value: "{low}" },
-              { title: "close", value: "{close}" },
-            ],
           },
         },
         xAxis: {

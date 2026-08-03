@@ -29,7 +29,7 @@ import {
 const ONE_E18 = 10n ** 18n;
 
 /**
- * Arbitrum Sepolia's base fee can move between the moment a wallet
+ * Robinhood Chain's base fee can move between the moment a wallet
  * estimates gas and the moment the signed tx actually lands, and some
  * wallets cache that estimate for a beat — enough to trip
  * "max fee per gas less than block base fee" if we just let the wallet's
@@ -50,13 +50,12 @@ function isRateLimitError(err: unknown): boolean {
 }
 
 /**
- * The public Arbitrum Sepolia RPC (sepolia-rollup.arbitrum.io/rpc) is
- * shared and will throttle bursts of requests — two deploy transactions
- * back-to-back is enough to occasionally trip it. Retry with exponential
- * backoff ONLY for rate-limit errors; anything else (a revert, a rejected
- * signature, insufficient funds) fails immediately since retrying won't
- * help. For heavier usage, point NEXT_PUBLIC_ROBINHOOD_RPC_URL at a
- * dedicated RPC (Alchemy/Infura/etc.) instead of the shared public one.
+ * The RPC will throttle bursts of requests — two deploy transactions
+ * back-to-back is enough to occasionally trip it, and the configured
+ * Alchemy free tier rate-limits aggressively (see chunkedLogs.ts). Retry
+ * with exponential backoff ONLY for rate-limit errors; anything else (a
+ * revert, a rejected signature, insufficient funds) fails immediately
+ * since retrying won't help.
  */
 async function withRateLimitRetry<T>(fn: () => Promise<T>, maxAttempts = 4): Promise<T> {
   let lastError: unknown;

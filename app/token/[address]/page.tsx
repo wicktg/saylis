@@ -82,7 +82,6 @@ export default function TokenDetailPage() {
     trades,
     isLoading: tradesLoading,
     error: tradesError,
-    historyTruncated,
   } = useCurveTrades(curveAddress, tokenAddress);
 
   const { data: stats } = useReadContracts({
@@ -380,7 +379,7 @@ export default function TokenDetailPage() {
 
           <div className="ml-auto flex items-center gap-5 shrink-0">
             <Stat
-              label="Price"
+              label="price"
               // `livePriceWei`, never the raw `priceWei` from the curve.
               // Market Cap below is `livePriceWei * totalSupply`, so reading
               // the curve here put two different prices side by side on the
@@ -390,14 +389,14 @@ export default function TokenDetailPage() {
               value={livePriceWei !== undefined ? formatWeiAsUsdPrice(livePriceWei, ethUsd) : "..."}
             />
             <Stat
-              label="Market Cap"
+              label="mcap"
               value={marketCapWei !== undefined ? formatUsdCompact(marketCapWei, ethUsd) : "..."}
             />
             <Stat
-              label="Volume"
+              label="vol"
               value={volumeWei !== undefined ? formatUsdCompact(totalVolumeWei, ethUsd) : "..."}
             />
-            <Stat label="Bonding" value={`${progressPct.toFixed(1)}%`} />
+            <Stat label="bonding" value={`${progressPct.toFixed(1)}%`} />
           </div>
         </div>
 
@@ -417,19 +416,6 @@ export default function TokenDetailPage() {
             </button>
           ))}
 
-          <span className="ml-auto text-[10px] text-white/30 pr-2">
-            {candles.length} candles - {trades.length} trades
-            {/* Say so when the backfill was capped, rather than letting a
-                short chart read as "this token barely traded". */}
-            {historyTruncated && (
-              <span
-                className="text-[var(--accent)] ml-1"
-                title="The configured RPC caps log queries at a 10-block range, so only recent history could be loaded."
-              >
-                [recent only]
-              </span>
-            )}
-          </span>
         </div>
 
         {/* ---- Chart + left drawing toolbar ---- */}
@@ -491,9 +477,9 @@ export default function TokenDetailPage() {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col">
-      <span className="text-[9px] uppercase tracking-wide text-white/30">{label}</span>
-      <span className="text-[11px] font-bold font-mono">{value}</span>
+    <div className="ascii flex flex-col leading-tight">
+      <span className="ascii-label text-[9px]">{label}</span>
+      <span className="ascii-value text-[11px]">{value}</span>
     </div>
   );
 }
