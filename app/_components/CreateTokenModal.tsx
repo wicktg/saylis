@@ -20,6 +20,7 @@ import type { Address } from "viem";
 import Icon from "@/app/_components/Icon";
 import AsciiSlider from "@/app/_components/AsciiSlider";
 import AsciiSpinner from "@/app/_components/AsciiSpinner";
+import { useIsMobile } from "@/app/_lib/useIsMobile";
 
 const DESCRIPTION_LIMIT = 280;
 // Mirrors BondingCurve's MAX_SELL_TAX_BPS (300 = 3%) in the slider's own
@@ -50,6 +51,7 @@ export default function CreateTokenModal({
   const [telegram, setTelegram] = useState("");
   const [website, setWebsite] = useState("");
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const isMobile = useIsMobile();
   const [whaleSellTax, setWhaleSellTax] = useState(1);
   const [feeRecipient, setFeeRecipient] = useState("");
   const [feeRecipientTouched, setFeeRecipientTouched] = useState(false);
@@ -299,8 +301,16 @@ export default function CreateTokenModal({
                   onClick={() => setAdvancedOpen((prev) => !prev)}
                   aria-label="Toggle advanced options"
                   aria-expanded={advancedOpen}
-                  className="text-white/40 hover:text-white transition-colors"
+                  className="flex items-center gap-1 text-white/40 hover:text-white transition-colors"
                 >
+                  {/* Desktop leaves this a bare chevron, as it was — the
+                      panel it opens flies out in plain sight beside the
+                      modal. On mobile the panel expands further down a
+                      scrolling sheet, so the control needs to say what it
+                      does or it reads as decoration. */}
+                  {isMobile && (
+                    <span className="text-[10px] uppercase tracking-wider">Advanced</span>
+                  )}
                   <Icon
                     icon="pixelarticons:chevron-right"
                     className={`text-lg transition-transform duration-200 ${
@@ -391,6 +401,34 @@ export default function CreateTokenModal({
                 </div>
               </div>
 
+              {/* Mobile: the desktop popover is positioned `left-full`,
+                  which on a phone is off the right edge of a sheet that
+                  already fills the viewport — the settings were rendered
+                  but unreachable. Here they expand inline in the form's own
+                  flow instead (the sheet scrolls), so the same three
+                  controls are actually usable. Mounted only when open, so
+                  nothing invisible sits in the tab order. */}
+              {isMobile && advancedOpen && (
+                <div className="border-t border-white/10 pt-4">
+                  <p className="text-[10px] uppercase tracking-wider text-white/40 mb-3">
+                    Advanced Settings
+                  </p>
+                  <AdvancedFields
+                    disabled={false}
+                    whaleSellTax={whaleSellTax}
+                    onWhaleSellTaxChange={setWhaleSellTax}
+                    feeRecipient={feeRecipient}
+                    onFeeRecipientChange={setFeeRecipient}
+                    feeRecipientTouched={feeRecipientTouched}
+                    onFeeRecipientBlur={() => setFeeRecipientTouched(true)}
+                    feeRecipientError={feeRecipientError}
+                    infoFiAllocation={infoFiAllocation}
+                    onInfoFiAllocationChange={setInfoFiAllocation}
+                    infoFiTokens={infoFiTokens}
+                  />
+                </div>
+              )}
+
               {!account && (
                 <p className="text-[11px] text-white/40 leading-snug">
                   Connect a wallet to launch a token.
@@ -411,87 +449,34 @@ export default function CreateTokenModal({
               </button>
             </form>
 
-            <div
-              aria-hidden={!advancedOpen}
-              className={`surface-circuit absolute top-0 left-full ml-3 w-60 bg-[var(--bg-main)] border border-white/20 rounded-2xl p-5 origin-left transition-all duration-200 ease-out ${
-                advancedOpen
-                  ? "opacity-100 scale-100"
-                  : "opacity-0 scale-90 pointer-events-none"
-              }`}
-            >
-              <div className="mb-5">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium text-white/70">Whale Sell Tax</span>
-                  <span className="text-xs font-bold text-[#cf38dd]">
-                    {whaleSellTax.toFixed(1)}%
-                  </span>
-                </div>
-                <AsciiSlider
-                  min={0}
-                  max={WHALE_TAX_MAX}
-                  step={0.1}
-                  value={whaleSellTax}
-                  onChange={setWhaleSellTax}
+            {/* Desktop: the settings live in a popover flown out to the
+                right of the modal. Untouched — same absolute positioning,
+                same fly-out transition, same always-mounted/opacity-toggled
+                behaviour as before. */}
+            {!isMobile && (
+              <div
+                aria-hidden={!advancedOpen}
+                className={`surface-circuit absolute top-0 left-full ml-3 w-60 bg-[var(--bg-main)] border border-white/20 rounded-2xl p-5 origin-left transition-all duration-200 ease-out ${
+                  advancedOpen
+                    ? "opacity-100 scale-100"
+                    : "opacity-0 scale-90 pointer-events-none"
+                }`}
+              >
+                <AdvancedFields
                   disabled={!advancedOpen}
-                  ariaLabel="Whale sell tax percentage"
+                  whaleSellTax={whaleSellTax}
+                  onWhaleSellTaxChange={setWhaleSellTax}
+                  feeRecipient={feeRecipient}
+                  onFeeRecipientChange={setFeeRecipient}
+                  feeRecipientTouched={feeRecipientTouched}
+                  onFeeRecipientBlur={() => setFeeRecipientTouched(true)}
+                  feeRecipientError={feeRecipientError}
+                  infoFiAllocation={infoFiAllocation}
+                  onInfoFiAllocationChange={setInfoFiAllocation}
+                  infoFiTokens={infoFiTokens}
                 />
               </div>
-
-              <div className="mb-5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-white/70">
-                    Redirect Creator Fees
-                  </span>
-                  {feeRecipientTouched && feeRecipientError && (
-                    <span className="text-[9px] font-bold text-red-400">Invalid</span>
-                  )}
-                </div>
-                <input
-                  type="text"
-                  spellCheck={false}
-                  autoComplete="off"
-                  placeholder="0x... (defaults to you)"
-                  value={feeRecipient}
-                  onChange={(event) => setFeeRecipient(event.target.value)}
-                  onBlur={() => setFeeRecipientTouched(true)}
-                  disabled={!advancedOpen}
-                  aria-invalid={feeRecipientTouched && Boolean(feeRecipientError)}
-                  className={`w-full bg-white/5 border rounded-lg px-2.5 py-1.5 text-[11px] font-mono focus:outline-none focus:border-white/30 transition-colors placeholder:font-sans placeholder:text-white/25 ${
-                    feeRecipientTouched && feeRecipientError
-                      ? "border-red-400/60"
-                      : "border-white/15"
-                  }`}
-                />
-                <p className="text-[10px] text-white/30 leading-snug">
-                  {feeRecipientTouched && feeRecipientError
-                    ? feeRecipientError
-                    : "Where trading fees are paid. Permanent, cannot be changed later."}
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium text-white/70">InfoFi Allocation</span>
-                  <span className="text-xs font-bold text-[#cf38dd]">
-                    {infoFiAllocation.toFixed(1)}%
-                  </span>
-                </div>
-                <AsciiSlider
-                  min={0}
-                  max={INFOFI_MAX_PCT}
-                  step={0.1}
-                  value={infoFiAllocation}
-                  onChange={setInfoFiAllocation}
-                  disabled={!advancedOpen}
-                  ariaLabel="InfoFi allocation percentage"
-                />
-                <p className="text-[10px] text-white/30 leading-snug">
-                  {infoFiAllocation > 0
-                    ? `${infoFiTokens} tokens locked at launch for the campaign pool. Never sold on the curve; unclaimed tokens burn.`
-                    : "Reserve supply to reward people who post about your token."}
-                </p>
-              </div>
-            </div>
+            )}
           </>
         )}
 
@@ -633,5 +618,116 @@ function LaunchSuccess({
         Done
       </button>
     </div>
+  );
+}
+
+/**
+ * The three optional launch parameters behind the Advanced toggle: whale
+ * sell tax, fee redirection, and the InfoFi allocation.
+ *
+ * These are extracted into one component precisely because they render in
+ * two different containers — a fly-out popover on desktop, an inline
+ * expanding section on mobile. Each of the three writes a value into the
+ * deploy transaction, so a second copy of this markup would be a second
+ * place for a cap, a validation rule, or a helper string to drift out of
+ * sync with the contract. The container differs; the controls cannot.
+ *
+ * Stateless by design — every value and setter belongs to CreateTokenModal,
+ * so which layout is on screen has no bearing on what gets deployed.
+ */
+function AdvancedFields({
+  disabled,
+  whaleSellTax,
+  onWhaleSellTaxChange,
+  feeRecipient,
+  onFeeRecipientChange,
+  feeRecipientTouched,
+  onFeeRecipientBlur,
+  feeRecipientError,
+  infoFiAllocation,
+  onInfoFiAllocationChange,
+  infoFiTokens,
+}: {
+  /** Desktop keeps the panel mounted while closed and relies on this to
+   *  hold it out of the tab order; mobile only mounts it when open. */
+  disabled: boolean;
+  whaleSellTax: number;
+  onWhaleSellTaxChange: (value: number) => void;
+  feeRecipient: string;
+  onFeeRecipientChange: (value: string) => void;
+  feeRecipientTouched: boolean;
+  onFeeRecipientBlur: () => void;
+  feeRecipientError: string | null;
+  infoFiAllocation: number;
+  onInfoFiAllocationChange: (value: number) => void;
+  infoFiTokens: string;
+}) {
+  return (
+    <>
+      <div className="mb-5">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-medium text-white/70">Whale Sell Tax</span>
+          <span className="text-xs font-bold text-[#cf38dd]">{whaleSellTax.toFixed(1)}%</span>
+        </div>
+        <AsciiSlider
+          min={0}
+          max={WHALE_TAX_MAX}
+          step={0.1}
+          value={whaleSellTax}
+          onChange={onWhaleSellTaxChange}
+          disabled={disabled}
+          ariaLabel="Whale sell tax percentage"
+        />
+      </div>
+
+      <div className="mb-5 space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-white/70">Redirect Creator Fees</span>
+          {feeRecipientTouched && feeRecipientError && (
+            <span className="text-[9px] font-bold text-red-400">Invalid</span>
+          )}
+        </div>
+        <input
+          type="text"
+          spellCheck={false}
+          autoComplete="off"
+          placeholder="0x... (defaults to you)"
+          value={feeRecipient}
+          onChange={(event) => onFeeRecipientChange(event.target.value)}
+          onBlur={onFeeRecipientBlur}
+          disabled={disabled}
+          aria-invalid={feeRecipientTouched && Boolean(feeRecipientError)}
+          className={`w-full bg-white/5 border rounded-lg px-2.5 py-1.5 text-[11px] font-mono focus:outline-none focus:border-white/30 transition-colors placeholder:font-sans placeholder:text-white/25 ${
+            feeRecipientTouched && feeRecipientError ? "border-red-400/60" : "border-white/15"
+          }`}
+        />
+        <p className="text-[10px] text-white/30 leading-snug">
+          {feeRecipientTouched && feeRecipientError
+            ? feeRecipientError
+            : "Where trading fees are paid. Permanent, cannot be changed later."}
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-medium text-white/70">InfoFi Allocation</span>
+          <span className="text-xs font-bold text-[#cf38dd]">{infoFiAllocation.toFixed(1)}%</span>
+        </div>
+        <AsciiSlider
+          min={0}
+          max={INFOFI_MAX_PCT}
+          step={0.1}
+          value={infoFiAllocation}
+          onChange={onInfoFiAllocationChange}
+          disabled={disabled}
+          ariaLabel="InfoFi allocation percentage"
+        />
+        <p className="text-[10px] text-white/30 leading-snug">
+          {infoFiAllocation > 0
+            ? `${infoFiTokens} tokens locked at launch for the campaign pool. Never sold on the curve; unclaimed tokens burn.`
+            : "Reserve supply to reward people who post about your token."}
+        </p>
+      </div>
+    </>
   );
 }

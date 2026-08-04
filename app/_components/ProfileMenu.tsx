@@ -1,22 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import {
-  useAccount,
-  useBalance,
-  useDisconnect,
-  useReadContract,
-  useWaitForTransactionReceipt,
-  useWatchContractEvent,
-  useWriteContract,
-} from "wagmi";
-import { BONDING_CURVE_ABI } from "@/app/_lib/contracts/BondingCurve";
-import {
-  getLatestLaunchedToken,
-  LAUNCHED_TOKEN_EVENT,
-  type LaunchedToken,
-} from "@/app/_lib/launchedTokens";
+import { useRef, useState } from "react";
+import { useAccount, useBalance, useDisconnect } from "wagmi";
 import { truncateAddress, formatEthShort, formatWeiAsUsdPrice } from "@/app/_lib/format";
+import { useCreatorFees } from "@/app/_lib/useCreatorFees";
 import { useEthUsdPrice } from "@/app/_lib/useEthUsdPrice";
 import { useOutsideClick } from "@/app/_lib/useOutsideClick";
 import WalletAvatar from "@/app/_components/WalletAvatar";
@@ -51,83 +38,13 @@ export default function ProfileMenu() {
   } = useNotifications(address);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
-  const [launchedToken, setLaunchedToken] = useState<LaunchedToken | null>(null);
-  useEffect(() => {
-    setLaunchedToken(getLatestLaunchedToken(address));
-  }, [address]);
-
-  // A launch recorded elsewhere in the app (the Create Token modal) during
-  // this same session won't otherwise be picked up until `address`
-  // changes — listen for it directly so the fee row appears immediately.
-  useEffect(() => {
-    function handleLaunched() {
-      setLaunchedToken(getLatestLaunchedToken(address));
-    }
-    window.addEventListener(LAUNCHED_TOKEN_EVENT, handleLaunched);
-    return () => window.removeEventListener(LAUNCHED_TOKEN_EVENT, handleLaunched);
-  }, [address]);
-
-  const curveAddress = launchedToken?.curveAddress;
-
   const {
-    data: creatorFeesOwed,
-    refetch: refetchCreatorFeesOwed,
-  } = useReadContract({
-    address: curveAddress,
-    abi: BONDING_CURVE_ABI,
-    functionName: "creatorFeesOwed",
-    query: { enabled: Boolean(curveAddress) },
-  });
-
-  // Real-time: any trade (Buy/Sell) or the one-time graduation bonus can
-  // move creatorFeesOwed, so refetch on whichever event lands. wagmi polls
-  // via eth_getLogs under the hood against the public HTTP RPC.
-  useWatchContractEvent({
-    address: curveAddress,
-    abi: BONDING_CURVE_ABI,
-    eventName: "FeeCollected",
-    enabled: Boolean(curveAddress),
-    onLogs: () => refetchCreatorFeesOwed(),
-  });
-  useWatchContractEvent({
-    address: curveAddress,
-    abi: BONDING_CURVE_ABI,
-    eventName: "Graduated",
-    enabled: Boolean(curveAddress),
-    onLogs: () => refetchCreatorFeesOwed(),
-  });
-
-  const { writeContractAsync, data: claimTxHash, isPending: isClaimPending } = useWriteContract();
-  const { isLoading: isClaimConfirming, isSuccess: isClaimSuccess } =
-    useWaitForTransactionReceipt({ hash: claimTxHash });
-
-  const [justClaimed, setJustClaimed] = useState(false);
-  useEffect(() => {
-    if (isClaimSuccess) {
-      setJustClaimed(true);
-      refetchCreatorFeesOwed();
-      const timeout = setTimeout(() => setJustClaimed(false), 2500);
-      return () => clearTimeout(timeout);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isClaimSuccess]);
-
-  async function handleClaim() {
-    if (!curveAddress) return;
-    try {
-      await writeContractAsync({
-        address: curveAddress,
-        abi: BONDING_CURVE_ABI,
-        functionName: "withdrawCreatorFees",
-      });
-    } catch {
-      // User rejected or the tx reverted (e.g. nothing owed yet) — the
-      // button just returns to its normal state, no owed-amount change.
-    }
-  }
-
-  const isClaimBusy = isClaimPending || isClaimConfirming;
-  const hasClaimable = Boolean(curveAddress && creatorFeesOwed && creatorFeesOwed > 0n);
+    creatorFeesOwed,
+    isClaimBusy,
+    hasClaimable,
+    justClaimed,
+    claim: handleClaim,
+  } = useCreatorFees(address);
 
   if (!address) return null;
 

@@ -375,11 +375,40 @@ export default function TokenDetailPage() {
 
   const imageUrl = resolveIpfsUrl(token.image_url);
 
+  /**
+   * The four header figures, declared once and rendered into whichever of
+   * the two layouts below is active. Deliberately a single array rather
+   * than two copies of the same JSX: these are live financial numbers, and
+   * two hand-maintained copies is exactly how a mobile "vol" quietly ends
+   * up reading a different source than the desktop one.
+   */
+  const headerStats: { label: string; value: string }[] = [
+    {
+      label: "price",
+      // `livePriceWei`, never the raw `priceWei` from the curve.
+      // Market Cap below is `livePriceWei * totalSupply`, so reading
+      // the curve here put two different prices side by side on the
+      // same panel — post-migration the curve's `getPrice()` is
+      // frozen, so Price and Market Cap disagreed by whatever the
+      // token had moved since it graduated.
+      value: livePriceWei !== undefined ? formatWeiAsUsdPrice(livePriceWei, ethUsd) : "...",
+    },
+    {
+      label: "mcap",
+      value: marketCapWei !== undefined ? formatUsdCompact(marketCapWei, ethUsd) : "...",
+    },
+    {
+      label: "vol",
+      value: volumeWei !== undefined ? formatUsdCompact(totalVolumeWei, ethUsd) : "...",
+    },
+    { label: "bonding", value: `${progressPct.toFixed(1)}%` },
+  ];
+
   return (
     <AppShell>
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* ---- Token header ---- */}
-        <div className="flex items-center gap-3 px-4 py-2.5 border-b border-white/10 shrink-0">
+        <div className="flex items-center gap-3 px-3 md:px-4 py-2.5 border-b border-white/10 shrink-0">
           <Link
             href="/"
             aria-label="Back to Explore"
@@ -428,28 +457,29 @@ export default function TokenDetailPage() {
             <CopyAddress address={token.contract_address} />
           </div>
 
-          <div className="ml-auto flex items-center gap-5 shrink-0">
-            <Stat
-              label="price"
-              // `livePriceWei`, never the raw `priceWei` from the curve.
-              // Market Cap below is `livePriceWei * totalSupply`, so reading
-              // the curve here put two different prices side by side on the
-              // same panel — post-migration the curve's `getPrice()` is
-              // frozen, so Price and Market Cap disagreed by whatever the
-              // token had moved since it graduated.
-              value={livePriceWei !== undefined ? formatWeiAsUsdPrice(livePriceWei, ethUsd) : "..."}
-            />
-            <Stat
-              label="mcap"
-              value={marketCapWei !== undefined ? formatUsdCompact(marketCapWei, ethUsd) : "..."}
-            />
-            <Stat
-              label="vol"
-              value={volumeWei !== undefined ? formatUsdCompact(totalVolumeWei, ethUsd) : "..."}
-            />
-            <Stat label="bonding" value={`${progressPct.toFixed(1)}%`} />
-          </div>
+          {/* Desktop keeps all four figures on the identity row — there is
+              room for them there and nothing below moves. */}
+          {!isMobile && (
+            <div className="ml-auto flex items-center gap-5 shrink-0">
+              {headerStats.map((stat) => (
+                <Stat key={stat.label} label={stat.label} value={stat.value} />
+              ))}
+            </div>
+          )}
         </div>
+
+        {/* On a phone the same four figures need ~450px of the ~375px the
+            viewport has, which is what was driving them into the ticker and
+            contract address. They get their own full-width row instead, as
+            an even 4-up grid so the columns line up regardless of how wide
+            any individual value renders. */}
+        {isMobile && (
+          <div className="grid grid-cols-4 gap-2 px-3 py-1.5 border-b border-white/10 shrink-0">
+            {headerStats.map((stat) => (
+              <Stat key={stat.label} label={stat.label} value={stat.value} compact />
+            ))}
+          </div>
+        )}
 
         {/* ---- Chart top bar: timeframes + price/mcap ---- */}
         <div className="flex items-center gap-1 px-2 py-1.5 border-b border-white/10 shrink-0 overflow-x-auto no-scrollbar">
@@ -537,8 +567,13 @@ export default function TokenDetailPage() {
           )}
         </div>
 
-        {/* ---- Live transactions ---- */}
-        <div className="h-[32%] md:h-[38%] shrink-0 flex flex-col min-h-0">
+        {/* ---- Live transactions ----
+            Mobile takes a slightly smaller share than it used to (32% ->
+            29%) purely to pay for the stats row added above it. The chart
+            is the thing a phone has least room for and most needs, so the
+            new row is funded out of the feed rather than out of the chart;
+            the feed scrolls, the chart does not. Desktop is untouched. */}
+        <div className="h-[29%] md:h-[38%] shrink-0 flex flex-col min-h-0">
           <TransactionsFeed
             trades={trades}
             isLoading={tradesLoading}
@@ -565,11 +600,34 @@ export default function TokenDetailPage() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+/**
+ * One labelled figure from the token header.
+ *
+ * `compact` is for the mobile grid, where each column is a hard quarter of
+ * the viewport: it lets a long value ellipsize inside its column instead of
+ * widening it and pushing the other three out of alignment, and exposes the
+ * full untruncated figure on tap-and-hold via `title`. Desktop passes it
+ * nothing and renders exactly as before — the row there is `shrink-0`, so
+ * `min-w-0` never engages.
+ */
+function Stat({
+  label,
+  value,
+  compact = false,
+}: {
+  label: string;
+  value: string;
+  compact?: boolean;
+}) {
   return (
-    <div className="ascii flex flex-col leading-tight">
+    <div className="ascii flex flex-col leading-tight min-w-0">
       <span className="ascii-label text-[9px]">{label}</span>
-      <span className="ascii-value text-[11px]">{value}</span>
+      <span
+        className={`ascii-value text-[11px]${compact ? " truncate" : ""}`}
+        title={compact ? value : undefined}
+      >
+        {value}
+      </span>
     </div>
   );
 }

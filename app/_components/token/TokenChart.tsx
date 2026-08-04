@@ -11,8 +11,33 @@ const UP = "#2ebd85";
 const DOWN = "#e2444b";
 const GRID = "rgba(255,255,255,0.06)";
 const AXIS_TEXT = "rgba(255,255,255,0.5)";
-/** Matches the `body` font stack in globals.css. */
-const UI_FONT = "Satoshi, Inter, sans-serif";
+
+/** Last-resort stack if the webfont variable cannot be read. */
+const FALLBACK_FONT = 'ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace';
+
+/**
+ * The font klinecharts paints axis ticks, tooltips and crosshair labels in.
+ *
+ * This is resolved at runtime rather than hard-coded because the chart draws
+ * to a CANVAS, and a canvas `font` string cannot resolve `var(...)` — it
+ * needs a real family name. next/font generates a hashed family (see
+ * app/layout.tsx), so the only way to name it is to read the custom property
+ * back off the document.
+ *
+ * It used to read `"Satoshi, Inter, sans-serif"`, which was correct when the
+ * app used Satoshi — but the ASCII conversion deleted that webfont, so every
+ * axis label had been silently falling back to a PROPORTIONAL sans while the
+ * entire rest of the UI was monospace. That is also why chart digits drifted
+ * out of alignment with the header's tabular figures. Same result on both
+ * viewports; nothing here is viewport-dependent.
+ */
+function resolveChartFont(): string {
+  if (typeof window === "undefined") return FALLBACK_FONT;
+  const value = getComputedStyle(document.documentElement)
+    .getPropertyValue("--font-jetbrains-mono")
+    .trim();
+  return value ? `${value}, ${FALLBACK_FONT}` : FALLBACK_FONT;
+}
 
 /**
  * Candlestick chart backed by klinecharts. Every drawing tool is one of
@@ -42,6 +67,10 @@ export default function TokenChart({
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+
+    // Resolved here rather than at module scope: this runs in an effect, so
+    // the document exists and next/font's stylesheet has already been applied.
+    const UI_FONT = resolveChartFont();
 
     const chart = init(container, {
       styles: {
