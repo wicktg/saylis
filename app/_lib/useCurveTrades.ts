@@ -10,6 +10,7 @@ import {
 } from "@/app/_lib/contracts/config";
 import { BONDING_CURVE_ABI } from "@/app/_lib/contracts/BondingCurve";
 import { getLogsChunked, clampScanRange } from "@/app/_lib/chunkedLogs";
+import { supabase } from "@/app/_lib/supabase";
 
 /**
  * A single executed trade, reconstructed from on-chain logs. Every field is
@@ -141,6 +142,71 @@ async function fetchBlockTimestamps(
   return known;
 }
 
+/**
+ * One row of `public.chain_trades` — the read-only view over the Ponder
+ * indexer's table (see indexer/ and supabase/indexer_views.sql).
+ *
+ * Every wei-scale column arrives as a STRING, not a number. Postgres stores
+ * them as numeric(78,0) and PostgREST would serialize that as a bare JSON
+ * number, which `JSON.parse` rounds away above 2^53 — a real trade here has
+ * tokens_wei = 184781706545052039848055. The view casts them to text so
+ * `BigInt()` round-trips the exact value, matching what the log-decoding
+ * path below produces.
+ */
+type ChainTradeRow = {
+  id: string;
+  type: string;
+  venue: string;
+  wallet: string;
+  eth_wei: string;
+  tokens_wei: string;
+  price_wei: string;
+  spot_price_wei: string | null;
+  block_number: string;
+  timestamp: number;
+};
+
+function rowToTrade(row: ChainTradeRow): Trade {
+  return {
+    id: row.id,
+    type: row.type === "sell" ? "sell" : "buy",
+    wallet: row.wallet as Address,
+    ethWei: BigInt(row.eth_wei),
+    tokensWei: BigInt(row.tokens_wei),
+    priceWei: BigInt(row.price_wei),
+    spotPriceWei: row.spot_price_wei !== null ? BigInt(row.spot_price_wei) : undefined,
+    blockNumber: BigInt(row.block_number),
+    timestamp: row.timestamp,
+    venue: row.venue === "pool" ? "pool" : "curve",
+  };
+}
+
+/**
+ * Full trade history for one curve, straight out of the indexer.
+ *
+ * This is the whole point of indexer/: one HTTP request returns every trade
+ * a token has ever had, where the RPC path below needs thousands of
+ * 10-block windows to cover the same span and gives up partway (see
+ * `clampScanRange`). Returns null — not an empty array — when the indexer
+ * has nothing for this curve, so the caller can tell "indexed, no trades
+ * yet" apart from "not indexed" and fall back accordingly.
+ */
+async function fetchIndexedTrades(curveAddress: Address): Promise<Trade[] | null> {
+  // `ilike` rather than `eq`: Ponder writes addresses lowercased while
+  // viem/wagmi hand us EIP-55 checksummed ones, and an `eq` would silently
+  // match nothing.
+  const { data, error } = await supabase
+    .from("chain_trades")
+    .select(
+      "id,type,venue,wallet,eth_wei,tokens_wei,price_wei,spot_price_wei,block_number,timestamp"
+    )
+    .ilike("curve_address", curveAddress)
+    .order("block_number", { ascending: true });
+
+  if (error || !data || data.length === 0) return null;
+  return (data as ChainTradeRow[]).map(rowToTrade);
+}
+
 type RawTradeLog = {
   id: string;
   type: "buy" | "sell";
@@ -232,11 +298,15 @@ function toPoolTrade(log: Log, tokenIsToken0: boolean): RawTradeLog | null {
 /**
  * Full trade history for one token, live, across BOTH venues.
  *
- * Backfills every historical curve `Buy`/`Sell` and — once the token has
- * graduated — every Uniswap `Swap` on its pool, then polls for new logs
- * from the last-seen block onward. Trades are returned oldest-first.
+ * History comes from the Ponder indexer via `public.chain_trades` in a
+ * single Supabase request — the whole span, unclamped. New trades are then
+ * tailed directly from the chain every few seconds, so the feed stays live
+ * even when the indexer is lagging, undeployed, or has never seen this
+ * curve. If the indexer has no rows for a curve at all, the original
+ * chunked-`eth_getLogs` backfill runs instead, so behaviour is never worse
+ * than it was before the indexer existed. Trades are returned oldest-first.
  *
- * Reading both matters because the curve stops emitting entirely at
+ * Reading both venues matters because the curve stops emitting entirely at
  * migration; without the pool side the chart and feed would freeze at the
  * graduation block and show nothing ever again.
  */
@@ -361,6 +431,33 @@ export function useCurveTrades(
         pool = await resolvePool();
         if (!cancelled) setPoolAddress(pool);
 
+        const head = await client.getBlockNumber();
+
+        // PREFERRED PATH: the indexer already has the whole history.
+        //
+        // One request, no window clamp, no per-block timestamp fetches —
+        // rows arrive with their block timestamp and realized price already
+        // computed by indexer/src/index.ts using the identical formulas
+        // this file uses, so nothing downstream can tell the two apart.
+        const indexed = await fetchIndexedTrades(curveAddr);
+        if (cancelled) return;
+        if (indexed) {
+          for (const trade of indexed) seenIdsRef.current.add(trade.id);
+          setTrades(indexed);
+          setHistoryTruncated(false);
+          // Poll onward from head: the indexer covers everything up to now,
+          // and the interval below tails the rest straight from the chain,
+          // so a lagging or undeployed indexer can never stall live trades.
+          cursorRef.current = head;
+          return;
+        }
+
+        // FALLBACK: no indexed rows for this curve. Expected for a token
+        // launched after the indexer's address snapshot was taken (see
+        // indexer/README.md's known limitations) and for any environment
+        // where the indexer isn't running at all — so this keeps the exact
+        // pre-indexer behaviour rather than showing an empty feed.
+        //
         // Anchor on the curve's OWN launch block rather than 0 — the
         // difference between scanning a few thousand blocks and scanning
         // the chain's entire history in 10-block slices.
@@ -376,7 +473,6 @@ export function useCurveTrades(
           // full scan from genesis rather than failing outright.
         }
 
-        const head = await client.getBlockNumber();
         // Bound the scan. Unbounded, "since launch" on a ~10-blocks-per-second
         // chain meant tens of thousands of 10-block windows and a 429 storm
         // that returned no history at all. A bounded scan returns recent

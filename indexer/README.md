@@ -24,13 +24,47 @@ around it per request.
 cd indexer
 npm install
 cp .env.local.example .env.local   # fill in the real values, see below
-npm run dev
+npm run start
 ```
 
-`npm run dev` first regenerates `addresses.generated.json` from Supabase's
-`tokens` table, then starts Ponder against a local dev database. Ponder's
-own dashboard (usually `http://localhost:42069`) shows indexing progress
-and lets you query the tables directly while it backfills.
+`npm run start`/`npm run dev` first regenerates `addresses.generated.json`
+from Supabase's `tokens` table, then starts Ponder. Ponder's own dashboard
+(usually `http://localhost:42069`) shows indexing progress, and it serves
+`/health` and `/ready` for process supervision.
+
+**Prefer `npm run start` over `npm run dev` against a real Supabase
+project.** `ponder dev` defaults its database schema to `public` — the
+schema holding every production table this app has — and drops and
+recreates tables on each schema change. `ponder start` has no default and
+forces you to name a schema explicitly, which is why `DATABASE_SCHEMA` is
+set to `indexer` in `.env.local.example`.
+
+## Three things that must be in place, or nothing starts
+
+These are non-obvious and each one fails the build outright:
+
+1. **`DATABASE_SCHEMA` must be set.** `ponder start` refuses to build
+   without it. Keep it off `public` — see above.
+2. **`src/api/index.ts` must exist** and default-export a Hono app, even
+   if it registers no routes. Ponder validates this at build time. Note
+   that `/health` and `/ready` are reserved: defining either yourself
+   fails the build with "API route is reserved for internal use".
+3. **`PONDER_RPC_URL` should be the public endpoint**, not Alchemy —
+   see below.
+
+## Which RPC to point this at
+
+Use `https://rpc.mainnet.chain.robinhood.com`, not the Alchemy URL the
+frontend proxy uses.
+
+Alchemy's free tier caps `eth_getLogs` at a **10-block range** — the very
+limit that forced `app/_lib/chunkedLogs.ts` to exist. The backfill here
+spans millions of blocks, so that cap would turn a single sync into
+hundreds of thousands of sequential requests. The public node has no such
+cap: it serves the entire range from `START_BLOCK` to head in one request.
+Ponder logs a warning that a public RPC may be rate limited; that warning
+is expected and, for this workload, not a problem — a curve emits a
+handful of events, not a firehose.
 
 ## What each env var is
 
@@ -41,6 +75,18 @@ URI in the Supabase dashboard), not the `NEXT_PUBLIC_SUPABASE_URL` +
 anon-key pair the Next.js app uses elsewhere — those go through
 PostgREST, and Ponder needs a real `postgres://` connection with write
 access.
+
+## How the frontend actually reads this
+
+Ponder writes into the `indexer` schema, which Supabase's PostgREST does
+not expose. `supabase/indexer_views.sql` creates read-only views
+`public.chain_trades` and `public.curve_status` over those tables, granted
+`select` to `anon`/`authenticated` and nothing else. That keeps the
+frontend query a plain `supabase.from("chain_trades")` with no `.schema()`
+qualifier, while Ponder never touches the schema holding live app data.
+
+Run that SQL **after** the indexer has started once, since the underlying
+tables have to exist first.
 
 ## Deploying (Railway)
 
@@ -55,17 +101,38 @@ variable first (`railway variables set KEY=value`, or via the dashboard).
 Railway keeps this running continuously, which is required — Ponder is
 not a serverless function, it holds an open connection to the chain.
 
-## What the frontend needs to change
+## What the frontend changed
 
-Nothing about the table SHAPE — `ponder.schema.ts`'s `chain_trades` table
-mirrors `app/_lib/useCurveTrades.ts`'s existing `Trade` type field-for-field
-on purpose. The actual swap is in `useCurveTrades.ts` and
-`useTokenMarketData.ts`: replace the `eth_getLogs`/`chunkedLogs.ts` calls
-with a `supabase.from("chain_trades").select(...)` query, keeping each
-hook's external return shape (`{ trades, isLoading, error, poolAddress }`)
-identical so nothing else in the app has to change. **This swap has not
-been made yet** — this indexer exists and can be run, but the frontend is
-still reading from RPC until that follow-up lands.
+`app/_lib/useCurveTrades.ts` now reads history from
+`supabase.from("chain_trades")` in a single request instead of thousands of
+chunked `eth_getLogs` windows, and the `clampScanRange` truncation no
+longer applies on that path — full history comes back regardless of age.
+Its return shape (`{ trades, isLoading, error, poolAddress,
+historyTruncated }`) is unchanged, so nothing else in the app moved.
+
+Two deliberate details:
+
+- **New trades are still tailed from the chain**, on the same 4s poll as
+  before, starting from the head block at load. History from the indexer,
+  live from RPC. That way a lagging, restarting, or undeployed indexer can
+  never freeze the feed.
+- **A curve with no indexed rows falls back to the old chunked backfill.**
+  That is the expected case for a token launched after the address snapshot
+  (see limitation 1 below), so it must not render an empty feed.
+
+`useTokenMarketData.ts` still reads contract state directly via multicall,
+which is correct — it reads current on-chain values, not historical logs,
+so there is nothing for the indexer to serve it.
+
+## Numeric precision — do not remove the casts in indexer_views.sql
+
+Ponder stores wei columns as `numeric(78,0)`, and PostgREST serializes
+`numeric` as an **unquoted JSON number**. A real `tokens_wei` here is
+`184781706545052039848055`, far past `Number.MAX_SAFE_INTEGER`, so
+`JSON.parse` rounds it to `1.8478170654505204e+23` in the browser before
+any application code runs. `supabase/indexer_views.sql` casts those columns
+to `text` in the view so `BigInt()` round-trips them exactly. Dropping
+those casts silently corrupts every amount on the chart and the feed.
 
 ## Known limitations — read before relying on this
 
@@ -90,9 +157,14 @@ still reading from RPC until that follow-up lands.
    the same rigor applied to every contract change this session — this
    scaffold has not had that pass yet.
 
-3. **Not yet run end-to-end.** This was built and reasoned through against
-   Ponder's current documented config/schema/indexing-function APIs, but
-   has not been executed against a real Supabase Postgres connection in
-   this environment (that needs real credentials this session was not
-   given, deliberately). Run `npm run dev` locally and watch Ponder's own
-   dashboard before deploying to Railway.
+3. **Backfill takes about 90 minutes from a cold start.** The first
+   `START_BLOCK`-to-head walk spans ~2.1M blocks and took 1h23m against the
+   public RPC. It is a one-time cost — `ponder_sync` caches every interval,
+   so a restart resumes rather than rescanning — but a fresh environment
+   serves no history until it finishes. The frontend degrades gracefully
+   meanwhile (see "What the frontend changed"), falling back to RPC.
+
+4. **The public RPC is not archival.** `eth_getLogs` works over the full
+   range, which is all the indexer needs, but `eth_getCode` and other
+   historical *state* reads fail with `metadata is not found` beyond a
+   recent window. Anything needing old state needs a different endpoint.

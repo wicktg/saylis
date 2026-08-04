@@ -1,4 +1,8 @@
 {
-  "curveAddresses": [],
-  "tokenByCurve": {}
+  "curveAddresses": [
+    "0x06b45f1bc7e8c19528b7fe8977fb1516d9fa578b"
+  ],
+  "tokenByCurve": {
+    "0x06b45f1bc7e8c19528b7fe8977fb1516d9fa578b": "0xcdf9c6318cfce979cdd60e3d1f52428d037e4926"
+  }
 }
