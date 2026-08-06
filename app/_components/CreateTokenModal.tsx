@@ -23,6 +23,15 @@ import AsciiSpinner from "@/app/_components/AsciiSpinner";
 import { useIsMobile } from "@/app/_lib/useIsMobile";
 
 const DESCRIPTION_LIMIT = 280;
+
+/**
+ * Must match MAX_FILE_BYTES in app/api/upload-image/route.ts. Duplicated on
+ * purpose: the server's check is the one that counts, and this one exists
+ * so the user hears about an oversized photo while looking at the picker
+ * rather than after filling in the form and pressing Launch.
+ */
+const MAX_IMAGE_MB = 10;
+const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
 // Mirrors BondingCurve's MAX_SELL_TAX_BPS (300 = 3%) in the slider's own
 // percent units, so the UI can never offer a value the contract rejects.
 const WHALE_TAX_MAX = Number(MAX_SELL_TAX_BPS) / 100;
@@ -58,6 +67,7 @@ export default function CreateTokenModal({
   const [infoFiAllocation, setInfoFiAllocation] = useState(0);
   const [saveError, setSaveError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   /**
    * Blank is valid and means "pay me" — the contract defaults a zero
@@ -227,11 +237,39 @@ export default function CreateTokenModal({
   }
 
   function handleImageChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+    const input = event.target;
+    const file = input.files?.[0];
+
+    // Re-selecting the SAME file fires no change event, because the value
+    // has not changed — so a user who picked a photo, cancelled out, and
+    // picked it again saw nothing happen. Clearing the value means the next
+    // pick always counts. Done first, so it runs on every path below.
+    input.value = "";
+
+    if (!file) return;
+
+    // Checked here rather than only on the server. A phone camera routinely
+    // produces a file over this limit, and the upload does not happen until
+    // Launch is pressed — so the rejection arrived after the user had filled
+    // in the whole form, attached to an action that looked unrelated.
+    if (file.size > MAX_IMAGE_BYTES) {
+      const mb = (file.size / (1024 * 1024)).toFixed(1);
+      setImageError(`That image is ${mb}MB. The limit is ${MAX_IMAGE_MB}MB — try a smaller one.`);
+      return;
     }
+    if (!file.type.startsWith("image/")) {
+      setImageError("That file isn't an image.");
+      return;
+    }
+
+    setImageError(null);
+    setImageFile(file);
+    setImagePreview((previous) => {
+      // The old preview holds a blob URL that stays alive until revoked;
+      // replacing images without this leaks one per attempt.
+      if (previous) URL.revokeObjectURL(previous);
+      return URL.createObjectURL(file);
+    });
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -279,10 +317,17 @@ export default function CreateTokenModal({
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div className="flex items-start justify-between">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-20 h-20 rounded-xl border border-dashed border-white/20 bg-white/5 hover:border-[rgba(207,56,221,0.5)] transition-colors flex items-center justify-center overflow-hidden shrink-0"
+                {/* A <label>, not a <button> that clicks a hidden input.
+                    Tapping a label is a NATIVE activation of the input it
+                    points at, which is the only form of this that works
+                    everywhere. Calling .click() on an input styled
+                    `display: none` is refused by several wallet in-app
+                    browsers and Android WebViews — the picker simply never
+                    opens, with no error — which is why image upload worked
+                    on desktop and did nothing on mobile. */}
+                <label
+                  htmlFor="token-image-input"
+                  className="w-20 h-20 rounded-xl border border-dashed border-white/20 bg-white/5 hover:border-[rgba(207,56,221,0.5)] focus-within:border-[rgba(207,56,221,0.5)] transition-colors flex items-center justify-center overflow-hidden shrink-0 cursor-pointer"
                 >
                   {imagePreview ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -294,7 +339,7 @@ export default function CreateTokenModal({
                   ) : (
                     <Icon icon="pixelarticons:image-plus" className="text-xl text-white/30" />
                   )}
-                </button>
+                </label>
 
                 <button
                   type="button"
@@ -319,13 +364,24 @@ export default function CreateTokenModal({
                   />
                 </button>
               </div>
+              {/* `sr-only`, not `hidden`: the element stays in the render
+                  tree (so the label can activate it and so it remains
+                  keyboard-focusable) while taking up no visible space.
+                  `display: none` removes it from both. */}
               <input
+                id="token-image-input"
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                // The explicit types come first for Android pickers that
+                // narrow poorly on a bare wildcard; `image/*` still trails
+                // it so anything else a camera produces is accepted.
+                accept="image/png,image/jpeg,image/webp,image/gif,image/*"
                 onChange={handleImageChange}
-                className="hidden"
+                className="sr-only"
               />
+              {imageError && (
+                <p className="text-[11px] text-red-400 -mt-2">{imageError}</p>
+              )}
 
               <input
                 type="text"
