@@ -114,16 +114,59 @@ tables have to exist first.
 
 ## Deploying (Railway)
 
+**This needs a SERVICE OF ITS OWN.** The repo already has a Railway
+service — `saylis`, running `next start` — and it is the Next.js app, not
+this. Deploying from `indexer/` without creating a separate service just
+redeploys the web app, and the indexer silently never runs at all: the
+frontend keeps serving whatever rows are already in the table, so the site
+looks fine while the trade feed quietly stops advancing.
+
+That is not hypothetical. It is what happened between 2026-08-05 and
+2026-08-06 — this only ever ran on a laptop, and stopped when that process
+did, leaving the table 2.5M blocks behind the chain.
+
+In the Railway dashboard, on the same project:
+
+1. **New** → **GitHub Repo** → `wicktg/saylis`.
+2. **Settings → Source → Root Directory:** `indexer`. This is the step
+   that makes it this service rather than the web app — it points the
+   build at `indexer/package.json`, whose `start` script is
+   `generate-curve-addresses && ponder start`.
+3. **Variables:** every one from `.env.local.example`. `DATABASE_SCHEMA`
+   must be set — `ponder start` refuses to build without it.
+4. Deploy. Then confirm it is actually indexing, not just "Online":
+
 ```bash
-railway login
-railway init          # inside indexer/
-railway up
+railway logs        # want "Synced block N", not "next start"
 ```
 
-Set every var from `.env.local.example` as a real Railway environment
-variable first (`railway variables set KEY=value`, or via the dashboard).
-Railway keeps this running continuously, which is required — Ponder is
-not a serverless function, it holds an open connection to the chain.
+"Online" only means a process is running. The web app is online too.
+
+Railway must keep this running continuously — Ponder is not a serverless
+function, it holds an open connection to the chain. Do not put it on a
+schedule or a scale-to-zero plan.
+
+### Confirming it is current, not merely alive
+
+A stalled indexer and a healthy one look identical from the outside. The
+honest check compares its own head to the chain's:
+
+```bash
+# newest indexed block
+curl -s "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/chain_trades?select=block_number&order=timestamp.desc&limit=1" \
+  -H "apikey: $NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+
+# chain head
+curl -s -X POST https://rpc.mainnet.chain.robinhood.com \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}'
+```
+
+Those should be within a few hundred blocks of each other. The frontend
+makes the same comparison (`STALE_INDEXER_BLOCKS` in
+`app/_lib/useCurveTrades.ts`) and falls back to reading logs when the gap
+is wide, so a dead indexer degrades the feed rather than freezing it — but
+that fallback is the expensive path this whole component exists to avoid.
 
 ## What the frontend changed
 
@@ -136,17 +179,25 @@ historyTruncated }`) is unchanged, so nothing else in the app moved.
 
 Two deliberate details:
 
-- **New trades are still tailed from the chain**, on the same 4s poll as
-  before, starting from the head block at load. History from the indexer,
-  live from RPC. That way a lagging, restarting, or undeployed indexer can
-  never freeze the feed.
-- **A curve with no indexed rows falls back to the old chunked backfill.**
-  That is the expected case for a token launched after the address snapshot
-  (see limitation 1 below), so it must not render an empty feed.
+- **New trades are PUSHED, not polled.** `indexer.chain_trades` is on the
+  Supabase Realtime publication (see `supabase/indexer_realtime.sql`), so
+  an INSERT here reaches every open browser in about the time Postgres
+  takes to flush the WAL. The 4s `eth_getLogs` tail this used to run is
+  gone — it was the app's heaviest consumer of upstream quota.
+- **The chain is still read when this component cannot be trusted.** A
+  curve with no indexed rows falls back to the chunked backfill (expected
+  for a token launched after the address snapshot — see limitation 1
+  below), and so does a curve whose newest indexed block trails the chain
+  head by more than `STALE_INDEXER_BLOCKS`. The subscription stays up in
+  both cases, and the first event to arrive stops the fallback, so
+  recovery needs no reload.
 
-`useTokenMarketData.ts` still reads contract state directly via multicall,
-which is correct — it reads current on-chain values, not historical logs,
-so there is nothing for the indexer to serve it.
+`useTokenMarketData.ts` no longer reads contracts from the browser at all.
+It calls `/api/market`, which batches every token on screen into one
+Multicall3 call server-side and caches it, so a grid costs one read shared
+by every visitor rather than seven reads per token per visitor. That route
+also gets post-migration pool volume from `chain_trades` here, replacing a
+per-token `eth_getLogs` sweep of each pool's whole history.
 
 ## Numeric precision — do not remove the casts in indexer_views.sql
 
