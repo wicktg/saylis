@@ -181,6 +181,28 @@ function rowToTrade(row: ChainTradeRow): Trade {
   };
 }
 
+/** Every column `rowToTrade` needs, shared by the two queries below. */
+const TRADE_COLUMNS =
+  "id,type,venue,wallet,eth_wei,tokens_wei,price_wei,spot_price_wei,block_number,timestamp";
+
+/**
+ * Chain order: block, then position within it.
+ *
+ * Applied locally rather than trusted from the query, because `block_number`
+ * arrives from the view as TEXT (see `ChainTradeRow`) and ordering on it in
+ * Postgres is therefore lexicographic — "9999999" would sort after
+ * "10000001". That happens to be harmless today only because every block
+ * number on this chain currently has the same digit count, and stops being
+ * harmless the moment it doesn't. `id` breaks ties so the sort is stable.
+ */
+function sortTrades(list: Trade[]): Trade[] {
+  return list.sort((a, b) => {
+    if (a.blockNumber !== b.blockNumber) return a.blockNumber < b.blockNumber ? -1 : 1;
+    if (a.timestamp !== b.timestamp) return a.timestamp - b.timestamp;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
+}
+
 /**
  * Full trade history for one curve, straight out of the indexer.
  *
@@ -190,6 +212,9 @@ function rowToTrade(row: ChainTradeRow): Trade {
  * `clampScanRange`). Returns null — not an empty array — when the indexer
  * has nothing for this curve, so the caller can tell "indexed, no trades
  * yet" apart from "not indexed" and fall back accordingly.
+ *
+ * Covers BOTH venues in the one query: the indexer stamps pool swaps with
+ * the curve they graduated from, so post-migration trades come back here too.
  */
 async function fetchIndexedTrades(curveAddress: Address): Promise<Trade[] | null> {
   // `ilike` rather than `eq`: Ponder writes addresses lowercased while
@@ -197,13 +222,56 @@ async function fetchIndexedTrades(curveAddress: Address): Promise<Trade[] | null
   // match nothing.
   const { data, error } = await supabase
     .from("chain_trades")
-    .select(
-      "id,type,venue,wallet,eth_wei,tokens_wei,price_wei,spot_price_wei,block_number,timestamp"
-    )
+    .select(TRADE_COLUMNS)
     .ilike("curve_address", curveAddress)
-    .order("block_number", { ascending: true });
+    .order("timestamp", { ascending: true });
 
   if (error || !data || data.length === 0) return null;
+  return sortTrades((data as ChainTradeRow[]).map(rowToTrade));
+}
+
+/**
+ * How many recent rows a doorbell refetch pulls back.
+ *
+ * The Realtime event says only THAT something was inserted, so this re-reads
+ * the tail and lets id-dedup sort out what's actually new. Generous on
+ * purpose: it costs one indexed Supabase query and it is what makes a
+ * dropped or coalesced notification self-healing rather than a permanently
+ * missing trade.
+ */
+const RECENT_TRADE_LIMIT = 300;
+
+/**
+ * Coalescing window for doorbell refetches. One block can mint several
+ * trades and each arrives as its own notification, so this is short enough
+ * to stay imperceptible and long enough that a burst costs one query.
+ */
+const REFETCH_DEBOUNCE_MS = 120;
+
+/**
+ * Backstop sweep while subscribed. Realtime can drop a message — a
+ * reconnect, a server restart — and without this the feed would stay silent
+ * until the next trade happened to arrive. Reads Supabase only.
+ */
+const REALTIME_SWEEP_MS = 20_000;
+
+/**
+ * Fallback poll interval, for curves the indexer doesn't have. Unchanged
+ * from when this was the only path; it is now reached rarely rather than
+ * by every open tab.
+ */
+const POLL_INTERVAL_MS = 4_000;
+
+/** The tail of a curve's history — see `RECENT_TRADE_LIMIT`. */
+async function fetchRecentIndexedTrades(curveAddress: Address): Promise<Trade[]> {
+  const { data, error } = await supabase
+    .from("chain_trades")
+    .select(TRADE_COLUMNS)
+    .ilike("curve_address", curveAddress)
+    .order("timestamp", { ascending: false })
+    .limit(RECENT_TRADE_LIMIT);
+
+  if (error || !data) return [];
   return (data as ChainTradeRow[]).map(rowToTrade);
 }
 
@@ -299,12 +367,20 @@ function toPoolTrade(log: Log, tokenIsToken0: boolean): RawTradeLog | null {
  * Full trade history for one token, live, across BOTH venues.
  *
  * History comes from the Ponder indexer via `public.chain_trades` in a
- * single Supabase request — the whole span, unclamped. New trades are then
- * tailed directly from the chain every few seconds, so the feed stays live
- * even when the indexer is lagging, undeployed, or has never seen this
- * curve. If the indexer has no rows for a curve at all, the original
- * chunked-`eth_getLogs` backfill runs instead, so behaviour is never worse
- * than it was before the indexer existed. Trades are returned oldest-first.
+ * single Supabase request — the whole span, unclamped. New trades then
+ * arrive by PUSH: the indexer's INSERT is replicated to the browser over
+ * Supabase Realtime (see supabase/indexer_realtime.sql), which both removes
+ * the four-second wait and removes what was the app's heaviest consumer of
+ * upstream RPC quota — a chunked `eth_getLogs` sweep, every four seconds,
+ * per open tab.
+ *
+ * The chain-reading path has not been deleted, only demoted to a fallback,
+ * so behaviour is never worse than it was before the indexer existed. It
+ * runs when the indexer has no rows for this curve at all (a token launched
+ * after the indexer's address snapshot; an environment where it isn't
+ * running) and when the Realtime subscription cannot be established.
+ *
+ * Trades are returned oldest-first.
  *
  * Reading both venues matters because the curve stops emitting entirely at
  * migration; without the pool side the chart and feed would freeze at the
@@ -328,38 +404,50 @@ export function useCurveTrades(
   const seenIdsRef = useRef<Set<string>>(new Set());
   const timestampCacheRef = useRef<Map<string, number>>(new Map());
 
-  const ingest = useCallback(async (client: PublicClient, raws: RawTradeLog[]) => {
-    const fresh = raws.filter((raw) => !seenIdsRef.current.has(raw.id));
+  /**
+   * Adds trades that aren't already on screen, in chain order.
+   *
+   * Both live paths converge here — Realtime refetches and the fallback log
+   * reader — and both are allowed to hand over rows already held. Dedup is
+   * by `id` (`${txHash}-${logIndex}`), which is what makes an overlapping
+   * refetch cheap enough to use as the recovery mechanism for a missed
+   * notification.
+   */
+  const merge = useCallback((incoming: Trade[]) => {
+    const fresh = incoming.filter((trade) => !seenIdsRef.current.has(trade.id));
     if (fresh.length === 0) return;
-
-    const timestamps = await fetchBlockTimestamps(
-      client,
-      fresh.map((raw) => raw.blockNumber),
-      timestampCacheRef.current
-    );
-
-    const mapped: Trade[] = fresh.map((raw) => ({
-      id: raw.id,
-      type: raw.type,
-      wallet: raw.wallet,
-      ethWei: raw.ethWei,
-      tokensWei: raw.tokensWei,
-      priceWei: priceOf(raw.ethWei, raw.tokensWei),
-      blockNumber: raw.blockNumber,
-      timestamp: timestamps.get(raw.blockNumber.toString()) ?? 0,
-      venue: raw.venue,
-      spotPriceWei: raw.spotPriceWei,
-    }));
-
-    for (const raw of fresh) seenIdsRef.current.add(raw.id);
-
-    setTrades((prev) =>
-      [...prev, ...mapped].sort((a, b) => {
-        if (a.blockNumber !== b.blockNumber) return a.blockNumber < b.blockNumber ? -1 : 1;
-        return a.timestamp - b.timestamp;
-      })
-    );
+    for (const trade of fresh) seenIdsRef.current.add(trade.id);
+    setTrades((prev) => sortTrades([...prev, ...fresh]));
   }, []);
+
+  const ingest = useCallback(
+    async (client: PublicClient, raws: RawTradeLog[]) => {
+      const fresh = raws.filter((raw) => !seenIdsRef.current.has(raw.id));
+      if (fresh.length === 0) return;
+
+      const timestamps = await fetchBlockTimestamps(
+        client,
+        fresh.map((raw) => raw.blockNumber),
+        timestampCacheRef.current
+      );
+
+      merge(
+        fresh.map((raw) => ({
+          id: raw.id,
+          type: raw.type,
+          wallet: raw.wallet,
+          ethWei: raw.ethWei,
+          tokensWei: raw.tokensWei,
+          priceWei: priceOf(raw.ethWei, raw.tokensWei),
+          blockNumber: raw.blockNumber,
+          timestamp: timestamps.get(raw.blockNumber.toString()) ?? 0,
+          venue: raw.venue,
+          spotPriceWei: raw.spotPriceWei,
+        }))
+      );
+    },
+    [merge]
+  );
 
   useEffect(() => {
     if (!publicClient || !curveAddress || !tokenAddress) return;
@@ -374,6 +462,14 @@ export function useCurveTrades(
     // which signed amount in a Swap is tokens and which is ETH.
     const tokenIsToken0 = tokenAddress.toLowerCase() < WETH9_ADDRESS.toLowerCase();
     let pool: Address | null = null;
+
+    // Live-tail handles, torn down together. Exactly one of the two paths
+    // below is normally active: `channel` when the indexer has this curve,
+    // `pollTimer` when it doesn't or when the subscription fails.
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+    let sweepTimer: ReturnType<typeof setInterval> | null = null;
+    let refetchTimer: ReturnType<typeof setTimeout> | null = null;
 
     async function resolvePool(): Promise<Address | null> {
       try {
@@ -424,6 +520,109 @@ export function useCurveTrades(
       });
     }
 
+    /**
+     * Live tail, fallback mode: read new logs off the chain on a timer.
+     *
+     * This is the pre-indexer behaviour, kept for curves the indexer has
+     * never seen and for when Realtime can't connect. Every few seconds is
+     * enough of a gap on its own to exceed LOG_RANGE_LIMIT on Robinhood
+     * Chain's ~100ms block time, so this MUST go through the chunked reader,
+     * not a single wide call.
+     */
+    function startPolling() {
+      if (pollTimer || cancelled) return;
+      pollTimer = setInterval(async () => {
+        if (cancelled || cursorRef.current === null) return;
+        try {
+          // A token can graduate WHILE this page is open, so keep looking
+          // for the pool until it exists — otherwise the feed would stop at
+          // the migration block until the user reloaded.
+          if (!pool) {
+            pool = await resolvePool();
+            if (pool && !cancelled) setPoolAddress(pool);
+          }
+
+          const head = await client.getBlockNumber();
+          if (head <= cursorRef.current) return;
+          const raws = await readRangeChunked(cursorRef.current + 1n, head);
+          cursorRef.current = head;
+          if (!cancelled) await ingest(client, raws);
+        } catch {
+          // Transient RPC hiccup — the next tick retries from the same cursor.
+        }
+      }, POLL_INTERVAL_MS);
+    }
+
+    /**
+     * Re-read the tail of the indexer's rows. Debounced, because a single
+     * block can mint several trades and each arrives as its own notification
+     * — one query should serve the whole burst.
+     */
+    function scheduleRefetch() {
+      if (refetchTimer || cancelled) return;
+      refetchTimer = setTimeout(async () => {
+        refetchTimer = null;
+        if (cancelled) return;
+        const recent = await fetchRecentIndexedTrades(curveAddr);
+        if (cancelled || recent.length === 0) return;
+        merge(recent);
+
+        // Graduation while the page is open. The curve stops emitting and
+        // the pool takes over, so the address is resolved lazily — the first
+        // pool trade to arrive is the signal that there is one to find.
+        if (!pool && recent.some((trade) => trade.venue === "pool")) {
+          pool = await resolvePool();
+          if (pool && !cancelled) setPoolAddress(pool);
+        }
+      }, REFETCH_DEBOUNCE_MS);
+    }
+
+    /**
+     * Live tail, preferred mode: the indexer's INSERT is pushed here.
+     *
+     * The payload is used as a DOORBELL only, never for its values —
+     * `scheduleRefetch` re-reads through `public.chain_trades` instead. The
+     * wei columns are numeric(78,0) and only that view's ::text casts
+     * survive a JSON round-trip intact; a Realtime payload would silently
+     * round `tokens_wei` above 2^53.
+     */
+    function startRealtime() {
+      // Unique per effect run. React Strict Mode double-invokes effects in
+      // dev and `removeChannel` is async, so a fixed name can collide with a
+      // same-named channel still mid-teardown — which throws "cannot add
+      // postgres_changes callbacks after subscribe()" on the reused instance.
+      const name = `chain-trades-${curveAddr.toLowerCase()}-${Math.random().toString(36).slice(2)}`;
+
+      channel = supabase
+        .channel(name)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            // The indexer's own table, not the public view: views produce no
+            // replication events. See supabase/indexer_realtime.sql, which
+            // has to be applied for this subscription to deliver anything.
+            schema: "indexer",
+            table: "chain_trades",
+            // Ponder writes addresses lowercased.
+            filter: `curve_address=eq.${curveAddr.toLowerCase()}`,
+          },
+          scheduleRefetch
+        )
+        .subscribe((status) => {
+          if (cancelled) return;
+          // CLOSED is excluded deliberately: it is also how a normal
+          // teardown reports itself, and reacting to it would start a
+          // pointless poll on every unmount.
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") startPolling();
+        });
+
+      // Safety net for a dropped or missed notification. Costs one indexed
+      // Supabase query and no upstream RPC at all, which is why it can be
+      // this frequent without undoing the point of the exercise.
+      sweepTimer = setInterval(scheduleRefetch, REALTIME_SWEEP_MS);
+    }
+
     async function backfill() {
       setIsLoading(true);
       setError(null);
@@ -445,10 +644,13 @@ export function useCurveTrades(
           for (const trade of indexed) seenIdsRef.current.add(trade.id);
           setTrades(indexed);
           setHistoryTruncated(false);
-          // Poll onward from head: the indexer covers everything up to now,
-          // and the interval below tails the rest straight from the chain,
-          // so a lagging or undeployed indexer can never stall live trades.
+          // Where the log reader would resume from, if it ever has to. The
+          // indexer covers everything up to `head`, so a fallback triggered
+          // later starts from there and re-reads nothing.
           cursorRef.current = head;
+          // The indexer knows this curve, so it can tell us about new trades
+          // itself. No chain reads at all from here on.
+          startRealtime();
           return;
         }
 
@@ -483,6 +685,9 @@ export function useCurveTrades(
         if (cancelled) return;
         cursorRef.current = head;
         await ingest(client, raws);
+        // Nothing indexed for this curve, so there is nothing to subscribe
+        // to — tail the chain directly, as before the indexer existed.
+        startPolling();
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to load trade history.");
@@ -492,35 +697,18 @@ export function useCurveTrades(
       }
     }
 
+    // `backfill` chooses the live-tail mode itself, once it knows whether
+    // the indexer has this curve — which is why neither is started here.
     backfill();
 
-    // Poll the delta. Every few seconds is enough of a gap on its own to
-    // exceed LOG_RANGE_LIMIT on Robinhood Chain's ~100ms block time, so
-    // this MUST go through the chunked reader too, not a single wide call.
-    const interval = setInterval(async () => {
-      if (cancelled || cursorRef.current === null) return;
-      try {
-        // A token can graduate WHILE this page is open, so keep looking
-        // for the pool until it exists — otherwise the feed would stop at
-        // the migration block until the user reloaded.
-        if (!pool) {
-          pool = await resolvePool();
-          if (pool && !cancelled) setPoolAddress(pool);
-        }
-
-        const head = await client.getBlockNumber();
-        if (head <= cursorRef.current) return;
-        const raws = await readRangeChunked(cursorRef.current + 1n, head);
-        cursorRef.current = head;
-        if (!cancelled) await ingest(client, raws);
-      } catch {
-        // Transient RPC hiccup — the next tick retries from the same cursor.
-      }
-    }, 4_000);
-
     return () => {
+      // Set before removing the channel: `removeChannel` reports CLOSED
+      // through the same status callback that starts the poll fallback.
       cancelled = true;
-      clearInterval(interval);
+      if (refetchTimer) clearTimeout(refetchTimer);
+      if (sweepTimer) clearInterval(sweepTimer);
+      if (pollTimer) clearInterval(pollTimer);
+      if (channel) supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [publicClient, curveAddress, tokenAddress]);
