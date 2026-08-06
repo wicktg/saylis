@@ -43,6 +43,32 @@ export default createConfig({
     robinhood: {
       id: 4663,
       rpc: process.env.PONDER_RPC_URL!,
+
+      /**
+       * Optional WebSocket endpoint. When set, new blocks are PUSHED here
+       * instead of being waited for by the poll below, which is the
+       * difference between a trade reaching the feed in a few hundred
+       * milliseconds and reaching it on the next tick.
+       *
+       * This is the one place in the system where a chain socket belongs:
+       * a single always-on process holding one subscription, rather than
+       * every browser holding its own. The public node rejects WebSocket
+       * upgrades, so this needs the Alchemy `wss://` URL — leave it unset
+       * and everything still works, just on the polling path.
+       */
+      ws: process.env.PONDER_RPC_WS_URL,
+
+      /**
+       * Fallback cadence, and what runs if `ws` is unset. Ponder's default
+       * is 1000ms, which was written for chains that mine every 12s; this
+       * one mines every ~100ms, so a whole second of latency was being
+       * added to a feed the rest of the stack now delivers in milliseconds.
+       *
+       * Affordable precisely because it is ONE process: the cost of polling
+       * faster here is fixed, where the browser-side polling it replaced
+       * multiplied by every open tab.
+       */
+      pollingInterval: 250,
     },
   },
 

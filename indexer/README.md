@@ -66,6 +66,30 @@ Ponder logs a warning that a public RPC may be rate limited; that warning
 is expected and, for this workload, not a problem — a curve emits a
 handful of events, not a firehose.
 
+### `PONDER_RPC_WS_URL` — optional, and it is the OTHER endpoint
+
+Set this to the **Alchemy `wss://` URL**, not the public node. It is the
+one place in this project where those two swap round, so it is worth being
+explicit about why.
+
+The public node rejects WebSocket upgrades outright (HTTP 400 from its
+CDN), and `ws.mainnet.chain.robinhood.com` does not resolve. Alchemy's
+socket works. The 10-block `eth_getLogs` cap that rules Alchemy out above
+does not apply here, because this socket is not used for log queries — it
+carries new-block notifications only. The heavy historical reads still go
+over `PONDER_RPC_URL` to the uncapped public node.
+
+What it buys: new blocks are pushed rather than waited for, so a trade
+reaches the database — and from there, via Supabase Realtime, every open
+browser — in a few hundred milliseconds instead of on the next poll.
+
+Leave it unset and everything still works; the chain is polled at
+`pollingInterval` (250ms, see `ponder.config.ts`) instead.
+
+This is also the single WebSocket listener that lets the frontend have
+none: one always-on process holds one subscription, rather than every
+visitor's browser holding its own.
+
 ## What each env var is
 
 See `.env.local.example` for the full list and where to find each value.

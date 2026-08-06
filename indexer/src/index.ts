@@ -28,6 +28,55 @@ function priceOf(ethWei: bigint, tokensWei: bigint): bigint {
 
 const tokenByCurve = addresses.tokenByCurve as Record<string, string>;
 
+const GET_PRICE_ABI = [parseAbiItem("function getPrice() view returns (uint256)")];
+
+/**
+ * The curve's MARGINAL price right after this trade, in wei per whole token.
+ *
+ * Why this is read here rather than derived in the browser: the frontend
+ * used to reconstruct it, walking backwards from the curve's CURRENT token
+ * reserve and undoing each trade in turn. That works, but it makes every
+ * historical price on the chart depend on two live values being right — the
+ * reserve and the curve's `k` — so a single bad read rescales the entire
+ * series, and it cannot work at all for a graduated token, whose reserve was
+ * drained to seed the pool.
+ *
+ * Read once, at the block the trade happened in, it is simply a fact about
+ * the trade, stored next to it. Pool trades have always had this (decoded
+ * from the Swap event's own sqrtPriceX96) — this gives curve trades the
+ * same, so both venues store the same quantity and the chart plots one
+ * series without reconstructing half of it.
+ *
+ * Marginal price, not realized price. A realized price is slippage-averaged,
+ * so it sits above spot on a sell and below it on a buy — charting it prints
+ * green candles on trades that pushed the price down. `priceWei` keeps the
+ * realized figure, which is the honest number for the trade feed.
+ *
+ * Granularity note: this is the price at the END of the block, so several
+ * trades in one block share a value. On a ~100ms chain that is rare, and
+ * those trades land in the same candle regardless.
+ *
+ * Returns null rather than throwing — a curve without the getter still gets
+ * its trade indexed, and the frontend falls back to reconstruction for any
+ * row where this is null.
+ */
+async function curveSpotPrice(
+  context: Parameters<Parameters<typeof ponder.on>[1]>[0]["context"],
+  curveAddress: `0x${string}`,
+  blockNumber: bigint
+): Promise<bigint | null> {
+  try {
+    return (await context.client.readContract({
+      address: curveAddress,
+      abi: GET_PRICE_ABI,
+      functionName: "getPrice",
+      blockNumber,
+    })) as bigint;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * pool address -> the token/curve it belongs to, kept in memory rather
  * than queried back out of `curveStatus` for every Swap.
@@ -64,6 +113,7 @@ ponder.on("BondingCurve:Buy", async ({ event, context }) => {
   const tokenAddress = await resolveTokenAddress(context, event.log.address);
   const ethIn = event.args.ethIn;
   const tokensOut = event.args.tokensOut;
+  const spotPriceWei = await curveSpotPrice(context, event.log.address, event.block.number);
 
   await context.db.insert(chainTrade).values({
     id: `${event.transaction.hash}-${event.log.logIndex}`,
@@ -76,7 +126,7 @@ ponder.on("BondingCurve:Buy", async ({ event, context }) => {
     ethWei: ethIn,
     tokensWei: tokensOut,
     priceWei: priceOf(ethIn, tokensOut),
-    spotPriceWei: null,
+    spotPriceWei,
     blockNumber: event.block.number,
     timestamp: Number(event.block.timestamp),
   });
@@ -86,6 +136,7 @@ ponder.on("BondingCurve:Sell", async ({ event, context }) => {
   const tokenAddress = await resolveTokenAddress(context, event.log.address);
   const ethOut = event.args.ethOut;
   const tokensIn = event.args.tokensIn;
+  const spotPriceWei = await curveSpotPrice(context, event.log.address, event.block.number);
 
   await context.db.insert(chainTrade).values({
     id: `${event.transaction.hash}-${event.log.logIndex}`,
@@ -98,7 +149,7 @@ ponder.on("BondingCurve:Sell", async ({ event, context }) => {
     ethWei: ethOut,
     tokensWei: tokensIn,
     priceWei: priceOf(ethOut, tokensIn),
-    spotPriceWei: null,
+    spotPriceWei,
     blockNumber: event.block.number,
     timestamp: Number(event.block.timestamp),
   });

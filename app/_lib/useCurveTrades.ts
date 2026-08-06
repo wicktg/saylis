@@ -262,6 +262,19 @@ const REALTIME_SWEEP_MS = 20_000;
  */
 const POLL_INTERVAL_MS = 4_000;
 
+/**
+ * How far the indexer may trail the chain head before it is treated as
+ * stalled and the log reader is brought back to cover the gap.
+ *
+ * ~60 seconds at this chain's ~100ms blocks, against an indexer that polls
+ * every 250ms — so ordinary lag is orders of magnitude inside it and this
+ * only fires when something is actually wrong (the process is down, or
+ * re-syncing). Generous on purpose: the cost of tripping it needlessly is
+ * some polling, and the cost of NOT tripping it is a feed that has quietly
+ * stopped showing trades.
+ */
+const STALE_INDEXER_BLOCKS = 600n;
+
 /** The tail of a curve's history — see `RECENT_TRADE_LIMIT`. */
 async function fetchRecentIndexedTrades(curveAddress: Address): Promise<Trade[]> {
   const { data, error } = await supabase
@@ -607,7 +620,17 @@ export function useCurveTrades(
             // Ponder writes addresses lowercased.
             filter: `curve_address=eq.${curveAddr.toLowerCase()}`,
           },
-          scheduleRefetch
+          () => {
+            // An event arriving is proof the indexer is alive and current,
+            // which is the only reliable signal that a gap-filling poll is
+            // no longer earning its keep. Stopping here rather than on a
+            // timer means the fallback lasts exactly as long as it is needed.
+            if (pollTimer) {
+              clearInterval(pollTimer);
+              pollTimer = null;
+            }
+            scheduleRefetch();
+          }
         )
         .subscribe((status) => {
           if (cancelled) return;
@@ -644,12 +667,36 @@ export function useCurveTrades(
           for (const trade of indexed) seenIdsRef.current.add(trade.id);
           setTrades(indexed);
           setHistoryTruncated(false);
-          // Where the log reader would resume from, if it ever has to. The
-          // indexer covers everything up to `head`, so a fallback triggered
-          // later starts from there and re-reads nothing.
-          cursorRef.current = head;
-          // The indexer knows this curve, so it can tell us about new trades
-          // itself. No chain reads at all from here on.
+
+          // How far the indexer has actually got, which is NOT the same as
+          // how far the chain has got. Treating those as equal is what makes
+          // a stalled indexer invisible: the subscription connects fine and
+          // then waits forever for INSERTs from a process that has stopped
+          // producing them, and the feed silently freezes while trades keep
+          // happening on chain. That is strictly worse than the polling this
+          // replaced, so it has to be checked rather than assumed.
+          const indexedHead = indexed[indexed.length - 1]?.blockNumber ?? 0n;
+
+          if (head > indexedHead + STALE_INDEXER_BLOCKS) {
+            // Cover the gap from the chain, then keep reading it. Clamped,
+            // so an indexer that is days behind degrades to "recent history"
+            // rather than attempting millions of 10-block windows.
+            const { fromBlock, truncated } = clampScanRange(indexedHead + 1n, head);
+            if (!cancelled) setHistoryTruncated(truncated);
+            const raws = await readRangeChunked(fromBlock, head);
+            if (cancelled) return;
+            cursorRef.current = head;
+            await ingest(client, raws);
+            startPolling();
+          } else {
+            // Where the log reader would resume from, if it ever has to.
+            cursorRef.current = head;
+          }
+
+          // Subscribed either way. When the indexer is healthy this is the
+          // only live path; when it is behind, the first event to arrive is
+          // proof it has caught up, and `stopPollingOnRealtimeEvent` drops
+          // the polling at that point.
           startRealtime();
           return;
         }

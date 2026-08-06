@@ -302,6 +302,17 @@ export default function TokenDetailPage() {
   // bar on a trade that actually pushed the price down. `priceWei` remains
   // the right number for the trade feed (it is what the trader really got);
   // it is only wrong as a charted series.
+  //
+  // The indexer now records the curve's marginal price alongside each trade
+  // (see indexer/src/index.ts), so a stored value is preferred wherever one
+  // exists — it is a fact about the trade rather than something inferred
+  // from two live reads that must both still be correct.
+  //
+  // Reconstruction stays for the rows that have none: trades indexed before
+  // that change, and trades read straight from logs when the indexer has
+  // never seen a curve. It still runs over the FULL curve sequence, not just
+  // the gaps, because the walk-back derives each reserve from the trade
+  // after it — skipping entries would break the chain it depends on.
   const spotPricesWei = useMemo(() => {
     const curveTrades = trades.filter((trade) => trade.venue === "curve");
     const curvePrices =
@@ -310,11 +321,11 @@ export default function TokenDetailPage() {
         : [];
 
     let curveIndex = 0;
-    return trades.map((trade) =>
-      trade.venue === "curve"
-        ? (curvePrices[curveIndex++] ?? trade.priceWei)
-        : (trade.spotPriceWei ?? trade.priceWei)
-    );
+    return trades.map((trade) => {
+      if (trade.venue !== "curve") return trade.spotPriceWei ?? trade.priceWei;
+      const reconstructed = curvePrices[curveIndex++];
+      return trade.spotPriceWei ?? reconstructed ?? trade.priceWei;
+    });
   }, [trades, curveK, tokenReserve]);
 
   const candles = useMemo(() => {
