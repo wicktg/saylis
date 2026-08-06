@@ -10,7 +10,6 @@ import {
   WETH9_ADDRESS,
 } from "@/app/_lib/contracts/config";
 import { GET_POOL_ABI, SLOT0_ABI, isTokenToken0, spotPriceFromSqrtX96 } from "@/app/_lib/poolMath";
-import { supabase } from "@/app/_lib/supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -107,22 +106,45 @@ async function poolVolumeByCurve(curves: Address[]): Promise<Map<string, bigint>
   const totals = new Map<string, bigint>();
   if (curves.length === 0) return totals;
 
-  // Ponder writes addresses lowercased; `in` is exact, so lowercase to match.
-  const { data, error } = await supabase
-    .from("chain_trades")
-    .select("curve_address,eth_wei")
-    .eq("venue", "pool")
-    .in(
-      "curve_address",
-      curves.map((address) => address.toLowerCase())
-    );
-  if (error || !data) return totals;
+  // PostgREST directly, rather than the shared supabase-js client.
+  //
+  // That client is constructed at module scope and THROWS when its env vars
+  // are absent. `next build` imports every route to collect page data, so
+  // importing it here turned a missing-env warning into a hard build
+  // failure — on a host where those vars were not set at build time, the
+  // whole deploy died on a route that only needed one read.
+  //
+  // A read this small does not justify that coupling. Missing config now
+  // means no pool volume, which is what the error path below already
+  // returns, and which shows a migrated token its curve-era total instead
+  // of nothing at all.
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) return totals;
 
-  for (const row of data as { curve_address: string; eth_wei: string }[]) {
-    const key = row.curve_address.toLowerCase();
-    // eth_wei is TEXT in the view precisely so BigInt round-trips it — see
-    // supabase/indexer_views.sql.
-    totals.set(key, (totals.get(key) ?? 0n) + BigInt(row.eth_wei));
+  // Ponder writes addresses lowercased, and `in` is an exact match.
+  const list = curves.map((address) => address.toLowerCase()).join(",");
+  const query =
+    `${url}/rest/v1/chain_trades` +
+    `?select=curve_address,eth_wei&venue=eq.pool&curve_address=in.(${list})`;
+
+  try {
+    const response = await fetch(query, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+      cache: "no-store",
+    });
+    if (!response.ok) return totals;
+
+    const rows = (await response.json()) as { curve_address: string; eth_wei: string }[];
+    for (const row of rows) {
+      const curve = row.curve_address.toLowerCase();
+      // eth_wei is TEXT in the view precisely so BigInt round-trips it —
+      // see supabase/indexer_views.sql.
+      totals.set(curve, (totals.get(curve) ?? 0n) + BigInt(row.eth_wei));
+    }
+  } catch {
+    // The indexer's view may not exist yet (a fresh re-index drops it).
+    // Curve-era volume is still correct and still worth showing.
   }
   return totals;
 }
