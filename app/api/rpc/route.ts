@@ -122,7 +122,26 @@ const CACHE_TTL_MS: Record<string, number> = {
   eth_gasPrice: 3_000,
   eth_maxPriorityFeePerGas: 3_000,
   eth_feeHistory: 3_000,
+  // Params carry from/to/data/value, so this is already caller- and
+  // call-specific; the key separates them. Without an entry here it was
+  // `bypass` -- every swap preview reaching upstream unprotected, which is
+  // what surfaced as "couldn't get the gas limit" during a rate limit.
+  eth_estimateGas: 2_500,
 };
+
+/**
+ * How long past its TTL an entry stays usable as a FALLBACK.
+ *
+ * A rate limit is not a reason to fail a read we answered correctly four
+ * seconds ago. Rather than synthesize an error -- which viem reports as
+ * `the contract function "allowance" reverted`, blaming a contract that
+ * never ran -- the last good answer is served with a `stale` marker.
+ *
+ * Deliberately much longer than any TTL: an entry is only reached here when
+ * the alternative is a hard failure, so the only question is whether stale
+ * data beats no data. For balances, reserves and allowances it does.
+ */
+const STALE_GRACE_MS = 60_000;
 
 /**
  * Longest TTL any call in this body allows, or 0 if any of them must not
@@ -268,6 +287,21 @@ function readCache(key: string): RpcResponseEntry[] | null {
   const hit = cache.get(key);
   if (!hit) return null;
   if (hit.expires <= Date.now()) {
+    // NOT deleted here. The entry stays reachable by readStale() until the
+    // grace window closes, which is the whole point of keeping it around.
+    return null;
+  }
+  return hit.entries;
+}
+
+/**
+ * The last good answer for this key, TTL expired but still inside the grace
+ * window. Only reached when the alternative is handing the browser an error.
+ */
+function readStale(key: string): RpcResponseEntry[] | null {
+  const hit = cache.get(key);
+  if (!hit) return null;
+  if (hit.expires + STALE_GRACE_MS <= Date.now()) {
     cache.delete(key);
     return null;
   }
@@ -420,6 +454,14 @@ export async function POST(request: Request) {
   } catch (error) {
     const status = error instanceof UpstreamError ? error.status : 0;
     const rateLimited = status === 429;
+
+    // Last resort before failing the read: an answer we gave correctly a few
+    // seconds ago. A balance, a reserve or an allowance that is 30s stale is
+    // enormously better than viem surfacing this as a phantom contract
+    // revert, which is how upstream 429s used to reach the user.
+    const stale = ttl > 0 ? readStale(key) : null;
+    if (stale) return jsonResponse(restamp(stale, body, calls), 200, "stale");
+
     return jsonResponse(
       JSON.stringify(
         errorPayload(
@@ -470,13 +512,15 @@ function errorPayload(body: unknown, message: string) {
  *   miss      forwarded upstream
  *   bypass    method is not cacheable (sends, and anything absent from
  *             CACHE_TTL_MS), always forwarded
+ *   stale     upstream failed, so the last good answer was served past its
+ *             TTL rather than surfacing the failure
  *   error     upstream failed and a synthesized error was returned
  *
  * Only `miss` and `error` consume upstream quota, so the header is the
  * cheapest way to confirm the cache is actually working -- in dev, and in
  * production where a broken key would otherwise be invisible.
  */
-type CacheStatus = "hit" | "coalesced" | "miss" | "bypass" | "error";
+type CacheStatus = "hit" | "coalesced" | "miss" | "bypass" | "stale" | "error";
 
 function jsonResponse(text: string, status = 200, cacheStatus: CacheStatus = "miss") {
   return new NextResponse(text, {
