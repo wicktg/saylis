@@ -86,7 +86,8 @@ function sleep(ms: number): Promise<void> {
  *  1. CACHE. Chain state changes every ~100ms, but the UI polls far faster
  *     than it can meaningfully change and many components ask the same
  *     question at the same moment. A sub-second TTL collapses that without
- *     the UI ever showing stale data a user could notice.
+ *     the UI ever showing stale data a user could notice. Keyed on
+ *     (method, params) -- NOT the raw body, which carries a per-request id.
  *  2. SINGLE FLIGHT. Identical requests arriving while one is already in
  *     flight share its promise instead of adding load.
  *  3. PACING. What survives 1 and 2 is spaced out, so bursts queue rather
@@ -139,24 +140,141 @@ function cacheTtlFor(calls: RpcRequest[]): number {
   return Number.isFinite(ttl) ? ttl : 0;
 }
 
-type CacheEntry = { expires: number; text: string };
+/**
+ * A response object with its `id` stripped, so it can be re-stamped with
+ * whichever id the next caller happens to use.
+ */
+type RpcResponseEntry = Record<string, unknown>;
+type UpstreamResult = {
+  text: string;
+  ok: boolean;
+  /** Positionally aligned to the request's calls, or null if unshareable. */
+  entries: RpcResponseEntry[] | null;
+};
+
+type CacheEntry = { expires: number; entries: RpcResponseEntry[] };
 const cache = new Map<string, CacheEntry>();
-const inFlight = new Map<string, Promise<{ text: string; ok: boolean }>>();
+const inFlight = new Map<string, Promise<UpstreamResult>>();
 
 /** Bounded so a long-lived instance cannot grow the map without limit. */
 const MAX_CACHE_ENTRIES = 500;
 
-function readCache(key: string): string | null {
+/**
+ * The cache key must NOT include the JSON-RPC `id`.
+ *
+ * viem stamps every outgoing request with a fresh id from a global counter
+ * (`id: body.id ?? idCache.take()` in viem/utils/rpc/http.ts), so two
+ * byte-identical eth_calls arrive here with different ids. Keying on the raw
+ * body -- which is what this route did originally -- therefore produced a
+ * unique key every single time: the cache never hit, single flight never
+ * coalesced, and every call went upstream. Only the pacing gate below was
+ * doing any real work.
+ *
+ * Keying on (method, params) instead is what makes the cache function at all.
+ * `batch` is part of the key because a lone request and a one-element batch
+ * must not share an entry -- their response shapes differ (object vs array).
+ */
+function cacheKeyFor(body: unknown, calls: RpcRequest[]): string {
+  return JSON.stringify({
+    batch: Array.isArray(body),
+    calls: calls.map((call) => [call?.method, (call as { params?: unknown })?.params ?? null]),
+  });
+}
+
+/**
+ * Whether a JSON-RPC error is worth storing.
+ *
+ * A revert, an unknown method, bad params -- these are deterministic answers
+ * for the given input and cache exactly as well as a success does. Rate
+ * limits and internal upstream failures are momentary, and pinning one in
+ * front of every caller for the TTL is how a brief 429 turns into seconds of
+ * broken UI.
+ *
+ * This distinction matters more than it looks: a batch is cached as a unit,
+ * so treating every error as uncacheable would mean one reverting read
+ * anywhere in the grid's 80-odd-call multicall defeats caching for the whole
+ * batch. Reverts are ordinary here -- reading `migrationExecuted()` on a
+ * curve that predates it, for one -- so that would quietly undo the fix.
+ */
+function isTransientError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const { code, message } = error as { code?: unknown; message?: unknown };
+
+  // -32005 "limit exceeded" is transient by definition. -32603 "internal
+  // error" is a server hiccup rather than an answer about the input.
+  if (code === -32005 || code === -32603) return true;
+
+  // -32000 is deliberately NOT on that list. It is the catch-all execution
+  // error code, and geth-family nodes -- Nitro included -- return it for
+  // `execution reverted` and `out of gas`, which are deterministic answers
+  // for the given calldata. Treating the code as transient made every batch
+  // containing one revert uncacheable, which for an 84-call grid multicall
+  // is every batch. So -32000 is judged on its message like anything else.
+  return typeof message === "string" && TRANSIENT_MESSAGE.test(message);
+}
+
+/**
+ * Deliberately narrower than /limit/: "exceeds block gas limit" and "gas
+ * required exceeds allowance" are permanent properties of the call, and
+ * matching them would reintroduce the problem above from the other side.
+ */
+const TRANSIENT_MESSAGE =
+  /rate[ -]?limit|limit exceeded|too many|timed? ?out|capacity|try again|overloaded|temporarily|unavailable/i;
+
+/**
+ * Strips ids off an upstream response and puts the entries in REQUEST order.
+ *
+ * Matching is by id rather than by position: JSON-RPC explicitly allows a
+ * server to return batch responses in any order, so zipping positionally
+ * would hand callers the wrong result for the wrong call.
+ *
+ * Returns null when the response cannot be safely re-stamped or stored -- a
+ * length mismatch, an id that was not asked for, or a transient error. A null
+ * result means "use once, do not store or share".
+ */
+function alignEntries(calls: RpcRequest[], parsed: unknown): RpcResponseEntry[] | null {
+  const list = Array.isArray(parsed) ? parsed : [parsed];
+  if (list.length !== calls.length) return null;
+
+  const byId = new Map<string, RpcResponseEntry>();
+  for (const item of list) {
+    if (typeof item !== "object" || item === null) return null;
+    const entry = item as RpcResponseEntry;
+    if ("error" in entry && isTransientError(entry.error)) return null;
+    byId.set(JSON.stringify(entry.id ?? null), entry);
+  }
+
+  const aligned: RpcResponseEntry[] = [];
+  for (const call of calls) {
+    const match = byId.get(JSON.stringify(call?.id ?? null));
+    if (!match) return null;
+    const { id: _id, ...rest } = match;
+    aligned.push(rest);
+  }
+  return aligned;
+}
+
+/**
+ * Serializes cached entries back out under the CURRENT caller's ids. viem
+ * matches batch responses to requests by id, so replaying a stored body with
+ * the original requester's ids would leave every call unresolved.
+ */
+function restamp(entries: RpcResponseEntry[], body: unknown, calls: RpcRequest[]): string {
+  const stamped = entries.map((entry, i) => ({ ...entry, id: calls[i]?.id ?? null }));
+  return JSON.stringify(Array.isArray(body) ? stamped : stamped[0]);
+}
+
+function readCache(key: string): RpcResponseEntry[] | null {
   const hit = cache.get(key);
   if (!hit) return null;
   if (hit.expires <= Date.now()) {
     cache.delete(key);
     return null;
   }
-  return hit.text;
+  return hit.entries;
 }
 
-function writeCache(key: string, text: string, ttl: number): void {
+function writeCache(key: string, entries: RpcResponseEntry[], ttl: number): void {
   if (ttl <= 0) return;
   if (cache.size >= MAX_CACHE_ENTRIES) {
     // Oldest insertion first -- Map preserves insertion order, and an
@@ -164,7 +282,7 @@ function writeCache(key: string, text: string, ttl: number): void {
     const oldest = cache.keys().next();
     if (!oldest.done) cache.delete(oldest.value);
   }
-  cache.set(key, { expires: Date.now() + ttl, text });
+  cache.set(key, { expires: Date.now() + ttl, entries });
 }
 
 /**
@@ -241,23 +359,29 @@ export async function POST(request: Request) {
     return NextResponse.json(Array.isArray(body) ? errors : errors[0], { status: 400 });
   }
 
-  const key = JSON.stringify(body);
+  const key = cacheKeyFor(body, calls);
   const ttl = cacheTtlFor(calls);
 
   const cached = ttl > 0 ? readCache(key) : null;
-  if (cached !== null) return jsonResponse(cached);
+  if (cached !== null) return jsonResponse(restamp(cached, body, calls), 200, "hit");
 
   // Single flight: a duplicate arriving mid-request shares the answer.
   const pending = ttl > 0 ? inFlight.get(key) : undefined;
   if (pending) {
     try {
-      return jsonResponse((await pending).text);
+      const shared = await pending;
+      // Only shareable when ids could be stripped and realigned. If not, fall
+      // through and fetch our own copy rather than handing back a body whose
+      // ids belong to somebody else's request.
+      if (shared.entries) {
+        return jsonResponse(restamp(shared.entries, body, calls), 200, "coalesced");
+      }
     } catch {
       // Fall through and try for ourselves rather than inheriting a failure.
     }
   }
 
-  const work = (async (): Promise<{ text: string; ok: boolean }> => {
+  const work = (async (): Promise<UpstreamResult> => {
     await paceUpstream();
     const upstream = await forwardWithRetry(body);
     const text = await upstream.text();
@@ -273,21 +397,26 @@ export async function POST(request: Request) {
     // part: it holds eth_call revert reasons, and Alchemy's own "up to a
     // 10 block range" explanation. Only a body that cannot be parsed at
     // all gets replaced with a synthesized error.
-    if (!isParseableJson(text)) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
       throw new UpstreamError(upstream.status, text);
     }
-    return { text, ok: upstream.ok };
+    if (text.trim() === "") throw new UpstreamError(upstream.status, text);
+
+    return { text, ok: upstream.ok, entries: upstream.ok ? alignEntries(calls, parsed) : null };
   })();
 
   if (ttl > 0) inFlight.set(key, work);
 
   try {
-    const { text, ok } = await work;
+    const { text, ok, entries } = await work;
     // Only successful responses are cached. An upstream error is passed
     // through for its detail, but caching it would pin a transient 429 or
     // a one-off failure in front of every caller for the whole TTL.
-    if (ok) writeCache(key, text, ttl);
-    return jsonResponse(text);
+    if (ok && entries) writeCache(key, entries, ttl);
+    return jsonResponse(text, 200, ttl > 0 ? "miss" : "bypass");
   } catch (error) {
     const status = error instanceof UpstreamError ? error.status : 0;
     const rateLimited = status === 429;
@@ -304,20 +433,11 @@ export async function POST(request: Request) {
       // reports it as "HTTP request failed", burying the reason; a 200
       // carrying a JSON-RPC error object gets surfaced properly and lets
       // its own retry logic handle it.
-      200
+      200,
+      "error"
     );
   } finally {
     if (ttl > 0) inFlight.delete(key);
-  }
-}
-
-function isParseableJson(text: string): boolean {
-  if (text.trim() === "") return false;
-  try {
-    JSON.parse(text);
-    return true;
-  } catch {
-    return false;
   }
 }
 
@@ -343,9 +463,28 @@ function errorPayload(body: unknown, message: string) {
   return { jsonrpc: "2.0", id: (body as RpcRequest)?.id ?? null, error };
 }
 
-function jsonResponse(text: string, status = 200) {
+/**
+ * `x-rpc-cache` reports how the response was produced:
+ *   hit       served from the in-process cache, no upstream call
+ *   coalesced joined a request already in flight, no upstream call
+ *   miss      forwarded upstream
+ *   bypass    method is not cacheable (sends, and anything absent from
+ *             CACHE_TTL_MS), always forwarded
+ *   error     upstream failed and a synthesized error was returned
+ *
+ * Only `miss` and `error` consume upstream quota, so the header is the
+ * cheapest way to confirm the cache is actually working -- in dev, and in
+ * production where a broken key would otherwise be invisible.
+ */
+type CacheStatus = "hit" | "coalesced" | "miss" | "bypass" | "error";
+
+function jsonResponse(text: string, status = 200, cacheStatus: CacheStatus = "miss") {
   return new NextResponse(text, {
     status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+      "x-rpc-cache": cacheStatus,
+    },
   });
 }
