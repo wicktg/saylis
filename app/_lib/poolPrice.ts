@@ -33,56 +33,19 @@ import {
  * reads as the site being broken.
  */
 
-const ONE_TOKEN = 10n ** 18n;
-const Q96 = 2n ** 96n;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
-export const GET_POOL_ABI = [
-  {
-    type: "function",
-    name: "getPool",
-    stateMutability: "view",
-    inputs: [
-      { name: "tokenA", type: "address" },
-      { name: "tokenB", type: "address" },
-      { name: "fee", type: "uint24" },
-    ],
-    outputs: [{ name: "pool", type: "address" }],
-  },
-] as const;
+// The ABIs and price math moved to poolMath.ts so the server can use them
+// too — see that file's header. Re-exported here so every existing importer
+// keeps working and there is still one place to look.
+import {
+  GET_POOL_ABI,
+  SLOT0_ABI,
+  spotPriceFromSqrtX96,
+  isTokenToken0,
+} from "@/app/_lib/poolMath";
 
-export const SLOT0_ABI = [
-  {
-    type: "function",
-    name: "slot0",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [
-      { name: "sqrtPriceX96", type: "uint160" },
-      { name: "tick", type: "int24" },
-      { name: "observationIndex", type: "uint16" },
-      { name: "observationCardinality", type: "uint16" },
-      { name: "observationCardinalityNext", type: "uint16" },
-      { name: "feeProtocol", type: "uint8" },
-      { name: "unlocked", type: "bool" },
-    ],
-  },
-] as const;
-
-/** Converts a Uniswap `sqrtPriceX96` into wei of ETH per one whole token. */
-export function spotPriceFromSqrtX96(sqrtPriceX96: bigint, tokenIsToken0: boolean): bigint {
-  if (sqrtPriceX96 <= 0n) return 0n;
-  const numerator = sqrtPriceX96 * sqrtPriceX96;
-  const denominator = Q96 * Q96;
-  return tokenIsToken0
-    ? (numerator * ONE_TOKEN) / denominator
-    : (denominator * ONE_TOKEN) / numerator;
-}
-
-/** Uniswap sorts a pair by address; this decides which side the token is on. */
-export function isTokenToken0(tokenAddress: string): boolean {
-  return tokenAddress.toLowerCase() < WETH9_ADDRESS.toLowerCase();
-}
+export { GET_POOL_ABI, SLOT0_ABI, spotPriceFromSqrtX96, isTokenToken0 };
 
 /**
  * Live spot price of a single migrated token, read straight from its pool.
