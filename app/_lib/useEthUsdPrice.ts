@@ -1,78 +1,85 @@
 "use client";
 
-import { useReadContracts } from "wagmi";
-import type { Address } from "viem";
-import {
-  ETH_USD_PRICE_FEED_ADDRESS,
-  DEFAULT_ETH_USD_PRICE_WHOLE,
-} from "@/app/_lib/contracts/config";
-
-const AGGREGATOR_ABI = [
-  {
-    type: "function",
-    name: "latestRoundData",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [
-      { name: "roundId", type: "uint80" },
-      { name: "answer", type: "int256" },
-      { name: "startedAt", type: "uint256" },
-      { name: "updatedAt", type: "uint256" },
-      { name: "answeredInRound", type: "uint80" },
-    ],
-  },
-  {
-    type: "function",
-    name: "decimals",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ name: "", type: "uint8" }],
-  },
-] as const;
-
-const REFRESH_MS = 60_000;
-const FALLBACK = Number(DEFAULT_ETH_USD_PRICE_WHOLE);
+import { useEffect, useState } from "react";
 
 /**
- * The REAL, live ETH/USD price, read straight from the same Chainlink feed
- * every curve already reads on-chain to gate the whale sell tax
- * (`ETH_USD_PRICE_FEED_ADDRESS`) — refetched every 60s.
+ * The ETH/USD rate, from /api/eth-price — one server-side read shared by
+ * every visitor.
  *
- * Every USD figure shown anywhere in the app should use this, not
- * `DEFAULT_ETH_USD_PRICE_WHOLE`: that constant is fixed forever at each
- * curve's OWN deploy time (baked into its `volumeCapWei` math on-chain) —
- * it was never meant to represent "today's price" and drifts further from
- * reality the older a token gets.
+ * WHY IT NO LONGER READS THE FEED FROM THE BROWSER
  *
- * Falls back to `DEFAULT_ETH_USD_PRICE_WHOLE` while the first read is still
- * loading, or if the feed read fails, so a page never shows "$0" or blanks
- * out while waiting on a live price.
+ * Every USD figure in the app is an ETH amount times this number, including
+ * every OHLC value on the chart. So it does not merely format a display, it
+ * sets the chart's SCALE — and two people holding different values are
+ * looking at different charts of the same token.
+ *
+ * The previous version read Chainlink from each browser and returned a
+ * hardcoded constant until that landed. Every page therefore drew its whole
+ * history at the fallback scale and rescaled a moment later, which is the
+ * jump you see on any refresh; and a visitor whose read failed kept a
+ * permanently different chart from everyone else. Reading it once on the
+ * server removes both, and drops two eth_calls per visitor per minute.
+ *
+ * RETURNS 0 WHILE UNKNOWN, ON PURPOSE
+ *
+ * Not a plausible-looking stand-in. A stand-in has to be replaced, and the
+ * replacement is the rescale this exists to remove. `buildCandles` already
+ * declines to draw on a non-positive rate, so the chart simply waits and
+ * then renders once, correctly, rather than twice. Callers that show a
+ * figure should treat 0 as "still loading", the same way the token grid
+ * already treats a missing market price.
  */
-export function useEthUsdPrice(): number {
-  const { data } = useReadContracts({
-    contracts: [
-      {
-        address: ETH_USD_PRICE_FEED_ADDRESS as Address,
-        abi: AGGREGATOR_ABI,
-        functionName: "latestRoundData",
-      },
-      {
-        address: ETH_USD_PRICE_FEED_ADDRESS as Address,
-        abi: AGGREGATOR_ABI,
-        functionName: "decimals",
-      },
-    ],
-    query: { refetchInterval: REFRESH_MS },
-  });
 
-  const roundData = data?.[0];
-  const decimalsResult = data?.[1];
-  if (roundData?.status !== "success" || decimalsResult?.status !== "success") {
-    return FALLBACK;
+const REFRESH_MS = 60_000;
+
+/**
+ * Shared across every component using this hook. Six of them mount on a
+ * token page; without this, that is six identical requests on load and six
+ * more every minute, and — worse — six independently-timed values that can
+ * briefly disagree with each other on the same screen.
+ */
+let cached: { usd: number; at: number } | null = null;
+let inFlight: Promise<number> | null = null;
+const subscribers = new Set<(usd: number) => void>();
+
+async function fetchPrice(): Promise<number> {
+  const response = await fetch("/api/eth-price", { cache: "no-store" });
+  if (!response.ok) throw new Error("price unavailable");
+  const body = (await response.json()) as { usd?: number };
+  const usd = Number(body.usd);
+  if (!Number.isFinite(usd) || usd <= 0) throw new Error("price unusable");
+  return usd;
+}
+
+async function refresh(): Promise<void> {
+  if (cached && Date.now() - cached.at < REFRESH_MS) return;
+  inFlight ??= fetchPrice();
+  try {
+    const usd = await inFlight;
+    cached = { usd, at: Date.now() };
+    for (const notify of subscribers) notify(usd);
+  } catch {
+    // Keep the last good value. A failed refresh is not a reason to rescale
+    // everyone's chart to zero.
+  } finally {
+    inFlight = null;
   }
+}
 
-  const answer = (roundData.result as readonly [bigint, bigint, bigint, bigint, bigint])[1];
-  const decimals = decimalsResult.result as number;
-  const price = Number(answer) / 10 ** decimals;
-  return price > 0 ? price : FALLBACK;
+export function useEthUsdPrice(): number {
+  const [usd, setUsd] = useState<number>(() => cached?.usd ?? 0);
+
+  useEffect(() => {
+    subscribers.add(setUsd);
+    void refresh();
+    // Everyone shares one timer's worth of staleness rather than each
+    // component drifting onto its own schedule.
+    const interval = setInterval(() => void refresh(), REFRESH_MS);
+    return () => {
+      subscribers.delete(setUsd);
+      clearInterval(interval);
+    };
+  }, []);
+
+  return usd;
 }

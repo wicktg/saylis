@@ -16,6 +16,7 @@ import {
 import { getFriendlyErrorMessage } from "@/app/_lib/errors";
 import { formatWeiAsUsdPrice } from "@/app/_lib/format";
 import { waitForReceipt } from "@/app/_lib/txReceipt";
+import { writeWithGas } from "@/app/_lib/txGas";
 
 const ONE_TOKEN = 10n ** 18n;
 
@@ -298,13 +299,21 @@ export default function SwapPanel({
     })) as bigint;
     if (allowance >= amountWei) return;
 
-    const approveHash = await walletClient.writeContract({
+    // Simulated like every other write, so a failing approval is caught
+    // before the wallet opens, and its gas is calculated here rather than by
+    // the wallet — an approval is the FIRST transaction a new seller sends,
+    // so it is the one most likely to hit a wallet that cannot estimate.
+    const { request } = await publicClient.simulateContract({
       address: tokenAddress,
       abi: IMMUTABLE_LAUNCH_TOKEN_ABI,
       functionName: "approve",
       args: [spender, amountWei],
+      account,
     });
-    await waitForReceipt(publicClient, approveHash);
+    await waitForReceipt(
+      publicClient,
+      await writeWithGas(publicClient, walletClient, request, account)
+    );
   }
 
   async function tradeOnCurve() {
@@ -335,7 +344,7 @@ export default function SwapPanel({
         value: amountWei,
         account,
       });
-      await waitForReceipt(publicClient, await walletClient.writeContract(request));
+      await waitForReceipt(publicClient, await writeWithGas(publicClient, walletClient, request, account));
       return;
     }
 
@@ -347,7 +356,7 @@ export default function SwapPanel({
       args: [amountWei, minOut],
       account,
     });
-    await waitForReceipt(publicClient, await walletClient.writeContract(request));
+    await waitForReceipt(publicClient, await writeWithGas(publicClient, walletClient, request, account));
   }
 
   /**
@@ -414,7 +423,7 @@ export default function SwapPanel({
         value: amountWei,
         account,
       });
-      await waitForReceipt(publicClient, await walletClient.writeContract(request));
+      await waitForReceipt(publicClient, await writeWithGas(publicClient, walletClient, request, account));
       return;
     }
 
@@ -461,7 +470,7 @@ export default function SwapPanel({
       args: [[swapData, unwrapData]],
       account,
     });
-    await waitForReceipt(publicClient, await walletClient.writeContract(request));
+    await waitForReceipt(publicClient, await writeWithGas(publicClient, walletClient, request, account));
   }
 
   const usdValue =
