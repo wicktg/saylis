@@ -500,24 +500,48 @@ export function useCurveTrades(
       }
     }
 
-    /** A single request, for exactly one window ≤ `LOG_RANGE_LIMIT` blocks
-     *  wide. Never call this with a wider range — see `LOG_RANGE_LIMIT`. */
+    /**
+     * A single request, for exactly one window ≤ `LOG_RANGE_LIMIT` blocks
+     * wide. Never call this with a wider range — see `LOG_RANGE_LIMIT`.
+     *
+     * ONE request covering both venues and all three events, rather than one
+     * per event as this used to be. `address` takes an array and `events`
+     * takes a list of ABI items, so the node applies an address filter and a
+     * topic0 OR-filter in the same query and returns the union, tagged with
+     * `eventName` — which is all the demultiplexing below needs.
+     *
+     * This is a straight 3x cut in the most expensive method we call. It
+     * matters because this path runs a 60-window backfill plus a poll for
+     * every open token page, and it is the ONLY path whenever the indexer is
+     * unavailable: three requests per window was 180 log queries per page
+     * load and a dozen every four seconds, which on its own can exceed the
+     * upstream's per-second budget.
+     */
     async function readRange(fromBlock: bigint, toBlock: bigint) {
-      const requests: Promise<Log[]>[] = [
-        client.getLogs({ address: curveAddr, event: BUY_EVENT, fromBlock, toBlock }),
-        client.getLogs({ address: curveAddr, event: SELL_EVENT, fromBlock, toBlock }),
-      ];
-      if (pool) {
-        requests.push(client.getLogs({ address: pool, event: SWAP_EVENT, fromBlock, toBlock }));
-      }
+      const logs = await client.getLogs({
+        address: pool ? [curveAddr, pool] : [curveAddr],
+        events: [BUY_EVENT, SELL_EVENT, SWAP_EVENT],
+        fromBlock,
+        toBlock,
+      });
 
-      const [buyLogs, sellLogs, swapLogs = []] = await Promise.all(requests);
-
-      return [
-        ...buyLogs.map((log) => toCurveTrade(log, "buy")),
-        ...sellLogs.map((log) => toCurveTrade(log, "sell")),
-        ...swapLogs.map((log) => toPoolTrade(log, tokenIsToken0)),
-      ].filter((raw): raw is RawTradeLog => raw !== null);
+      return logs
+        .map((log) => {
+          // Set by viem when a log matched one of `events`. Curve and pool
+          // events cannot collide — a Buy only exists on a curve, a Swap
+          // only on a pool — so the name alone identifies the shape.
+          switch ((log as Log & { eventName?: string }).eventName) {
+            case "Buy":
+              return toCurveTrade(log, "buy");
+            case "Sell":
+              return toCurveTrade(log, "sell");
+            case "Swap":
+              return toPoolTrade(log, tokenIsToken0);
+            default:
+              return null;
+          }
+        })
+        .filter((raw): raw is RawTradeLog => raw !== null);
     }
 
     /**

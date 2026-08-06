@@ -42,6 +42,30 @@ const ALLOWED_METHODS = new Set([
   "eth_sendRawTransaction",
   "net_version",
   "web3_clientVersion",
+
+  /**
+   * Filters. Blocking these was quietly expensive AND quietly broken.
+   *
+   * viem's `watchContractEvent` prefers a filter and falls back to polling
+   * `eth_getLogs` when `eth_newFilter` is unavailable — which it was, because
+   * it was not on this list. The fallback asks for every block since the last
+   * poll: at the default 4s interval on a ~100ms chain that is ~40 blocks,
+   * and the upstream rejects anything over a 10-block range on this plan.
+   *
+   * So all four `useWatchContractEvent` callers (useCreatorFees,
+   * CreateTokenModal) spent ~75 compute units every four seconds on a request
+   * that could not succeed, and never received an event either. The features
+   * they drive had been silently dead.
+   *
+   * With filters allowed, the same watchers cost one `eth_getFilterChanges`
+   * per interval — cheaper than a getLogs, and with no range limit at all,
+   * because the node tracks the cursor instead of the client.
+   */
+  "eth_newFilter",
+  "eth_newBlockFilter",
+  "eth_getFilterChanges",
+  "eth_getFilterLogs",
+  "eth_uninstallFilter",
 ]);
 
 type RpcRequest = { id?: unknown; method?: unknown };
@@ -156,10 +180,35 @@ const STALE_GRACE_MS = 60_000;
  * be cached. A batch is cached as a unit, which is exactly how viem sends
  * repeated polls, and taking the MINIMUM keeps the freshest member honest.
  */
+/**
+ * Methods that must never be cached OR coalesced, no matter what.
+ *
+ * Absence from CACHE_TTL_MS already means "do not cache", so this is
+ * belt-and-braces — but the failure it prevents is bad enough to be worth
+ * stating rather than leaving implicit for someone to undo by adding a TTL.
+ *
+ * `eth_getFilterChanges` DRAINS. Each call returns only what has arrived
+ * since the last one, so replaying a stored response would serve logs the
+ * caller already had and, far worse, the real changes that arrived during
+ * the TTL would be consumed by the cached call and never delivered to
+ * anyone. Events would go permanently missing rather than merely stale.
+ *
+ * `eth_newFilter` and `eth_newBlockFilter` must return a FRESH id per call;
+ * sharing one id between two watchers makes them steal each other's changes.
+ * `eth_uninstallFilter` is a mutation.
+ */
+const NEVER_CACHE = new Set([
+  "eth_newFilter",
+  "eth_newBlockFilter",
+  "eth_getFilterChanges",
+  "eth_uninstallFilter",
+]);
+
 function cacheTtlFor(calls: RpcRequest[]): number {
   let ttl = Infinity;
   for (const call of calls) {
     const method = typeof call?.method === "string" ? call.method : "";
+    if (NEVER_CACHE.has(method)) return 0;
     const allowed = CACHE_TTL_MS[method];
     if (!allowed) return 0;
     ttl = Math.min(ttl, allowed);
