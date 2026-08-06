@@ -9,7 +9,7 @@
  * The referral relationship and every dollar it ever earned are on-chain
  * facts (ReferralVault's `ReferralRegistered`/`ReferralAccrued` events) —
  * this route is read-only indexing over those logs, the same pattern
- * useCurveTrades uses for trade history. `referralFeesOwed` (current
+ * the app uses elsewhere. `referralFeesOwed` (current
  * balance) is a live read since it changes on withdrawal; the event logs
  * are the append-only record "earnings generated" is computed from, so a
  * withdrawal never erases where the money came from.

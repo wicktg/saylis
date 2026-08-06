@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
-import Link from "next/link";
+import { useMemo, useState } from "react";
 import TokenCard from "@/app/_components/TokenCard";
+import TokenSwapModal from "@/app/_components/token/TokenSwapModal";
 import { useLiveTokens } from "@/app/_lib/useLiveTokens";
 import { useTokenMarketData, type MarketData } from "@/app/_lib/useTokenMarketData";
 import type { SortOption } from "@/app/_lib/sort";
@@ -11,6 +11,9 @@ import type { Address } from "viem";
 
 export default function TokenGrid({ sortBy, search = "" }: { sortBy: SortOption; search?: string }) {
   const { tokens, loading } = useLiveTokens();
+
+  /** Which token's trade panel is open, if any. */
+  const [openToken, setOpenToken] = useState<TokenRecord | null>(null);
 
   const pairs = useMemo(
     () =>
@@ -63,13 +66,34 @@ export default function TokenGrid({ sortBy, search = "" }: { sortBy: SortOption;
     // separate one. Above that, fewer columns than the old square cards
     // used, since these need roughly double the width to keep the numeric
     // column from wrapping.
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
-      {sortedTokens.map((token) => (
-        <Link key={token.id} href={`/token/${token.contract_address}`}>
-          <TokenCard token={token} marketData={marketData[token.curve_address as Address]} />
-        </Link>
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
+        {sortedTokens.map((token) => (
+          // A button, not a link. Trading is the only thing there is to do
+          // with a token now, so tapping a card opens the trade surface
+          // directly instead of navigating to a page whose remaining job was
+          // to hold the same panel.
+          <button
+            key={token.id}
+            type="button"
+            onClick={() => setOpenToken(token)}
+            className="text-left"
+            aria-label={`Trade ${token.ticker}`}
+          >
+            <TokenCard token={token} marketData={marketData[token.curve_address as Address]} />
+          </button>
+        ))}
+      </div>
+
+      {openToken && (
+        <TokenSwapModal
+          token={openToken}
+          // Already fetched for the card behind it, so opening costs nothing.
+          marketData={marketData[openToken.curve_address as Address]}
+          onClose={() => setOpenToken(null)}
+        />
+      )}
+    </>
   );
 }
 
