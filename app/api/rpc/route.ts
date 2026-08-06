@@ -109,7 +109,9 @@ const CACHE_TTL_MS: Record<string, number> = {
   // still fetches fresh data.
   eth_call: 2_500,
   eth_getBalance: 2_500,
-  eth_getCode: 60_000,
+  // Deployed bytecode never changes, so the only reason this has a bound at
+  // all is the entry for an address that had no code when first asked.
+  eth_getCode: 300_000,
   // Historical ranges are immutable once mined.
   eth_getLogs: 15_000,
   eth_getBlockByNumber: 10_000,
@@ -119,9 +121,15 @@ const CACHE_TTL_MS: Record<string, number> = {
   eth_chainId: 300_000,
   net_version: 300_000,
   web3_clientVersion: 300_000,
-  eth_gasPrice: 3_000,
-  eth_maxPriorityFeePerGas: 3_000,
-  eth_feeHistory: 3_000,
+  // Fee parameters are effectively static here. This is an Arbitrum Orbit
+  // chain, where the L2 gas price sits at the floor except under sustained
+  // congestion, and every wallet re-reads all three before every write. At
+  // 3s a single user opening a swap paid for them repeatedly; 30s is still
+  // far shorter than any realistic move in the base fee, and a wallet that
+  // wants its own estimate is free to ask its own node.
+  eth_gasPrice: 30_000,
+  eth_maxPriorityFeePerGas: 30_000,
+  eth_feeHistory: 30_000,
   // Params carry from/to/data/value, so this is already caller- and
   // call-specific; the key separates them. Without an entry here it was
   // `bypass` -- every swap preview reaching upstream unprotected, which is
@@ -267,10 +275,36 @@ function alignEntries(calls: RpcRequest[], parsed: unknown): RpcResponseEntry[] 
   for (const call of calls) {
     const match = byId.get(JSON.stringify(call?.id ?? null));
     if (!match) return null;
+    if (isPendingLookup(call, match)) return null;
     const { id: _id, ...rest } = match;
     aligned.push(rest);
   }
   return aligned;
+}
+
+/**
+ * A lookup for a transaction the node has not seen yet.
+ *
+ * `eth_getTransactionReceipt` and `eth_getTransactionByHash` answer null for
+ * a transaction that is merely PENDING, and null is the one result from
+ * these methods that is guaranteed to stop being true. Caching it is
+ * actively harmful: `waitForTransactionReceipt` polls the same hash on a
+ * loop, so the first null would be replayed for the whole TTL and the UI
+ * would keep reporting a swap as unconfirmed for ten seconds after it
+ * landed -- on a chain that mines in about a hundred milliseconds.
+ *
+ * A non-null answer is permanent and caches normally, which is what makes
+ * the repeated post-confirmation reads cheap.
+ */
+const PENDING_IS_NULL = new Set(["eth_getTransactionReceipt", "eth_getTransactionByHash"]);
+
+function isPendingLookup(call: RpcRequest, entry: RpcResponseEntry): boolean {
+  return (
+    typeof call?.method === "string" &&
+    PENDING_IS_NULL.has(call.method) &&
+    "result" in entry &&
+    entry.result === null
+  );
 }
 
 /**

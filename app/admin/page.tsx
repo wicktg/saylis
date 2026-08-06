@@ -12,6 +12,7 @@ import { INFO_FI_CAMPAIGN_ABI } from "@/app/_lib/contracts/InfoFiCampaign";
 import { IMMUTABLE_LAUNCH_TOKEN_ABI } from "@/app/_lib/contracts/ImmutableLaunchToken";
 import Icon from "@/app/_components/Icon";
 import AsciiSpinner from "@/app/_components/AsciiSpinner";
+import { waitForReceipt } from "@/app/_lib/txReceipt";
 import {
   INFOFI_CAMPAIGN_ADDRESS,
   INFOFI_TEAM_ADDRESS,
@@ -243,7 +244,7 @@ function CampaignsTab({ account }: { account: string }) {
         functionName: "openCampaign",
         args: [tokenAddress as Address],
       });
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+      const receipt = await waitForReceipt(publicClient, txHash);
       if (receipt.status !== "success") throw new Error("openCampaign transaction failed.");
 
       const response = await fetch(`/api/admin/campaigns/${tokenAddress}/approve`, {
@@ -323,7 +324,7 @@ function CampaignsTab({ account }: { account: string }) {
         functionName: "registerExternalPool",
         args: [item.tokenAddress as Address, amount, item.curveAddress as Address],
       });
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+      const receipt = await waitForReceipt(publicClient, txHash);
       if (receipt.status !== "success") throw new Error("registerExternalPool failed.");
 
       const response = await fetch(`/api/admin/campaigns/${item.tokenAddress}/confirm-lock`, {
@@ -843,7 +844,7 @@ function BurnSection({ account }: { account: string }) {
         functionName: "burnUnclaimed",
         args: [tokenAddress as Address],
       });
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+      const receipt = await waitForReceipt(publicClient, txHash);
       if (receipt.status !== "success") throw new Error("burnUnclaimed transaction failed.");
 
       const response = await fetch(`/api/admin/campaigns/${tokenAddress}/burn-confirm`, {

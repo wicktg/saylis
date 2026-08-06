@@ -6,6 +6,7 @@ import { formatUnits, type Address } from "viem";
 import { INFO_FI_CAMPAIGN_ABI } from "@/app/_lib/contracts/InfoFiCampaign";
 import { INFOFI_CAMPAIGN_ADDRESS, TOKEN_DECIMALS } from "@/app/_lib/contracts/config";
 import Icon from "@/app/_components/Icon";
+import { waitForReceipt } from "@/app/_lib/txReceipt";
 
 type ClaimStatus = "checking" | "unclaimed" | "claimed";
 
@@ -145,7 +146,7 @@ export default function ClaimPanel({
           allocation.proof as `0x${string}`[],
         ],
       });
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+      const receipt = await waitForReceipt(publicClient, txHash);
       if (receipt.status !== "success") throw new Error("The claim transaction failed.");
       setClaimStatus("claimed");
     } catch (err) {

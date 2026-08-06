@@ -11,6 +11,7 @@ import { REFERRAL_VAULT_ABI } from "@/app/_lib/contracts/ReferralVault";
 import { useEthUsdPrice } from "@/app/_lib/useEthUsdPrice";
 import Icon from "@/app/_components/Icon";
 import AsciiSpinner from "@/app/_components/AsciiSpinner";
+import { waitForReceipt } from "@/app/_lib/txReceipt";
 
 type ReferredWallet = {
   walletAddress: string;
@@ -94,7 +95,7 @@ export default function ReferralPage() {
         abi: REFERRAL_VAULT_ABI,
         functionName: "withdrawReferralFees",
       });
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+      const receipt = await waitForReceipt(publicClient, txHash);
       if (receipt.status !== "success") throw new Error("Claim transaction failed.");
       await refresh();
     } catch (err) {

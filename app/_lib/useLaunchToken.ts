@@ -9,6 +9,7 @@ import {
 } from "@/app/_lib/contracts/TaxableLaunchToken";
 import { BONDING_CURVE_ABI, BONDING_CURVE_BYTECODE } from "@/app/_lib/contracts/BondingCurve";
 import { getFriendlyErrorMessage } from "@/app/_lib/errors";
+import { waitForReceipt } from "@/app/_lib/txReceipt";
 import {
   DEFAULT_DELAY_BLOCKS,
   DEFAULT_ETH_USD_PRICE_WHOLE,
@@ -219,7 +220,7 @@ export function useLaunchToken() {
           })
         );
         const tokenReceipt = await withRateLimitRetry(() =>
-          publicClient.waitForTransactionReceipt({ hash: tokenTxHash })
+          waitForReceipt(publicClient, tokenTxHash)
         );
         const tokenAddress = tokenReceipt.contractAddress;
         if (!tokenAddress) throw new Error("Token deployment did not return an address.");
@@ -268,7 +269,7 @@ export function useLaunchToken() {
           })
         );
         const curveReceipt = await withRateLimitRetry(() =>
-          publicClient.waitForTransactionReceipt({ hash: curveTxHash })
+          waitForReceipt(publicClient, curveTxHash)
         );
         const curveAddress = curveReceipt.contractAddress;
         if (!curveAddress) throw new Error("Curve deployment did not return an address.");

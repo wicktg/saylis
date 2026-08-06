@@ -15,6 +15,7 @@ import {
 } from "@/app/_lib/contracts/config";
 import { getFriendlyErrorMessage } from "@/app/_lib/errors";
 import { formatWeiAsUsdPrice } from "@/app/_lib/format";
+import { waitForReceipt } from "@/app/_lib/txReceipt";
 
 const ONE_TOKEN = 10n ** 18n;
 
@@ -233,7 +234,7 @@ export default function SwapPanel({
         args: [minOut],
         value: amountWei,
       });
-      await publicClient.waitForTransactionReceipt({ hash });
+      await waitForReceipt(publicClient, hash);
     } else {
       const allowance = (await publicClient.readContract({
         address: tokenAddress,
@@ -249,7 +250,7 @@ export default function SwapPanel({
           functionName: "approve",
           args: [curveAddress, amountWei],
         });
-        await publicClient.waitForTransactionReceipt({ hash: approveHash });
+        await waitForReceipt(publicClient, approveHash);
       }
 
       const hash = await walletClient.writeContract({
@@ -258,7 +259,7 @@ export default function SwapPanel({
         functionName: "sell",
         args: [amountWei, minOut],
       });
-      await publicClient.waitForTransactionReceipt({ hash });
+      await waitForReceipt(publicClient, hash);
     }
   }
 
@@ -289,7 +290,7 @@ export default function SwapPanel({
         ],
         value: amountWei,
       });
-      await publicClient.waitForTransactionReceipt({ hash });
+      await waitForReceipt(publicClient, hash);
     } else {
       const allowance = (await publicClient.readContract({
         address: tokenAddress,
@@ -305,7 +306,7 @@ export default function SwapPanel({
           functionName: "approve",
           args: [UNISWAP_SWAP_ROUTER_ADDRESS, amountWei],
         });
-        await publicClient.waitForTransactionReceipt({ hash: approveHash });
+        await waitForReceipt(publicClient, approveHash);
       }
 
       // Two chained calls in one transaction: swap token -> WETH, holding
@@ -340,7 +341,7 @@ export default function SwapPanel({
         functionName: "multicall",
         args: [[swapData, unwrapData]],
       });
-      await publicClient.waitForTransactionReceipt({ hash });
+      await waitForReceipt(publicClient, hash);
     }
   }
 

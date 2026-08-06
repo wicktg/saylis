@@ -5,6 +5,7 @@ import { usePublicClient, useWalletClient } from "wagmi";
 import type { Address } from "viem";
 import { REFERRAL_VAULT_ADDRESS } from "@/app/_lib/contracts/config";
 import { REFERRAL_VAULT_ABI } from "@/app/_lib/contracts/ReferralVault";
+import { waitForReceipt } from "@/app/_lib/txReceipt";
 
 const REF_STORAGE_KEY = "saylis:pendingReferralCode";
 
@@ -103,7 +104,7 @@ export function useReferral(wallet: Address | undefined) {
         functionName: "registerReferral",
         args: [pendingReferrer],
       });
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+      const receipt = await waitForReceipt(publicClient, txHash);
       if (receipt.status !== "success") throw new Error("Registration transaction failed.");
 
       sessionStorage.removeItem(REF_STORAGE_KEY);
