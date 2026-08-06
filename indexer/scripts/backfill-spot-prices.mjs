@@ -60,7 +60,50 @@
  * writing.
  */
 import { createPublicClient, http, parseAbiItem } from "viem";
+import { readFileSync } from "fs";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
 import pg from "pg";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Loads `.env.local` the way the rest of this directory expects.
+ *
+ * `ponder start` reads it automatically, so every other entry point here
+ * behaves as though those variables simply exist. A plain Node script gets
+ * no such treatment, and the resulting failure ("SUPABASE_DB_URL is not
+ * set") points at a variable that is sitting right there in the file.
+ *
+ * Both files are read because the two halves of this repo split their
+ * config: the indexer's own settings live in indexer/.env.local, while the
+ * archive RPC this script needs is ROBINHOOD_RPC_URL from the app's root
+ * .env.local. Real environment variables always win, so a value passed on
+ * the command line or set in a deployment is never overwritten by a file.
+ */
+function loadEnvFile(path) {
+  let contents;
+  try {
+    contents = readFileSync(path, "utf8");
+  } catch {
+    return; // Absent is fine — the variables may come from the environment.
+  }
+  for (const line of contents.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    if (process.env[key] !== undefined) continue;
+    process.env[key] = trimmed
+      .slice(eq + 1)
+      .trim()
+      .replace(/^["']|["']$/g, "");
+  }
+}
+
+loadEnvFile(join(__dirname, "..", ".env.local"));
+loadEnvFile(join(__dirname, "..", "..", ".env.local"));
 
 const DRY_RUN = process.argv.includes("--dry-run");
 
@@ -111,7 +154,29 @@ async function main() {
     );
 
     if (rows.length === 0) {
-      console.log("Nothing to do — every curve trade already has a spot price.");
+      // "No rows need filling" has two very different causes, and reporting
+      // them identically is actively misleading: an empty table looks like a
+      // completed backfill. Distinguish them, because "the indexer has not
+      // written anything yet" means wait, and "all filled" means done.
+      const { rows: totals } = await db.query(
+        `select count(*)::int as total,
+                count(*) filter (where venue = 'curve')::int as curve
+           from ${SCHEMA}.chain_trades`
+      );
+      const { total, curve } = totals[0];
+
+      if (total === 0) {
+        console.log(
+          "No trades indexed yet — nothing to backfill.\n" +
+            "The table exists but is empty, which usually means the indexer is\n" +
+            "still working through its historical sync. Check `railway logs`\n" +
+            "for 'Synced block N' and run this again once trades appear."
+        );
+      } else if (curve === 0) {
+        console.log(`${total} trade(s) indexed, none on a curve — nothing this script can fill.`);
+      } else {
+        console.log(`All ${curve} curve trade(s) already have a spot price. Nothing to do.`);
+      }
       return;
     }
 
