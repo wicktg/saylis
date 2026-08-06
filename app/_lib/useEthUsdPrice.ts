@@ -14,20 +14,17 @@ import { useEffect, useState } from "react";
  * looking at different charts of the same token.
  *
  * The previous version read Chainlink from each browser and returned a
- * hardcoded constant until that landed. Every page therefore drew its whole
- * history at the fallback scale and rescaled a moment later, which is the
- * jump you see on any refresh; and a visitor whose read failed kept a
- * permanently different chart from everyone else. Reading it once on the
- * server removes both, and drops two eth_calls per visitor per minute.
+ * hardcoded constant until that landed, so every visitor could be holding a
+ * different rate — and a USD figure that silently corrects itself a second
+ * after it renders is worse than one that waits. Reading it once on the
+ * server removes that, and drops two eth_calls per visitor per minute.
  *
  * RETURNS 0 WHILE UNKNOWN, ON PURPOSE
  *
  * Not a plausible-looking stand-in. A stand-in has to be replaced, and the
- * replacement is the rescale this exists to remove. `buildCandles` already
- * declines to draw on a non-positive rate, so the chart simply waits and
- * then renders once, correctly, rather than twice. Callers that show a
- * figure should treat 0 as "still loading", the same way the token grid
- * already treats a missing market price.
+ * correction is visible. Callers that show a figure should treat 0 as
+ * "still loading", the same way the token grid already treats a missing
+ * market price.
  */
 
 const REFRESH_MS = 60_000;

@@ -53,7 +53,7 @@ function isRateLimitError(err: unknown): boolean {
 /**
  * The RPC will throttle bursts of requests — two deploy transactions
  * back-to-back is enough to occasionally trip it, and the configured
- * Alchemy free tier rate-limits aggressively (see chunkedLogs.ts). Retry
+ * Alchemy free tier rate-limits aggressively. Retry
  * with exponential backoff ONLY for rate-limit errors; anything else (a
  * revert, a rejected signature, insufficient funds) fails immediately
  * since retrying won't help.

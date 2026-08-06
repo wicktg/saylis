@@ -40,41 +40,103 @@ export const dynamic = "force-dynamic";
  * optional either.
  */
 
-type AlchemyLog = {
-  address?: string;
-  topics?: string[];
-  data?: string;
-  blockNumber?: string | number;
-  transactionHash?: string;
-  logIndex?: string | number;
-  blockTimestamp?: string | number;
+/** One log, flattened out of whichever payload shape delivered it. */
+type NormalizedLog = {
+  address: string;
+  topics: string[];
+  data: string;
+  blockNumber: number;
+  logIndex: number;
+  transactionHash: string;
+  timestamp: number;
 };
 
-/** Alchemy nests its payload differently per webhook type; accept both. */
-function extractLogs(payload: unknown): { logs: AlchemyLog[] } {
-  const event = (payload as { event?: Record<string, unknown> })?.event;
-  if (!event) return { logs: [] };
+function num(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string" && value !== "") {
+    try {
+      return Number(BigInt(value)); // handles "0x..." and decimal alike
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
 
-  // Custom webhooks (GraphQL) deliver under data.block.logs.
-  const graphql = (event as { data?: { block?: { logs?: unknown[]; timestamp?: number } } }).data;
-  if (graphql?.block?.logs) {
-    const timestamp = graphql.block.timestamp;
-    return {
-      logs: (graphql.block.logs as Record<string, unknown>[]).map((log) => ({
-        ...(log as AlchemyLog),
-        // GraphQL nests the log's own fields under `transaction`/`topics`.
-        address: (log.account as { address?: string } | undefined)?.address ?? (log as AlchemyLog).address,
-        transactionHash:
-          (log.transaction as { hash?: string } | undefined)?.hash ??
-          (log as AlchemyLog).transactionHash,
-        blockTimestamp: timestamp,
-      })),
-    };
+/**
+ * Flattens an Alchemy delivery into logs.
+ *
+ * The GraphQL (Custom Webhook) shape is NOT the flat log shape the JSON-RPC
+ * world uses, and the differences are silent — every one of them yields
+ * `undefined` rather than an error, so a mismatch shows up as a webhook that
+ * returns 200 and stores nothing:
+ *
+ *   - the log's position is `index`, not `logIndex`
+ *   - the block number lives on the BLOCK, not on the log
+ *   - the emitting contract is `account.address`, not `address`
+ *   - the transaction hash is `transaction.hash`, not `transactionHash`
+ *
+ * Normalizing here keeps that entirely out of the decoder, which then only
+ * ever sees one shape.
+ */
+function extractLogs(payload: unknown): NormalizedLog[] {
+  const event = (payload as { event?: Record<string, unknown> })?.event;
+  if (!event) return [];
+
+  const block = (event as { data?: { block?: Record<string, unknown> } }).data?.block;
+  if (block && Array.isArray(block.logs)) {
+    const blockNumber = num(block.number);
+    const timestamp = num(block.timestamp);
+    if (blockNumber === null) return [];
+
+    return (block.logs as Record<string, unknown>[]).flatMap((log) => {
+      const address = (log.account as { address?: string } | undefined)?.address;
+      const hash = (log.transaction as { hash?: string } | undefined)?.hash;
+      const logIndex = num(log.index);
+      if (!address || !hash || logIndex === null || !Array.isArray(log.topics)) return [];
+
+      return [
+        {
+          address,
+          topics: log.topics as string[],
+          data: typeof log.data === "string" ? log.data : "0x",
+          blockNumber,
+          logIndex,
+          transactionHash: hash,
+          timestamp: timestamp ?? 0,
+        },
+      ];
+    });
   }
 
-  // Address-activity / mined-transaction webhooks deliver a flat `logs`.
-  const flat = (event as { logs?: AlchemyLog[] }).logs;
-  return { logs: Array.isArray(flat) ? flat : [] };
+  // Address-activity webhooks deliver flat, JSON-RPC-shaped logs instead.
+  const flat = (event as { logs?: Record<string, unknown>[] }).logs;
+  if (!Array.isArray(flat)) return [];
+
+  return flat.flatMap((log) => {
+    const blockNumber = num(log.blockNumber);
+    const logIndex = num(log.logIndex);
+    if (
+      typeof log.address !== "string" ||
+      typeof log.transactionHash !== "string" ||
+      blockNumber === null ||
+      logIndex === null ||
+      !Array.isArray(log.topics)
+    ) {
+      return [];
+    }
+    return [
+      {
+        address: log.address,
+        topics: log.topics as string[],
+        data: typeof log.data === "string" ? log.data : "0x",
+        blockNumber,
+        logIndex,
+        transactionHash: log.transactionHash,
+        timestamp: num(log.blockTimestamp) ?? 0,
+      },
+    ];
+  });
 }
 
 function verifySignature(rawBody: string, signature: string | null): boolean {
@@ -88,12 +150,6 @@ function verifySignature(rawBody: string, signature: string | null): boolean {
   // returning false, and the length is not a secret.
   if (a.length !== b.length) return false;
   return timingSafeEqual(a, b);
-}
-
-function toNumber(value: string | number | undefined): number | null {
-  if (value === undefined) return null;
-  const n = typeof value === "string" ? Number(BigInt(value)) : value;
-  return Number.isFinite(n) ? n : null;
 }
 
 export async function POST(request: Request) {
@@ -112,8 +168,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Malformed payload." }, { status: 400 });
   }
 
-  const { logs } = extractLogs(payload);
-  if (logs.length === 0) return NextResponse.json({ stored: 0 });
+  const logs = extractLogs(payload);
+  if (logs.length === 0) return NextResponse.json({ received: 0, stored: 0 });
 
   const admin = getSupabaseAdmin();
 
@@ -146,13 +202,7 @@ export async function POST(request: Request) {
   const trades: DecodedTrade[] = [];
 
   for (const log of logs) {
-    const address = log.address?.toLowerCase();
-    const topics = log.topics;
-    const blockNumber = toNumber(log.blockNumber);
-    const logIndex = toNumber(log.logIndex);
-    const timestamp = toNumber(log.blockTimestamp);
-    if (!address || !topics?.length || blockNumber === null || logIndex === null) continue;
-    if (!log.transactionHash) continue;
+    if (log.topics.length === 0) continue;
 
     // Graduation is deliberately NOT handled here. `Migrated` carries the
     // pool but not the curve — that connection exists only in the calldata
@@ -162,13 +212,13 @@ export async function POST(request: Request) {
     // schedule. Attempting it here would mean a second, subtly different
     // path to the same table.
     const decoded = decodeTradeLog({
-      address: address as Address,
-      topics: topics as [Hex, ...Hex[]],
-      data: (log.data ?? "0x") as Hex,
-      blockNumber: BigInt(blockNumber),
-      logIndex,
+      address: log.address as Address,
+      topics: log.topics as [Hex, ...Hex[]],
+      data: log.data as Hex,
+      blockNumber: BigInt(log.blockNumber),
+      logIndex: log.logIndex,
       transactionHash: log.transactionHash as Hex,
-      timestamp: timestamp ?? 0,
+      timestamp: log.timestamp,
       curveRegistry,
       poolRegistry,
     });

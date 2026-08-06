@@ -74,7 +74,7 @@ type RpcRequest = { id?: unknown; method?: unknown };
  * Upstream rate limits are the reason this exists. Alchemy's free tier
  * allows roughly 330 compute units per second, and eth_getLogs costs ~75,
  * so a burst of log queries earns a 429 almost immediately. The client
- * already paces itself (see chunkedLogs.ts), but pacing cannot account for
+ * already paces itself, but pacing cannot account for
  * other tabs, other users, or a poll tick landing on top of a backfill.
  *
  * A 429 here is transient by definition, so it is retried with exponential

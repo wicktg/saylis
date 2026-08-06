@@ -58,7 +58,7 @@ function client() {
  *
  * This used to fall back to scanning in 500,000-block chunks when the wide
  * call failed. That fallback could never work: the configured RPC caps
- * `eth_getLogs` at a 10-BLOCK range (see app/_lib/chunkedLogs.ts), so every
+ * `eth_getLogs` at a 10-BLOCK range, so every
  * chunk was rejected exactly like the wide call, the error escaped the
  * handler, and Next returned a 500 with an EMPTY body -- which reached the
  * browser as "Failed to execute 'json' on 'Response'", a parse error that

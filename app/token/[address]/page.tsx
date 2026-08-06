@@ -7,45 +7,11 @@ import { useParams } from "next/navigation";
 import { useReadContracts } from "wagmi";
 import { isAddress, type Address } from "viem";
 import AppShell from "@/app/_components/AppShell";
-import dynamic from "next/dynamic";
-/**
- * Code-split. The drawing toolset (trendline, Fibonacci, XABCD, brush,
- * text, scale) is desktop-only and never rendered under the mobile
- * breakpoint, so a dynamic import keeps it and its drawing machinery out
- * of the bundle a phone downloads entirely -- not merely out of the DOM.
- * `ssr: false` because it is interactive chrome with no server-rendered
- * value.
- */
-const ChartToolbar = dynamic(() => import("@/app/_components/token/ChartToolbar"), {
-  ssr: false,
-});
-/**
- * Lazy. klinecharts is by far the heaviest dependency on this page and
- * nothing above it depends on the module being present, so deferring it
- * lets the header, timeframes and trade bar paint first -- which matters
- * most on a phone on a slow connection.
- */
-const TokenChart = dynamic(() => import("@/app/_components/token/TokenChart"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex-1 flex items-center justify-center">
-      <p className="text-[11px] text-white/30">loading chart...</p>
-    </div>
-  ),
-});
 import TransactionsFeed from "@/app/_components/token/TransactionsFeed";
 import SwapPanel from "@/app/_components/token/SwapPanel";
 import TokenSocialLinks from "@/app/_components/token/TokenSocialLinks";
 import { supabase } from "@/app/_lib/supabase";
 import { useCurveTrades } from "@/app/_lib/useCurveTrades";
-import {
-  buildCandles,
-  anchorToLivePrice,
-  reconstructSpotPrices,
-  TIMEFRAMES,
-  type TimeframeLabel,
-} from "@/app/_lib/candles";
-import type { ToolId } from "@/app/_lib/drawings";
 import { BONDING_CURVE_ABI } from "@/app/_lib/contracts/BondingCurve";
 import { IMMUTABLE_LAUNCH_TOKEN_ABI } from "@/app/_lib/contracts/ImmutableLaunchToken";
 import { useEthUsdPrice } from "@/app/_lib/useEthUsdPrice";
@@ -66,15 +32,6 @@ export default function TokenDetailPage() {
   const [token, setToken] = useState<TokenRecord | null>(null);
   const [lookupState, setLookupState] = useState<"loading" | "found" | "missing">("loading");
 
-  const [timeframe, setTimeframe] = useState<TimeframeLabel>("1m");
-  const [activeTool, setActiveTool] = useState<ToolId>("cursor");
-  const [clearSignal, setClearSignal] = useState(0);
-  /**
-   * Chart Y axis: raw token price, or price scaled to market cap. Purely a
-   * display transform -- market cap IS price x total supply, so no separate
-   * data source is involved and nothing about the candles changes.
-   */
-  const [chartMode, setChartMode] = useState<"price" | "mcap">("price");
   const isMobile = useIsMobile();
 
   // Resolve the token record by either its token address or curve address,
@@ -117,7 +74,7 @@ export default function TokenDetailPage() {
     error: tradesError,
   } = useCurveTrades(curveAddress, tokenAddress);
 
-  const { data: stats } = useReadContracts({
+  const { data: stats, refetch: refetchStats } = useReadContracts({
     contracts: curveAddress
       ? [
           { address: curveAddress, abi: BONDING_CURVE_ABI, functionName: "getPrice" },
@@ -127,22 +84,14 @@ export default function TokenDetailPage() {
           { address: curveAddress, abi: BONDING_CURVE_ABI, functionName: "migrationExecuted" },
           { address: curveAddress, abi: BONDING_CURVE_ABI, functionName: "realEthReserve" },
           { address: curveAddress, abi: BONDING_CURVE_ABI, functionName: "graduationThreshold" },
-          // Live token reserve anchors the historical spot-price
-          // reconstruction, so the chart's last close equals getPrice().
-          { address: curveAddress, abi: BONDING_CURVE_ABI, functionName: "tokenReserve" },
-          // Immutables. `k` is derived from these rather than from live
-          // reserves: migration zeroes realEthReserve, which would collapse
-          // a live-derived k and rescale the entire price history.
-          { address: curveAddress, abi: BONDING_CURVE_ABI, functionName: "virtualEthReserve" },
-          { address: curveAddress, abi: BONDING_CURVE_ABI, functionName: "virtualTokenReserve" },
-          {
-            address: curveAddress,
-            abi: BONDING_CURVE_ABI,
-            functionName: "liquidityReserveTokens",
-          },
         ]
       : [],
-    query: { enabled: Boolean(curveAddress && tokenAddress), refetchInterval: 12_000 },
+    // No refetchInterval. Every value here — price, supply, volume,
+    // graduation progress — moves only when someone trades, and a trade is
+    // exactly what the Realtime subscription below reports. Polling on a
+    // timer meant reading the chain constantly to discover that nothing had
+    // changed, which is what put this app 10x over its RPC rate ceiling.
+    query: { enabled: Boolean(curveAddress && tokenAddress) },
   });
 
   const priceWei = stats?.[0]?.status === "success" ? (stats[0].result as bigint) : undefined;
@@ -155,13 +104,20 @@ export default function TokenDetailPage() {
   const realEthReserve = stats?.[5]?.status === "success" ? (stats[5].result as bigint) : undefined;
   const graduationThreshold =
     stats?.[6]?.status === "success" ? (stats[6].result as bigint) : undefined;
-  const tokenReserve = stats?.[7]?.status === "success" ? (stats[7].result as bigint) : undefined;
-  const virtualEthReserve =
-    stats?.[8]?.status === "success" ? (stats[8].result as bigint) : undefined;
-  const virtualTokenReserve =
-    stats?.[9]?.status === "success" ? (stats[9].result as bigint) : undefined;
-  const liquidityReserveTokens =
-    stats?.[10]?.status === "success" ? (stats[10].result as bigint) : undefined;
+
+  /**
+   * Re-read the curve when a trade lands, and only then.
+   *
+   * `trades` grows when the webhook writes a row and Postgres pushes it
+   * here, so its length is a precise signal that on-chain state has moved.
+   * That replaces a 12-second poll which, between trades, spent quota
+   * confirming nothing had happened.
+   */
+  useEffect(() => {
+    if (trades.length === 0) return;
+    void refetchStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trades.length]);
 
   const totalSupplyWhole = totalSupplyBase !== undefined ? totalSupplyBase / ONE_TOKEN : 0n;
 
@@ -170,7 +126,7 @@ export default function TokenDetailPage() {
    * so the token has no market at all until `migrate` runs. The hourly poke
    * cron does it eventually, but "eventually" is up to an hour of a token
    * sitting visibly frozen, so nudge it the moment this page observes the
-   * state (the stats poll above refreshes every 8s).
+   * state (the stats above refresh whenever a trade lands).
    *
    * `migrate` is permissionless on-chain and the server route simulates
    * before spending anything, so this is only ever asking for something
@@ -193,29 +149,6 @@ export default function TokenDetailPage() {
       // Best-effort: the cron is the guarantee, this is just the fast path.
     });
   }, [curveAddress, graduated, migrationExecuted]);
-
-  /**
-   * The curve's constant product, computed from immutables so it stays
-   * correct forever:
-   *
-   *   k = virtualEth * (virtualToken + sellableSupply)
-   *
-   * where sellableSupply is the 80% the curve was seeded with. Deriving it
-   * from live reserves instead breaks the moment a token graduates, since
-   * `withdrawForMigration` sets realEthReserve to 0.
-   */
-  const curveK = useMemo(() => {
-    if (
-      virtualEthReserve === undefined ||
-      virtualTokenReserve === undefined ||
-      liquidityReserveTokens === undefined ||
-      totalSupplyBase === undefined
-    ) {
-      return undefined;
-    }
-    const sellableSupply = totalSupplyBase - liquidityReserveTokens;
-    return virtualEthReserve * (virtualTokenReserve + sellableSupply);
-  }, [virtualEthReserve, virtualTokenReserve, liquidityReserveTokens, totalSupplyBase]);
 
   /**
    * Live price of one whole token, in wei.
@@ -273,86 +206,6 @@ export default function TokenDetailPage() {
   // Live ETH/USD price — the same feed every curve reads on-chain for its
   // whale-tax gating, refreshed periodically rather than a fixed constant.
   const ethUsd = useEthUsdPrice();
-
-
-  const bucketSeconds = useMemo(
-    () => TIMEFRAMES.find((frame) => frame.label === timeframe)?.seconds ?? 60,
-    [timeframe]
-  );
-
-  // Price plotted for each trade, by venue.
-  //
-  // Curve trades get the reconstructed MARGINAL spot price — the same
-  // quantity getPrice() reports — so the chart and the header agree rather
-  // than drifting apart (a trade's realized price is a slippage-and-fee
-  // inclusive average).
-  //
-  // Pool trades can't use that: the reconstruction walks backwards through
-  // the CURVE's reserves, and a Uniswap swap never touches them. Feeding
-  // pool trades into it would corrupt every historical price. They instead
-  // use `spotPriceWei`, decoded from the Swap event's own `sqrtPriceX96` —
-  // the pool's MARGINAL price right after the swap, which is the direct
-  // analogue of the curve's reconstructed price and of the `slot0` read the
-  // token grid uses. Both venues therefore plot the same quantity.
-  //
-  // Plotting `priceWei` here instead (as this did) is what produced green
-  // candles on sells: a realized price is a slippage-inclusive AVERAGE, so
-  // it sits systematically ABOVE spot on a sell and BELOW it on a buy. A
-  // large sell would print a close above the previous candle's — a green
-  // bar on a trade that actually pushed the price down. `priceWei` remains
-  // the right number for the trade feed (it is what the trader really got);
-  // it is only wrong as a charted series.
-  //
-  // The indexer now records the curve's marginal price alongside each trade
-  // (see indexer/src/index.ts), so a stored value is preferred wherever one
-  // exists — it is a fact about the trade rather than something inferred
-  // from two live reads that must both still be correct.
-  //
-  // Reconstruction stays for the rows that have none: trades indexed before
-  // that change, and trades read straight from logs when the indexer has
-  // never seen a curve. It still runs over the FULL curve sequence, not just
-  // the gaps, because the walk-back derives each reserve from the trade
-  // after it — skipping entries would break the chain it depends on.
-  const spotPricesWei = useMemo(() => {
-    const curveTrades = trades.filter((trade) => trade.venue === "curve");
-    const curvePrices =
-      curveK !== undefined && tokenReserve !== undefined
-        ? reconstructSpotPrices(curveTrades, curveK, tokenReserve)
-        : [];
-
-    let curveIndex = 0;
-    return trades.map((trade) => {
-      if (trade.venue !== "curve") return trade.spotPriceWei ?? trade.priceWei;
-      const reconstructed = curvePrices[curveIndex++];
-      return trade.spotPriceWei ?? reconstructed ?? trade.priceWei;
-    });
-  }, [trades, curveK, tokenReserve]);
-
-  const candles = useMemo(() => {
-    const built = buildCandles(trades, spotPricesWei, bucketSeconds, ethUsd);
-    // Pin the last bar to the same price the header prints, so the chart can
-    // never visibly disagree with it. See `anchorToLivePrice`.
-    const liveUsd =
-      livePriceWei !== undefined ? (Number(livePriceWei) / 1e18) * ethUsd : undefined;
-    return anchorToLivePrice(built, liveUsd, bucketSeconds, Math.floor(Date.now() / 1000));
-  }, [trades, spotPricesWei, bucketSeconds, ethUsd, livePriceWei]);
-  /**
-   * Candles as displayed. In mcap mode every OHLC value is scaled by total
-   * supply, since market cap is exactly price x supply -- so the curve's
-   * SHAPE is identical and only the axis labels change. Scaling here rather
-   * than rebuilding the series keeps one source of truth for the data.
-   */
-  const displayCandles = useMemo(() => {
-    if (chartMode === "price" || totalSupplyWhole === 0n) return candles;
-    const supply = Number(totalSupplyWhole);
-    return candles.map((candle) => ({
-      ...candle,
-      open: candle.open * supply,
-      high: candle.high * supply,
-      low: candle.low * supply,
-      close: candle.close * supply,
-    }));
-  }, [candles, chartMode, totalSupplyWhole]);
 
   const progressPct =
     graduated === true
@@ -492,86 +345,28 @@ export default function TokenDetailPage() {
           </div>
         )}
 
-        {/* ---- Chart top bar: timeframes + price/mcap ---- */}
-        <div className="flex items-center gap-1 px-2 py-1.5 border-b border-white/10 shrink-0 overflow-x-auto no-scrollbar">
-          {TIMEFRAMES.map((frame) => (
-            <button
-              key={frame.label}
-              onClick={() => setTimeframe(frame.label)}
-              className={`shrink-0 px-2 py-1.5 md:py-1 text-[11px] font-medium transition-colors ${
-                timeframe === frame.label
-                  ? "bg-[var(--accent-tint)] text-[var(--accent)]"
-                  : "text-white/40 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              {frame.label}
-            </button>
-          ))}
+        {/* ---- Trades + buy/sell ----
+            The whole page, now that the chart is gone. The feed takes all
+            the remaining height rather than the ~38% it used to share with
+            a chart above it, which is the one thing a phone had no room
+            for anyway.
 
-          {/* Price / market-cap axis switch. Mobile drops the drawing
-              toolset entirely, so this and the timeframes are the only
-              chart controls a phone gets -- both live here. */}
-          <div className="ml-auto flex items-center gap-1 shrink-0 pl-2">
-            {(["price", "mcap"] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => setChartMode(mode)}
-                aria-pressed={chartMode === mode}
-                className={`px-2 py-1.5 md:py-1 text-[11px] lowercase transition-colors ${
-                  chartMode === mode
-                    ? "text-[var(--accent)]"
-                    : "text-white/40 hover:text-white"
-                }`}
-              >
-                {chartMode === mode ? `[${mode}]` : mode}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* ---- Chart + left drawing toolbar ---- */}
+            Desktop docks the swap panel beside the feed — the placement
+            every trading UI converges on, because a trade panel you have to
+            navigate away to reach is the opposite of fast. Mobile has no
+            room for a second column, so the same panel opens as a sheet
+            from MobileSwapBar; it is the identical component either way. */}
         <div className="flex flex-1 min-h-0">
-          {/* Desktop only, and genuinely ABSENT rather than hidden: the
-              whole drawing toolset is meaningless without a pointer, and
-              its bundle is dynamically imported so a phone never fetches
-              it either. */}
-          {!isMobile && (
-            <ChartToolbar
-              activeTool={activeTool}
-              onSelectTool={setActiveTool}
-              onClear={() => setClearSignal((n) => n + 1)}
-            />
-          )}
           <div className="flex-1 flex flex-col min-w-0">
-            {tradesLoading && trades.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center">
-                <p className="text-[11px] text-white/30">Loading on-chain trade history...</p>
-              </div>
-            ) : trades.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center">
-                <p className="text-[11px] text-white/30">
-                  No trades on this curve yet. The chart starts at the first buy.
-                </p>
-              </div>
-            ) : (
-              <TokenChart
-                candles={displayCandles}
-                // Everything that rebuckets or rescales the series. Anything
-                // NOT in here — history arriving, a new trade, the USD rate
-                // resolving — is the same series still filling in, and must
-                // not cost the user their zoom.
-                seriesKey={`${tokenAddress}:${bucketSeconds}:${chartMode}`}
-                activeTool={isMobile ? "cursor" : activeTool}
-                onToolConsumed={() => setActiveTool("cursor")}
-                clearSignal={clearSignal}
-              />
-            )}
+            <TransactionsFeed
+              trades={trades}
+              isLoading={tradesLoading}
+              error={tradesError}
+              ethUsdPrice={ethUsd}
+              compact={isMobile}
+            />
           </div>
 
-          {/* ---- Buy/Sell, docked beside the chart ----
-              Same placement every trading UI converges on (DexScreener,
-              Photon, pump.fun): always visible next to the thing the user
-              is watching, never a click or a scroll away. */}
           {tokenAddress && !isMobile && (
             <SwapPanel
               tokenAddress={tokenAddress}
@@ -581,22 +376,6 @@ export default function TokenDetailPage() {
               ethUsdPrice={ethUsd}
             />
           )}
-        </div>
-
-        {/* ---- Live transactions ----
-            Mobile takes a slightly smaller share than it used to (32% ->
-            29%) purely to pay for the stats row added above it. The chart
-            is the thing a phone has least room for and most needs, so the
-            new row is funded out of the feed rather than out of the chart;
-            the feed scrolls, the chart does not. Desktop is untouched. */}
-        <div className="h-[29%] md:h-[38%] shrink-0 flex flex-col min-h-0">
-          <TransactionsFeed
-            trades={trades}
-            isLoading={tradesLoading}
-            error={tradesError}
-            ethUsdPrice={ethUsd}
-            compact={isMobile}
-          />
         </div>
 
         {/* Clears the fixed trade bar so the feed's last row is reachable. */}
