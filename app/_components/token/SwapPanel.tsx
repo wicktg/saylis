@@ -27,6 +27,45 @@ const BUY_PRESETS_ETH = ["0.01", "0.05", "0.1", "0.5"];
 const SELL_PRESETS_PCT = [25, 50, 100];
 
 /**
+ * Gas units held back from a MAX buy, so the wallet can still pay for the
+ * transaction that spends the rest.
+ *
+ * "Buy with my whole balance" is the most natural thing a user can do and
+ * it cannot work: `value` and the gas fee come out of the same ETH. Sending
+ * the entire balance leaves nothing to pay the fee, and the wallet either
+ * refuses it or the transaction fails — which reads to the user as the app
+ * being broken, not as arithmetic.
+ *
+ * Deliberately generous. This is an Arbitrum Orbit chain, where the L1 data
+ * cost is folded into the L2 gas figure and a router swap can be an order
+ * of magnitude more units than the same swap on mainnet. At this chain's
+ * gas price the reserve is worth a tiny fraction of a cent, so erring high
+ * costs the user nothing and erring low costs them a failed trade.
+ */
+const GAS_RESERVE_UNITS = 5_000_000n;
+
+/**
+ * How long the input sits still before a quote is requested.
+ *
+ * Without this, every keystroke in the amount field was its own eth_call —
+ * typing "0.05" fired four. The delay is under the threshold where an
+ * interface feels laggy, and it collapses a burst of typing into one read.
+ */
+const QUOTE_DEBOUNCE_MS = 250;
+
+/** Slippage floor on the curve, whose quote is exact to the wei. */
+const CURVE_SLIPPAGE_BPS = 200n;
+
+/** Slippage floor on the pool, which has other traders in it. */
+const POOL_SLIPPAGE_BPS = 300n;
+
+const BPS = 10_000n;
+
+function applySlippage(amount: bigint, bps: bigint): bigint {
+  return (amount * (BPS - bps)) / BPS;
+}
+
+/**
  * Buy/sell panel, permanently docked next to the chart — the same
  * placement DexScreener/Photon/pump.fun all converge on, because a trade
  * panel that requires navigating away from the chart you're watching is
@@ -92,6 +131,7 @@ export default function SwapPanel({
 
   const [tokenBalance, setTokenBalance] = useState<bigint>(0n);
   const [ethBalance, setEthBalance] = useState<bigint>(0n);
+  const [gasReserveWei, setGasReserveWei] = useState<bigint>(0n);
 
   // Refresh both balances on mount, on account change, and right after a
   // trade — enough to keep the presets (which are balance-relative for
@@ -101,7 +141,7 @@ export default function SwapPanel({
     if (!account || !publicClient) return;
     let cancelled = false;
     (async () => {
-      const [tBal, eBal] = await Promise.all([
+      const [tBal, eBal, gasPrice] = await Promise.all([
         publicClient.readContract({
           address: tokenAddress,
           abi: IMMUTABLE_LAUNCH_TOKEN_ABI,
@@ -109,10 +149,14 @@ export default function SwapPanel({
           args: [account],
         }) as Promise<bigint>,
         publicClient.getBalance({ address: account }),
+        // Cached upstream for 30s (see app/api/rpc/route.ts) — this costs
+        // nothing on top of what the wallet is about to ask for anyway.
+        publicClient.getGasPrice().catch(() => 0n),
       ]);
       if (!cancelled) {
         setTokenBalance(tBal);
         setEthBalance(eBal);
+        setGasReserveWei(gasPrice * GAS_RESERVE_UNITS);
       }
     })();
     return () => {
@@ -146,22 +190,26 @@ export default function SwapPanel({
     }
     let cancelled = false;
     const fn = mode === "buy" ? "quoteBuy" : "quoteSell";
-    publicClient
-      .readContract({
-        address: curveAddress,
-        abi: BONDING_CURVE_ABI,
-        functionName: fn,
-        args: [amountWei],
-        account,
-      })
-      .then((result) => {
-        if (!cancelled) setCurveQuote(result as bigint);
-      })
-      .catch(() => {
-        if (!cancelled) setCurveQuote(null);
-      });
+    const timer = setTimeout(() => {
+      publicClient
+        .readContract({
+          address: curveAddress,
+          abi: BONDING_CURVE_ABI,
+          functionName: fn,
+          args: [amountWei],
+          account,
+        })
+        .then((result) => {
+          if (!cancelled) setCurveQuote(result as bigint);
+        })
+        .catch(() => {
+          if (!cancelled) setCurveQuote(null);
+        });
+    }, QUOTE_DEBOUNCE_MS);
+
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, [migrated, curveAddress, publicClient, amountWei, mode, account]);
 
@@ -178,7 +226,8 @@ export default function SwapPanel({
   }, [amountWei, migrated, curveQuote, poolPriceWei, mode]);
 
   const maxSellable = tokenBalance;
-  const maxBuyable = ethBalance > 0n ? ethBalance : 0n;
+  // Never the whole balance — see GAS_RESERVE_UNITS.
+  const maxBuyable = ethBalance > gasReserveWei ? ethBalance - gasReserveWei : 0n;
 
   function applyBuyPreset(ethAmount: string) {
     setAmount(ethAmount);
@@ -200,6 +249,19 @@ export default function SwapPanel({
     setSuccess(null);
 
     try {
+      // Checked here rather than only in `canSubmit`, because the balance
+      // and the gas price both move underneath a panel that is already
+      // open. Catching it now costs a wallet prompt the user would have
+      // had to reject, and a fee they would have paid for a failure.
+      if (mode === "buy" && amountWei + gasReserveWei > ethBalance) {
+        throw new Error(
+          "Not enough ETH to cover this trade and its gas fee. Try a smaller amount."
+        );
+      }
+      if (mode === "sell" && amountWei > tokenBalance) {
+        throw new Error("You don't have that many tokens.");
+      }
+
       if (migrated === false && curveAddress) {
         await tradeOnCurve();
       } else if (migrated === true) {
@@ -217,63 +279,124 @@ export default function SwapPanel({
     }
   }
 
+  /**
+   * Makes sure the connected wallet has already approved `spender` for at
+   * least `amountWei`, waiting for the approval to be mined if not.
+   *
+   * Must happen BEFORE the swap is simulated: a simulation run without the
+   * allowance in place reverts on the transfer, which would look like the
+   * trade itself being impossible.
+   */
+  async function ensureAllowance(spender: Address) {
+    if (!walletClient || !publicClient || !account) return;
+
+    const allowance = (await publicClient.readContract({
+      address: tokenAddress,
+      abi: IMMUTABLE_LAUNCH_TOKEN_ABI,
+      functionName: "allowance",
+      args: [account, spender],
+    })) as bigint;
+    if (allowance >= amountWei) return;
+
+    const approveHash = await walletClient.writeContract({
+      address: tokenAddress,
+      abi: IMMUTABLE_LAUNCH_TOKEN_ABI,
+      functionName: "approve",
+      args: [spender, amountWei],
+    });
+    await waitForReceipt(publicClient, approveHash);
+  }
+
   async function tradeOnCurve() {
     if (!walletClient || !publicClient || !curveAddress || !account) return;
 
-    // 2% slippage off the curve's OWN exact quote — tight, because the
-    // quote is exact, not estimated.
-    const quote = curveQuote ?? 0n;
+    // Re-read the quote instead of reusing the one on screen. That one was
+    // taken when the user stopped typing, and anyone else's trade between
+    // then and now moves the curve — a slippage floor derived from a stale
+    // quote is the single most likely way an otherwise valid trade reverts.
+    const quote = (await publicClient.readContract({
+      address: curveAddress,
+      abi: BONDING_CURVE_ABI,
+      functionName: mode === "buy" ? "quoteBuy" : "quoteSell",
+      args: [amountWei],
+      account,
+    })) as bigint;
     if (quote === 0n) throw new Error("Could not get a quote. Try again.");
-    const minOut = (quote * 98n) / 100n;
+
+    // Tight, because the curve's quote is exact to the wei.
+    const minOut = applySlippage(quote, CURVE_SLIPPAGE_BPS);
 
     if (mode === "buy") {
-      const hash = await walletClient.writeContract({
+      const { request } = await publicClient.simulateContract({
         address: curveAddress,
         abi: BONDING_CURVE_ABI,
         functionName: "buy",
         args: [minOut],
         value: amountWei,
+        account,
       });
-      await waitForReceipt(publicClient, hash);
-    } else {
-      const allowance = (await publicClient.readContract({
-        address: tokenAddress,
-        abi: IMMUTABLE_LAUNCH_TOKEN_ABI,
-        functionName: "allowance",
-        args: [account, curveAddress],
-      })) as bigint;
-
-      if (allowance < amountWei) {
-        const approveHash = await walletClient.writeContract({
-          address: tokenAddress,
-          abi: IMMUTABLE_LAUNCH_TOKEN_ABI,
-          functionName: "approve",
-          args: [curveAddress, amountWei],
-        });
-        await waitForReceipt(publicClient, approveHash);
-      }
-
-      const hash = await walletClient.writeContract({
-        address: curveAddress,
-        abi: BONDING_CURVE_ABI,
-        functionName: "sell",
-        args: [amountWei, minOut],
-      });
-      await waitForReceipt(publicClient, hash);
+      await waitForReceipt(publicClient, await walletClient.writeContract(request));
+      return;
     }
+
+    await ensureAllowance(curveAddress);
+    const { request } = await publicClient.simulateContract({
+      address: curveAddress,
+      abi: BONDING_CURVE_ABI,
+      functionName: "sell",
+      args: [amountWei, minOut],
+      account,
+    });
+    await waitForReceipt(publicClient, await walletClient.writeContract(request));
+  }
+
+  /**
+   * The pool's exact output for this trade, price impact included.
+   *
+   * `exactInputSingle` RETURNS `amountOut`, so simulating it with a floor of
+   * zero is a quote — the same number a QuoterV2 would give, from a contract
+   * already in use here rather than a second dependency to deploy and
+   * configure.
+   *
+   * This replaces deriving the floor from the pool's spot price. Spot price
+   * is the marginal price of an infinitely small trade and ignores impact
+   * entirely, so it always over-estimates the output, and the shortfall
+   * grows with trade size. A fixed 3% floor on top of that number was fine
+   * for dust and reverted a large buy, which is exactly the trade a user
+   * least wants to see fail.
+   */
+  async function quotePool(recipient: Address, forSell: boolean): Promise<bigint> {
+    if (!publicClient || !account) return 0n;
+    const { result } = await publicClient.simulateContract({
+      address: UNISWAP_SWAP_ROUTER_ADDRESS,
+      abi: SWAP_ROUTER_02_ABI,
+      functionName: "exactInputSingle",
+      args: [
+        {
+          tokenIn: forSell ? tokenAddress : WETH9_ADDRESS,
+          tokenOut: forSell ? WETH9_ADDRESS : tokenAddress,
+          fee: UNISWAP_V3_POOL_FEE,
+          recipient,
+          amountIn: amountWei,
+          amountOutMinimum: 0n,
+          sqrtPriceLimitX96: 0n,
+        },
+      ],
+      ...(forSell ? {} : { value: amountWei }),
+      account,
+    });
+    return result as bigint;
   }
 
   async function tradeOnPool() {
     if (!walletClient || !publicClient || !account) return;
-    if (!estimatedOut || estimatedOut === 0n) {
-      throw new Error("Could not estimate a price. Try again.");
-    }
-    // Wider 3% floor — see the component doc comment on why the preview is
-    // an estimate here, not an exact quote.
-    const minOut = (estimatedOut * 97n) / 100n;
 
     if (mode === "buy") {
-      const hash = await walletClient.writeContract({
+      const quote = await quotePool(account, false);
+      if (quote === 0n) throw new Error("Could not get a quote. Try again.");
+      const minOut = applySlippage(quote, POOL_SLIPPAGE_BPS);
+
+      const { request } = await publicClient.simulateContract({
         address: UNISWAP_SWAP_ROUTER_ADDRESS,
         abi: SWAP_ROUTER_02_ABI,
         functionName: "exactInputSingle",
@@ -289,60 +412,56 @@ export default function SwapPanel({
           },
         ],
         value: amountWei,
+        account,
       });
-      await waitForReceipt(publicClient, hash);
-    } else {
-      const allowance = (await publicClient.readContract({
-        address: tokenAddress,
-        abi: IMMUTABLE_LAUNCH_TOKEN_ABI,
-        functionName: "allowance",
-        args: [account, UNISWAP_SWAP_ROUTER_ADDRESS],
-      })) as bigint;
-
-      if (allowance < amountWei) {
-        const approveHash = await walletClient.writeContract({
-          address: tokenAddress,
-          abi: IMMUTABLE_LAUNCH_TOKEN_ABI,
-          functionName: "approve",
-          args: [UNISWAP_SWAP_ROUTER_ADDRESS, amountWei],
-        });
-        await waitForReceipt(publicClient, approveHash);
-      }
-
-      // Two chained calls in one transaction: swap token -> WETH, holding
-      // the WETH in the router itself (recipient = the router's own
-      // address), then unwrap that exact router-held balance to real ETH
-      // sent to the seller. See the ABI file's doc comment for why this
-      // can't be a single call.
-      const swapData = encodeFunctionData({
-        abi: SWAP_ROUTER_02_ABI,
-        functionName: "exactInputSingle",
-        args: [
-          {
-            tokenIn: tokenAddress,
-            tokenOut: WETH9_ADDRESS,
-            fee: UNISWAP_V3_POOL_FEE,
-            recipient: UNISWAP_SWAP_ROUTER_ADDRESS,
-            amountIn: amountWei,
-            amountOutMinimum: minOut,
-            sqrtPriceLimitX96: 0n,
-          },
-        ],
-      });
-      const unwrapData = encodeFunctionData({
-        abi: SWAP_ROUTER_02_ABI,
-        functionName: "unwrapWETH9",
-        args: [minOut, account],
-      });
-
-      const hash = await walletClient.writeContract({
-        address: UNISWAP_SWAP_ROUTER_ADDRESS,
-        abi: SWAP_ROUTER_02_ABI,
-        functionName: "multicall",
-        args: [[swapData, unwrapData]],
-      });
-      await waitForReceipt(publicClient, hash);
+      await waitForReceipt(publicClient, await walletClient.writeContract(request));
+      return;
     }
+
+    // The allowance has to exist before the quote, not just before the
+    // swap: quoting is itself a simulated transfer and reverts without it.
+    await ensureAllowance(UNISWAP_SWAP_ROUTER_ADDRESS);
+
+    // Quote against the router as recipient, matching how the real swap
+    // below routes the WETH, so the number covers the same code path.
+    const quote = await quotePool(UNISWAP_SWAP_ROUTER_ADDRESS, true);
+    if (quote === 0n) throw new Error("Could not get a quote. Try again.");
+    const minOut = applySlippage(quote, POOL_SLIPPAGE_BPS);
+
+    // Two chained calls in one transaction: swap token -> WETH, holding
+    // the WETH in the router itself (recipient = the router's own
+    // address), then unwrap that exact router-held balance to real ETH
+    // sent to the seller. See the ABI file's doc comment for why this
+    // can't be a single call.
+    const swapData = encodeFunctionData({
+      abi: SWAP_ROUTER_02_ABI,
+      functionName: "exactInputSingle",
+      args: [
+        {
+          tokenIn: tokenAddress,
+          tokenOut: WETH9_ADDRESS,
+          fee: UNISWAP_V3_POOL_FEE,
+          recipient: UNISWAP_SWAP_ROUTER_ADDRESS,
+          amountIn: amountWei,
+          amountOutMinimum: minOut,
+          sqrtPriceLimitX96: 0n,
+        },
+      ],
+    });
+    const unwrapData = encodeFunctionData({
+      abi: SWAP_ROUTER_02_ABI,
+      functionName: "unwrapWETH9",
+      args: [minOut, account],
+    });
+
+    const { request } = await publicClient.simulateContract({
+      address: UNISWAP_SWAP_ROUTER_ADDRESS,
+      abi: SWAP_ROUTER_02_ABI,
+      functionName: "multicall",
+      args: [[swapData, unwrapData]],
+      account,
+    });
+    await waitForReceipt(publicClient, await walletClient.writeContract(request));
   }
 
   const usdValue =

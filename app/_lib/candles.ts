@@ -107,6 +107,13 @@ export function buildCandles(
 ): Candle[] {
   if (trades.length === 0 || spotPricesWei.length !== trades.length) return [];
 
+  // Every price below is denominated in USD, so without a rate there is no
+  // series to draw — only a flat line at zero, which is indistinguishable
+  // from a token that really is worthless. Returning nothing lets the chart
+  // show its empty state instead of asserting something false.
+  if (!Number.isFinite(ethUsdPrice) || ethUsdPrice <= 0) return [];
+  if (!Number.isFinite(bucketSeconds) || bucketSeconds <= 0) return [];
+
   const candles: Candle[] = [];
   let current: Candle | null = null;
 
@@ -117,6 +124,13 @@ export function buildCandles(
     const bucket = Math.floor(trade.timestamp / bucketSeconds) * bucketSeconds;
     const value = (Number(spotPricesWei[i]) / WEI_PER_ETH) * ethUsdPrice;
     const ethVolume = Number(trade.ethWei) / WEI_PER_ETH;
+
+    // These start as bigints of unbounded width; `Number()` on one large
+    // enough returns Infinity, and a malformed reserve can produce NaN. Both
+    // reach klinecharts as a bar it cannot lay out, and one of them blanks
+    // the entire chart rather than just its own candle. Dropping the point
+    // costs a single tick; letting it through costs the whole series.
+    if (!Number.isFinite(value) || !Number.isFinite(ethVolume)) continue;
 
     if (current && current.time === bucket) {
       current.high = Math.max(current.high, value);

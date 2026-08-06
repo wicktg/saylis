@@ -14,7 +14,7 @@
 -- seconds late.
 --
 -- The indexer already sees every one of those trades. All that was missing
--- was a way for it to tell the browser, so this puts indexer.chain_trades on
+-- was a way for it to tell thea browser, so this puts indexer.chain_trades on
 -- the Realtime publication: Ponder's INSERT reaches subscribed clients in
 -- roughly the time it takes Postgres to flush the WAL, and the polling goes
 -- away entirely.
