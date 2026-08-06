@@ -556,6 +556,11 @@ export default function TokenDetailPage() {
             ) : (
               <TokenChart
                 candles={displayCandles}
+                // Everything that rebuckets or rescales the series. Anything
+                // NOT in here — history arriving, a new trade, the USD rate
+                // resolving — is the same series still filling in, and must
+                // not cost the user their zoom.
+                seriesKey={`${tokenAddress}:${bucketSeconds}:${chartMode}`}
                 activeTool={isMobile ? "cursor" : activeTool}
                 onToolConsumed={() => setActiveTool("cursor")}
                 clearSignal={clearSignal}

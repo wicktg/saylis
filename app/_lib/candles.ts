@@ -154,7 +154,62 @@ export function buildCandles(
   }
 
   if (current) candles.push(current);
-  return candles;
+  return fillQuietBuckets(candles, bucketSeconds);
+}
+
+/**
+ * Upper bound on bars produced by gap filling.
+ *
+ * A token that traded twice, days apart, on the 1-second timeframe spans
+ * hundreds of thousands of buckets — enough to lock the browser for a chart
+ * nobody can read. Past this the series is left sparse, which is worse to
+ * look at but survivable, and the coarser timeframes still fill.
+ */
+const MAX_FILLED_CANDLES = 5_000;
+
+/**
+ * Emits a flat bar for every bucket between trades that had none.
+ *
+ * WHY THE TIME AXIS NEEDS THIS
+ *
+ * A candlestick chart is drawn bar-by-bar, not against a real time scale, so
+ * omitting quiet buckets does not leave a gap — it CLOSES one. Two trades
+ * five days apart rendered as two adjacent candles, with the axis silently
+ * jumping five days between them. Every reading of that chart is wrong:
+ * spacing implies tempo, and the tempo shown was invented by the omission.
+ *
+ * This reverses an earlier decision here to emit "no synthetic flat bars, so
+ * every candle corresponds to real on-chain activity". The intent was right
+ * and the conclusion was backwards. A flat bar is not synthetic activity: it
+ * states that the price did not move because nobody traded, which is exactly
+ * what happened. Volume is zero on these, so nothing implies a trade that
+ * did not occur — and the alternative was a chart whose x-axis lied.
+ *
+ * Only the interior is filled. Nothing is invented before the first trade or
+ * after the last; extending to the present is `anchorToLivePrice`'s job, and
+ * it needs the live price to do it honestly.
+ */
+function fillQuietBuckets(candles: Candle[], bucketSeconds: number): Candle[] {
+  if (candles.length < 2) return candles;
+
+  const span = (candles[candles.length - 1].time - candles[0].time) / bucketSeconds + 1;
+  if (span > MAX_FILLED_CANDLES) return candles;
+
+  const filled: Candle[] = [];
+  for (let i = 0; i < candles.length; i++) {
+    filled.push(candles[i]);
+
+    const next = candles[i + 1];
+    if (!next) break;
+
+    // Flat at the previous close: no trade happened, so the price is
+    // whatever the last one left it at.
+    const close = candles[i].close;
+    for (let t = candles[i].time + bucketSeconds; t < next.time; t += bucketSeconds) {
+      filled.push({ time: t, open: close, high: close, low: close, close, volume: 0 });
+    }
+  }
+  return filled;
 }
 
 /**

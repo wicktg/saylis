@@ -47,11 +47,24 @@ function resolveChartFont(): string {
  */
 export default function TokenChart({
   candles,
+  seriesKey,
   activeTool,
   onToolConsumed,
   clearSignal,
 }: {
   candles: Candle[];
+  /**
+   * Identity of the series being plotted — token, timeframe, price-vs-mcap.
+   *
+   * The chart resets its viewport whenever the whole dataset is replaced, so
+   * it needs to know the difference between "this is a different series" and
+   * "the same series has not finished loading". Without that it could only
+   * infer it from the data, and the data lies during load: candles start
+   * empty, so the chart blanked itself and then replaced the dataset a
+   * second time when the real bars arrived — two viewport resets on every
+   * page load. This makes the distinction explicit instead of guessed.
+   */
+  seriesKey: string;
   activeTool: ToolId;
   /** Fired once a drawing is committed, so the toolbar can fall back to the cursor. */
   onToolConsumed: () => void;
@@ -168,7 +181,7 @@ export default function TokenChart({
    * this only takes the incremental path when the new array is recognisably
    * the same series that has merely grown at the tail.
    */
-  const appliedRef = useRef<{ count: number; firstTime: number } | null>(null);
+  const appliedRef = useRef<{ seriesKey: string; count: number; firstTime: number } | null>(null);
   const precisionRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -196,25 +209,41 @@ export default function TokenChart({
     }
 
     const prev = appliedRef.current;
-    const sameSeries =
+    const seriesChanged = prev === null || prev.seriesKey !== seriesKey;
+
+    // An empty array within the SAME series means "not loaded yet", not
+    // "this token has no trades" — history arrives a moment after the first
+    // render, and the USD rate a moment after that. Blanking on it was the
+    // first of the two resets: the chart cleared itself, then rebuilt from
+    // scratch when the bars showed up, losing the viewport both times.
+    // Leaving the previous bars up until real ones replace them is both
+    // steadier and more honest about what is happening.
+    if (candles.length === 0 && !seriesChanged) return;
+
+    const canAppend =
+      !seriesChanged &&
       prev !== null &&
       candles.length >= prev.count &&
-      candles.length > 0 &&
       candles[0].time === prev.firstTime;
 
-    if (sameSeries) {
+    if (canAppend) {
       // Re-send the previously-last bar (its close/high/low/volume keep
       // moving while its bucket is open) plus anything appended since.
       for (let i = Math.max(0, prev.count - 1); i < candles.length; i++) {
         chart.updateData(toBar(candles[i]));
       }
     } else {
+      // The only path that resets the viewport, and now it only runs when
+      // the series really did change or its history grew backwards.
       chart.applyNewData(candles.map(toBar));
     }
 
-    appliedRef.current =
-      candles.length > 0 ? { count: candles.length, firstTime: candles[0].time } : null;
-  }, [candles]);
+    appliedRef.current = {
+      seriesKey,
+      count: candles.length,
+      firstTime: candles.length > 0 ? candles[0].time : 0,
+    };
+  }, [candles, seriesKey]);
 
   // Arming a tool creates the matching overlay; klinecharts then drives the
   // click-to-place interaction itself.
