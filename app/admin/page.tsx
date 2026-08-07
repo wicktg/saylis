@@ -5,6 +5,7 @@ import { useAccount, usePublicClient, useWalletClient } from "wagmi";
 import { ConnectKitButton } from "connectkit";
 import { formatUnits, isAddress, parseUnits, type Address } from "viem";
 import MiniSparkline from "@/app/_components/admin/MiniSparkline";
+import TreasuryTab from "@/app/_components/admin/TreasuryTab";
 import { resolveIpfsUrl } from "@/app/_lib/ipfs";
 import { useWalletAuth } from "@/app/_lib/useWalletAuth";
 import { formatCompactTokenAmount, truncateAddress } from "@/app/_lib/format";
@@ -57,7 +58,7 @@ function formatPool(raw: string): string {
   }
 }
 
-type Tab = "campaigns" | "tickets" | "notifications";
+type Tab = "campaigns" | "tickets" | "notifications" | "treasury";
 
 /**
  * Team-only admin. Deliberately NOT wrapped in the normal app chrome —
@@ -101,6 +102,9 @@ export default function AdminPage() {
         <TabButton active={tab === "notifications"} onClick={() => setTab("notifications")}>
           Notifications
         </TabButton>
+        <TabButton active={tab === "treasury"} onClick={() => setTab("treasury")}>
+          Treasury
+        </TabButton>
       </div>
 
       <div className="flex-1 overflow-y-auto pixel-scrollbar">
@@ -108,6 +112,8 @@ export default function AdminPage() {
           <CampaignsTab account={account} />
         ) : tab === "tickets" ? (
           <TicketsTab />
+        ) : tab === "treasury" ? (
+          <TreasuryTab />
         ) : (
           <NotificationsTab account={account} />
         )}
