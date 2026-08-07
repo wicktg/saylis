@@ -8,6 +8,7 @@ import { truncateAddress } from "@/app/_lib/format";
 import { TOKEN_DECIMALS } from "@/app/_lib/contracts/config";
 import type { MyCampaign } from "@/app/_lib/useMyCampaigns";
 import { useWalletAuth } from "@/app/_lib/useWalletAuth";
+import { getFriendlyErrorMessage } from "@/app/_lib/errors";
 import SendSupplyModal from "./SendSupplyModal";
 import WinnerCountStepper from "./WinnerCountStepper";
 
@@ -72,7 +73,7 @@ export default function CampaignCard({
       if (!response.ok) throw new Error(payload?.error ?? "Could not update.");
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not update.");
+      setError(getFriendlyErrorMessage(err, "Could not update."));
     } finally {
       setBusy(null);
     }

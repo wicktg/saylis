@@ -13,6 +13,7 @@ import { supabase } from "@/app/_lib/supabase";
 import { resolveIpfsUrl } from "@/app/_lib/ipfs";
 import { truncateAddress } from "@/app/_lib/format";
 import type { TokenRecord } from "@/app/_lib/types";
+import { getFriendlyErrorMessage } from "@/app/_lib/errors";
 import Icon from "@/app/_components/Icon";
 import AsciiSpinner from "@/app/_components/AsciiSpinner";
 
@@ -97,7 +98,7 @@ export default function CampaignDetailPage() {
       setLeaderboard(payload.leaderboard ?? []);
       setViewer(payload.viewer ?? null);
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : "Could not load this campaign.");
+      setLoadError(getFriendlyErrorMessage(err, "Could not load this campaign."));
     } finally {
       setLoadingCampaign(false);
     }

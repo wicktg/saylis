@@ -1,5 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  /**
+   * Strip every console.* call from the production bundle.
+   *
+   * These were never for users: they name wallet addresses, contract
+   * addresses, API paths and response bodies, and anyone with devtools open
+   * reads all of it. Removing them at build time means there is nothing to
+   * forget to delete, and nothing survives minification to be found later.
+   *
+   * Development is untouched — Next only applies this to production builds,
+   * which is where the logs are a disclosure rather than a tool.
+   */
+  compiler: {
+    removeConsole: true,
+  },
+
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "vgbujcuwptvheqijyjbe.supabase.co" },

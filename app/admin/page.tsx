@@ -14,6 +14,7 @@ import { IMMUTABLE_LAUNCH_TOKEN_ABI } from "@/app/_lib/contracts/ImmutableLaunch
 import Icon from "@/app/_components/Icon";
 import AsciiSpinner from "@/app/_components/AsciiSpinner";
 import { waitForReceipt } from "@/app/_lib/txReceipt";
+import { getFriendlyErrorMessage } from "@/app/_lib/errors";
 import {
   INFOFI_CAMPAIGN_ADDRESS,
   INFOFI_TEAM_ADDRESS,
@@ -219,7 +220,7 @@ function CampaignsTab({ account }: { account: string }) {
       setApproved(payload.approved ?? []);
       setAwaitingReview(payload.awaitingReview ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load campaigns.");
+      setError(getFriendlyErrorMessage(err, "Could not load campaigns."));
     } finally {
       setIsLoading(false);
     }
@@ -265,7 +266,7 @@ function CampaignsTab({ account }: { account: string }) {
       if (!response.ok) throw new Error(payload?.error ?? "Could not sync the campaign.");
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not open the campaign.");
+      setError(getFriendlyErrorMessage(err, "Could not open the campaign."));
     } finally {
       // Reconcile the mirror against the chain no matter how the above went.
       //
@@ -301,7 +302,7 @@ function CampaignsTab({ account }: { account: string }) {
       if (!response.ok) throw new Error(payload?.error ?? "Could not reject the campaign.");
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not reject the campaign.");
+      setError(getFriendlyErrorMessage(err, "Could not reject the campaign."));
     } finally {
       setBusy(null);
     }
@@ -345,7 +346,7 @@ function CampaignsTab({ account }: { account: string }) {
       if (!response.ok) throw new Error(payload?.error ?? "Could not sync the campaign.");
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create the pool.");
+      setError(getFriendlyErrorMessage(err, "Could not create the pool."));
     } finally {
       // Same reasoning as `approve`: registerExternalPool has already landed
       // on-chain by this point, so the mirror must follow it regardless of
@@ -485,7 +486,7 @@ function NotificationsTab({ account }: { account: string }) {
       setTitle("");
       setMessage("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not push the notification.");
+      setError(getFriendlyErrorMessage(err, "Could not push the notification."));
     } finally {
       setBusy(false);
     }
@@ -706,7 +707,7 @@ function InviteSection({
       setInviteWallet("");
       onInvited();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create the invite.");
+      setError(getFriendlyErrorMessage(err, "Could not create the invite."));
     } finally {
       setBusy(false);
     }
@@ -829,7 +830,7 @@ function BurnSection({ account }: { account: string }) {
         );
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load campaigns.");
+      setError(getFriendlyErrorMessage(err, "Could not load campaigns."));
     } finally {
       setLoading(false);
     }
@@ -866,7 +867,7 @@ function BurnSection({ account }: { account: string }) {
 
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not burn.");
+      setError(getFriendlyErrorMessage(err, "Could not burn."));
     } finally {
       // burnUnclaimed is terminal on-chain, so a mirror left saying
       // otherwise would keep offering a Burn button that can only revert.

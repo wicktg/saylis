@@ -12,6 +12,7 @@ import { useEthUsdPrice } from "@/app/_lib/useEthUsdPrice";
 import Icon from "@/app/_components/Icon";
 import AsciiSpinner from "@/app/_components/AsciiSpinner";
 import { waitForReceipt } from "@/app/_lib/txReceipt";
+import { getFriendlyErrorMessage } from "@/app/_lib/errors";
 
 type ReferredWallet = {
   walletAddress: string;
@@ -25,12 +26,12 @@ type ReferralData = {
   lifetimeTotalRaw: string;
   referred: ReferredWallet[];
   /**
-   * False when the RPC could not be asked for the vault's event history
-   * (its free tier caps `eth_getLogs` at a 10-block range). The link, the
-   * owed balance, and claiming all still work; only the referred-wallet
-   * breakdown and lifetime total are unknown. Distinguishing this from
-   * "genuinely zero referrals" matters -- telling a real referrer they
-   * have none would be a confident lie.
+   * False when the vault's event history could not be read at all — the
+   * node was unreachable or slow. The link, the owed balance, and claiming
+   * all still work; only the referred-wallet breakdown and lifetime total
+   * are unknown. Distinguishing this from "genuinely zero referrals"
+   * matters -- telling a real referrer they have none would be a confident
+   * lie.
    */
   historyAvailable?: boolean;
 };
@@ -67,7 +68,7 @@ export default function ReferralPage() {
       if (!response.ok) throw new Error(payload?.error ?? "Could not load referral data.");
       setData(payload);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load referral data.");
+      setError(getFriendlyErrorMessage(err, "Could not load referral data."));
     } finally {
       setLoading(false);
     }
@@ -99,7 +100,7 @@ export default function ReferralPage() {
       if (receipt.status !== "success") throw new Error("Claim transaction failed.");
       await refresh();
     } catch (err) {
-      setClaimError(err instanceof Error ? err.message : "Could not claim.");
+      setClaimError(getFriendlyErrorMessage(err, "Could not claim."));
     } finally {
       setClaiming(false);
     }

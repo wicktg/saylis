@@ -78,7 +78,7 @@ const KNOWN_FAILURES: Array<[RegExp, string]> = [
   ],
 ];
 
-export function getFriendlyErrorMessage(err: unknown): string {
+export function getFriendlyErrorMessage(err: unknown, fallback?: string): string {
   const shortMessage =
     err && typeof err === "object" && "shortMessage" in err
       ? (err as { shortMessage?: string }).shortMessage
@@ -108,5 +108,32 @@ export function getFriendlyErrorMessage(err: unknown): string {
     return "The trade couldn't go through at this price. Try again, or use a smaller amount.";
   }
 
-  return shortMessage ?? "Something went wrong. Please try again.";
+  return safeFallback(shortMessage, fallback);
+}
+
+/**
+ * Whatever is left, with anything internal removed.
+ *
+ * The last resort used to be `shortMessage` verbatim, and viem's
+ * `shortMessage` routinely names contract addresses, function signatures,
+ * RPC URLs and raw calldata. None of that helps someone decide what to do
+ * next, and all of it is a detail of our deployment rather than of their
+ * problem — so a message carrying any of it is replaced wholesale rather
+ * than trimmed, since a half-redacted sentence is worse than a plain one.
+ */
+const LEAKS_INTERNALS =
+  /0x[a-fA-F0-9]{8,}|https?:\/\/|\b\w+\.(?:com|dev|io|xyz|app|co|net)\b|\bat\s+\w+\s*\(|contract function|abi|rpc|json|fetch|\bnode_modules\b/i;
+
+/** A message the user cannot act on is not worth showing them. */
+const TOO_TECHNICAL = /revert|opcode|gas|nonce|calldata|selector|decode|encode|viem|wagmi/i;
+
+function safeFallback(shortMessage: string | undefined, fallback?: string): string {
+  const generic = fallback ?? "Something went wrong. Please try again.";
+  if (!shortMessage) return generic;
+
+  const trimmed = shortMessage.trim();
+  if (!trimmed || trimmed.length > 160) return generic;
+  if (LEAKS_INTERNALS.test(trimmed) || TOO_TECHNICAL.test(trimmed)) return generic;
+
+  return trimmed;
 }

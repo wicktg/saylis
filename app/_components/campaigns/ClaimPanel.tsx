@@ -7,6 +7,7 @@ import { INFO_FI_CAMPAIGN_ABI } from "@/app/_lib/contracts/InfoFiCampaign";
 import { INFOFI_CAMPAIGN_ADDRESS, TOKEN_DECIMALS } from "@/app/_lib/contracts/config";
 import Icon from "@/app/_components/Icon";
 import { waitForReceipt } from "@/app/_lib/txReceipt";
+import { getFriendlyErrorMessage } from "@/app/_lib/errors";
 
 type ClaimStatus = "checking" | "unclaimed" | "claimed";
 
@@ -125,7 +126,7 @@ export default function ClaimPanel({
         setNotEligible(true);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not check your allocation.");
+      setError(getFriendlyErrorMessage(err, "Could not check your allocation."));
     } finally {
       setChecking(false);
     }
@@ -150,7 +151,7 @@ export default function ClaimPanel({
       if (receipt.status !== "success") throw new Error("The claim transaction failed.");
       setClaimStatus("claimed");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not claim.");
+      setError(getFriendlyErrorMessage(err, "Could not claim."));
     } finally {
       setClaiming(false);
     }

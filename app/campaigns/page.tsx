@@ -9,6 +9,7 @@ import PublicCampaignCard, {
 } from "@/app/_components/campaigns/PublicCampaignCard";
 import TalkToTeamModal from "@/app/_components/campaigns/TalkToTeamModal";
 import { useMyCampaigns, type CampaignState } from "@/app/_lib/useMyCampaigns";
+import { getFriendlyErrorMessage } from "@/app/_lib/errors";
 import Icon from "@/app/_components/Icon";
 import AsciiSpinner from "@/app/_components/AsciiSpinner";
 
@@ -64,7 +65,7 @@ export default function CampaignsPage() {
         if (!cancelled) setPublicCampaigns(payload.campaigns ?? []);
       } catch (err) {
         if (!cancelled) {
-          setPublicError(err instanceof Error ? err.message : "Could not load campaigns.");
+          setPublicError(getFriendlyErrorMessage(err, "Could not load campaigns."));
         }
       } finally {
         if (!cancelled) setPublicLoading(false);
