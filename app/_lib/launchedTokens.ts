@@ -33,11 +33,17 @@ function writeStore(store: StoredMap) {
 }
 
 /**
- * Records a token/curve pair the given wallet just launched. There is no
- * "My Tokens" page (out of scope) or on-chain registry to enumerate a
- * wallet's launches, so this is deliberately minimal: it only tracks
- * enough to let the Profile dropdown show/claim creator fees for the most
- * recently launched curve.
+ * Records a token/curve pair the given wallet just launched.
+ *
+ * This is NOT the registry. Supabase `tokens` is — it carries
+ * `creator_wallet_address` and follows the wallet rather than the device,
+ * which is what useCreatorFees reads. This store used to be that source,
+ * and the result was creator fees that existed on-chain but rendered
+ * nowhere the moment the creator opened the site in another browser.
+ *
+ * What survives is the event: a launch completed in this session should
+ * surface immediately rather than on the next mount, and dispatching here
+ * is how already-mounted components learn about it without polling.
  */
 export function recordLaunchedToken(owner: Address, token: LaunchedToken) {
   const store = readStore();
@@ -47,12 +53,4 @@ export function recordLaunchedToken(owner: Address, token: LaunchedToken) {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(LAUNCHED_TOKEN_EVENT, { detail: { owner, token } }));
   }
-}
-
-/** The most recently launched token/curve pair for a given wallet, if any. */
-export function getLatestLaunchedToken(owner: Address | undefined): LaunchedToken | null {
-  if (!owner) return null;
-  const store = readStore();
-  const entries = store[owner.toLowerCase()];
-  return entries && entries.length > 0 ? entries[0] : null;
 }

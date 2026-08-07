@@ -344,6 +344,23 @@ select,
   background-color: rgba(207, 56, 221, 0.05);
 }
 
+/*
+ * ...but not when the box IS the dialog.
+ *
+ * `.ascii-box` carries a hover tint because it is normally a card or a
+ * control — something you are pointing at in order to act on it. A modal is
+ * the opposite: the pointer is inside it the entire time it is open, so the
+ * tint applied permanently and the swap panel sat there washed magenta.
+ *
+ * Keyed on `role="dialog"` rather than a modifier class so it holds for any
+ * dialog built out of this box, present or future, without each one having
+ * to remember to opt out.
+ */
+[role="dialog"].ascii-box:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+  background-color: #000000;
+}
+
 /* Corner ticks. Four 1px L-shapes inset from the frame, echoing the
    `┌ ┐ └ ┘` junctions of a drawn box without the character-grid problem.
    Drawn on ::before/::after (two corners each) so no extra markup is

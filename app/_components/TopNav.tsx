@@ -28,8 +28,11 @@ export default function TopNav() {
   useCaptureReferralCode();
   const referral = useReferral(address);
 
+  // Asymmetric padding on purpose: the logo is the leftmost thing on the
+  // page and reads as indented at `px-6`, while the right-hand cluster
+  // still needs room to breathe off the edge.
   return (
-    <header className="h-16 grid grid-cols-3 items-center px-6 border-b border-white/10">
+    <header className="h-16 grid grid-cols-3 items-center pl-2 pr-6 border-b border-white/10">
       <div className="flex items-center justify-self-start">
         <Image
           src="/saylis-logo.png"

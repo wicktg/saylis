@@ -35,8 +35,10 @@ export default function MobileHeader() {
   useCaptureReferralCode();
   const referral = useReferral(address);
 
+  // Matches the desktop header: logo hard against the left edge, the
+  // action keeping its gap on the right.
   return (
-    <header className="h-12 shrink-0 flex items-center justify-between px-3 border-b border-white/10">
+    <header className="h-12 shrink-0 flex items-center justify-between pl-2 pr-3 border-b border-white/10">
       <Link href="/" aria-label="Home" className="flex items-center">
         <Image
           src="/saylis-logo.png"

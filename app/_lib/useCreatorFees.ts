@@ -9,11 +9,8 @@ import {
 } from "wagmi";
 import type { Address } from "viem";
 import { BONDING_CURVE_ABI } from "@/app/_lib/contracts/BondingCurve";
-import {
-  getLatestLaunchedToken,
-  LAUNCHED_TOKEN_EVENT,
-  type LaunchedToken,
-} from "@/app/_lib/launchedTokens";
+import { supabase } from "@/app/_lib/supabase";
+import { LAUNCHED_TOKEN_EVENT, type LaunchedToken } from "@/app/_lib/launchedTokens";
 
 export type CreatorFees = {
   /** The launch whose fees this is reading, or null if the wallet has none. */
@@ -45,20 +42,67 @@ export type CreatorFees = {
  * widening that is a product decision, not a refactor, so it is left alone.
  */
 export function useCreatorFees(address: Address | undefined): CreatorFees {
+  /**
+   * The wallet's most recent launch, from Supabase.
+   *
+   * This used to read `localStorage`, which is why creator fees appeared to
+   * be broken: the store is only written by the Create Token modal, in the
+   * browser the launch happened in. Open the site on a phone, in another
+   * browser, after clearing site data, or from a token launched before that
+   * store existed, and the hook found no curve — so it read no balance and
+   * rendered nothing, while the fees sat on-chain the whole time.
+   *
+   * `tokens` is the actual registry, and it already carries
+   * `creator_wallet_address`. It follows the wallet rather than the device,
+   * which is the property that was missing.
+   *
+   * `ilike` rather than `eq`: rows are written lowercased but wagmi hands
+   * back EIP-55 checksummed addresses, and an `eq` would silently match
+   * nothing — the same class of bug all over again.
+   */
   const [launchedToken, setLaunchedToken] = useState<LaunchedToken | null>(null);
-  useEffect(() => {
-    setLaunchedToken(getLatestLaunchedToken(address));
-  }, [address]);
 
-  // A launch recorded elsewhere in the app (the Create Token modal) during
-  // this same session won't otherwise be picked up until `address`
-  // changes — listen for it directly so the fee row appears immediately.
   useEffect(() => {
-    function handleLaunched() {
-      setLaunchedToken(getLatestLaunchedToken(address));
+    if (!address) {
+      setLaunchedToken(null);
+      return;
     }
-    window.addEventListener(LAUNCHED_TOKEN_EVENT, handleLaunched);
-    return () => window.removeEventListener(LAUNCHED_TOKEN_EVENT, handleLaunched);
+
+    let cancelled = false;
+
+    async function load(wallet: Address) {
+      const { data } = await supabase
+        .from("tokens")
+        .select("contract_address,curve_address,ticker,created_at")
+        .ilike("creator_wallet_address", wallet)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (cancelled) return;
+      setLaunchedToken(
+        data
+          ? {
+              tokenAddress: data.contract_address as Address,
+              curveAddress: data.curve_address as Address,
+              symbol: data.ticker as string,
+              launchedAt: new Date(data.created_at as string).getTime(),
+            }
+          : null
+      );
+    }
+
+    load(address);
+
+    // A launch completed during this session should surface immediately
+    // rather than on the next mount, so re-read when the Create Token flow
+    // announces one.
+    const onLaunched = () => void load(address);
+    window.addEventListener(LAUNCHED_TOKEN_EVENT, onLaunched);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(LAUNCHED_TOKEN_EVENT, onLaunched);
+    };
   }, [address]);
 
   const curveAddress = launchedToken?.curveAddress;
