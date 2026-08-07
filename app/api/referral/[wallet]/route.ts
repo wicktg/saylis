@@ -28,7 +28,6 @@ import { robinhood } from "viem/chains";
 import { getSupabaseAdmin } from "@/app/_lib/supabaseAdmin";
 import { REFERRAL_VAULT_ADDRESS } from "@/app/_lib/contracts/config";
 import { REFERRAL_VAULT_ABI } from "@/app/_lib/contracts/ReferralVault";
-import { upstreamRpcUrl } from "@/app/_lib/serverRpcUrl";
 
 export const dynamic = "force-dynamic";
 
@@ -40,41 +39,52 @@ const ACCRUED_EVENT = parseAbiItem(
 );
 
 /**
- * Block ReferralVault was deployed in. Scanning from 0 is both wasteful and
- * rejected outright by the configured RPC, and no vault event can predate
- * this block. Verified against the contract-creation transaction
+ * Block ReferralVault was deployed in. No vault event can predate it, so
+ * starting here rather than at 0 is free accuracy — and it keeps the scan
+ * proportional to the vault's life rather than the chain's, which matters
+ * on a network producing ten blocks a second. Verified against the
+ * contract-creation transaction
  * (0xdb907779...e829) on Robinhood Chain's Blockscout.
  */
 const VAULT_DEPLOY_BLOCK = 25_747_533n;
 
+/**
+ * The endpoint WITHOUT a log-range cap.
+ *
+ * `upstreamRpcUrl()` is Alchemy, whose free tier rejects any `eth_getLogs`
+ * spanning more than 10 blocks. The vault has ~4.6M blocks of history, so
+ * every history read failed and the page told users their referral list
+ * "cannot be read right now" — which was never true of the chain, only of
+ * the endpoint we happened to ask. Measured: the public node returns that
+ * entire range in one request.
+ *
+ * Deliberately NOT `upstreamRpcUrl()` and deliberately not configurable:
+ * pointing this at a capped endpoint silently reintroduces the bug, and
+ * the failure mode is a plausible-looking empty state rather than an
+ * error.
+ */
+const UNCAPPED_RPC_URL = "https://rpc.mainnet.chain.robinhood.com";
+
 function client() {
-  // Server-side route, so it hits the upstream endpoint directly rather
-  // than the browser's /api/rpc proxy.
-  return createPublicClient({ chain: robinhood, transport: http(upstreamRpcUrl()) });
+  // Server-side route, so it hits the endpoint directly rather than the
+  // browser's /api/rpc proxy.
+  return createPublicClient({ chain: robinhood, transport: http(UNCAPPED_RPC_URL) });
 }
 
 /**
- * Attempts one wide `eth_getLogs` over the vault's whole lifetime.
+ * One wide `eth_getLogs` over the vault's whole lifetime.
  *
- * This used to fall back to scanning in 500,000-block chunks when the wide
- * call failed. That fallback could never work: the configured RPC caps
- * `eth_getLogs` at a 10-BLOCK range, so every
- * chunk was rejected exactly like the wide call, the error escaped the
- * handler, and Next returned a 500 with an EMPTY body -- which reached the
- * browser as "Failed to execute 'json' on 'Response'", a parse error that
- * gave no hint the real problem was an RPC range limit.
+ * Against `UNCAPPED_RPC_URL` this is the normal path and it succeeds: the
+ * node has no range limit, so ~4.6M blocks come back in a single request.
+ * It used to run against a capped endpoint, where it could only ever fail —
+ * and chunking around a 10-block cap was never an option either, since that
+ * span needs ~460,000 requests, far beyond one serverless invocation.
  *
- * Chunking correctly is not an option either: ~452,000 blocks have elapsed
- * since deployment, which at 10 blocks per request is ~45,200 requests --
- * far beyond what a single serverless invocation can do.
- *
- * So this tries once and reports failure honestly rather than pretending.
- * `null` means "could not read history", which the caller surfaces as an
- * explicit flag; it must never be conflated with `[]` ("no referrals"),
- * since showing a real referrer a confident zero would be worse than
- * showing them nothing. If the RPC is ever upgraded to a paid tier or
- * swapped for one without a range cap, this call starts succeeding and
- * full history returns with no code change.
+ * `null` is kept for a genuine failure (the node is down or slow), because
+ * it must never be conflated with `[]` ("no referrals"): showing a real
+ * referrer a confident zero is worse than showing them nothing. What
+ * changed is that `null` is now the exception rather than the guaranteed
+ * outcome.
  */
 async function tryGetLogs<const abiEvent extends AbiEvent>(
   publicClient: ReturnType<typeof client>,

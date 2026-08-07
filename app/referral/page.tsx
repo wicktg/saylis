@@ -216,10 +216,9 @@ export default function ReferralPage() {
                 <div className="flex flex-col items-center justify-center text-center py-16 gap-2 pixel-frame pixel-card">
                   <h3 className="text-sm font-bold text-white/70">History unavailable</h3>
                   <p className="text-[11px] text-white/35 max-w-sm leading-relaxed">
-                    The configured RPC caps log queries at a 10-block range, so the
-                    list of wallets you have referred cannot be read right now. Your
-                    link still works, and any balance shown above is live and
-                    claimable.
+                    Couldn&apos;t reach the network to read your referral history just
+                    now — try again in a moment. Your link still works, and any
+                    balance shown above is live and claimable.
                   </p>
                 </div>
               ) : !data || data.referred.length === 0 ? (
