@@ -43,9 +43,9 @@ export default function MobileHeader() {
         <Image
           src="/saylis-logo.png"
           alt="Saylis"
-          width={32}
-          height={32}
-          className="w-8 h-8 object-contain"
+          width={40}
+          height={40}
+          className="w-10 h-10 object-contain"
           priority
         />
       </Link>
@@ -53,12 +53,12 @@ export default function MobileHeader() {
       {isConnected ? (
         <button
           onClick={() => setCreateTokenOpen(true)}
-          className="pixel-frame pixel-btn h-9 px-3 flex items-center text-white text-[11px] lowercase"
+          className="pixel-frame pixel-btn h-7 px-2.5 flex items-center text-white text-[10px] lowercase"
         >
           [+] create
         </button>
       ) : (
-        <ConnectWalletButton />
+        <ConnectWalletButton size="compact" />
       )}
 
       <CreateTokenModal open={createTokenOpen} onClose={() => setCreateTokenOpen(false)} />
