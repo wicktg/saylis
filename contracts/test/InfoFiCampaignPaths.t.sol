@@ -31,7 +31,6 @@ contract InfoFiCampaignPathsTest is Test {
 
     uint256 internal constant SUPPLY = 1_000_000_000e18;
     uint256 internal constant VIRTUAL_ETH = 6e18;
-    uint256 internal constant ETH_USD_PRICE = 3_000e18;
     uint256 internal constant GRADUATION_THRESHOLD = 4.2 ether;
     uint24 internal constant POOL_FEE = 3000;
 
@@ -79,7 +78,6 @@ contract InfoFiCampaignPathsTest is Test {
             (sellable * 4) / 3,
             creator,
             protocolTreasury,
-            ETH_USD_PRICE,
             0,
             GRADUATION_THRESHOLD,
             migrator,

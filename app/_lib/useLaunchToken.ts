@@ -12,7 +12,6 @@ import { getFriendlyErrorMessage } from "@/app/_lib/errors";
 import { waitForReceipt } from "@/app/_lib/txReceipt";
 import {
   DEFAULT_DELAY_BLOCKS,
-  DEFAULT_ETH_USD_PRICE_WHOLE,
   DEFAULT_GRADUATION_THRESHOLD_WEI,
   DEFAULT_TOTAL_SUPPLY,
   DEFAULT_VIRTUAL_ETH_RESERVE,
@@ -104,7 +103,6 @@ export type LaunchResult = {
     virtualTokenReserve: string;
     creator: string;
     protocolTreasury: string;
-    ethUsdPrice: string;
     delayBlocks: string;
     graduationThreshold: string;
     migrator: string;
@@ -238,7 +236,6 @@ export function useLaunchToken() {
         // fixed value would quietly erode graduation headroom.
         const virtualTokenReserveBaseUnits =
           virtualTokenReserveFor(Number(infoFiBps)) * ONE_E18;
-        const ethUsdPriceWei = DEFAULT_ETH_USD_PRICE_WHOLE * ONE_E18;
 
         const curveTxHash = await withRateLimitRetry(async () =>
           walletClient.deployContract({
@@ -250,7 +247,6 @@ export function useLaunchToken() {
               virtualTokenReserveBaseUnits,
               account, // creator = the connected wallet launching the token
               PROTOCOL_TREASURY_ADDRESS,
-              ethUsdPriceWei,
               DEFAULT_DELAY_BLOCKS,
               DEFAULT_GRADUATION_THRESHOLD_WEI,
               GRADUATION_MIGRATOR_ADDRESS,
@@ -291,7 +287,6 @@ export function useLaunchToken() {
             virtualTokenReserve: virtualTokenReserveBaseUnits.toString(),
             creator: account,
             protocolTreasury: PROTOCOL_TREASURY_ADDRESS,
-            ethUsdPrice: ethUsdPriceWei.toString(),
             delayBlocks: DEFAULT_DELAY_BLOCKS.toString(),
             graduationThreshold: DEFAULT_GRADUATION_THRESHOLD_WEI.toString(),
             migrator: GRADUATION_MIGRATOR_ADDRESS,

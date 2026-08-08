@@ -86,14 +86,11 @@ contract BondingCurveTest is Test {
     // the dedicated boundary tests that DO need to land exactly on 2.5%).
     uint256 internal constant DEFAULT_VIRTUAL_ETH = 2_000e18;
     uint256 internal constant DEFAULT_VIRTUAL_TOKEN = 1_073_000_000e18;
-    // $3,000 / ETH, 18-decimal fixed point.
-    uint256 internal constant DEFAULT_ETH_USD_PRICE = 3_000e18;
     uint256 internal constant DEFAULT_DELAY_BLOCKS = 1;
 
     uint256 internal constant FEE_BPS = 100; // 1%
     uint256 internal constant BPS_DENOMINATOR = 10_000;
-    uint256 internal constant MIN_CREATOR_BPS = 7_500;
-    uint256 internal constant MAX_CREATOR_BPS = 8_500;
+    uint256 internal constant CREATOR_SHARE_BPS = 7_500;
     uint256 internal constant MAX_WALLET_BPS = 250; // 2.5%
 
     address internal alice = makeAddr("alice");
@@ -114,7 +111,6 @@ contract BondingCurveTest is Test {
             DEFAULT_VIRTUAL_TOKEN,
             creator,
             protocolTreasury,
-            DEFAULT_ETH_USD_PRICE,
             DEFAULT_DELAY_BLOCKS
         );
         _rollPastLaunchDelay(curve);
@@ -138,7 +134,6 @@ contract BondingCurveTest is Test {
         uint256 virtualToken_,
         address creator_,
         address protocolTreasury_,
-        uint256 ethUsdPrice_,
         uint256 delayBlocks_
     ) internal returns (ImmutableLaunchToken t, BondingCurve c) {
         return _deployPairWithGraduation(
@@ -147,7 +142,6 @@ contract BondingCurveTest is Test {
             virtualToken_,
             creator_,
             protocolTreasury_,
-            ethUsdPrice_,
             delayBlocks_,
             UNREACHABLE_GRADUATION_THRESHOLD
         );
@@ -159,7 +153,6 @@ contract BondingCurveTest is Test {
         uint256 virtualToken_,
         address creator_,
         address protocolTreasury_,
-        uint256 ethUsdPrice_,
         uint256 delayBlocks_,
         uint256 graduationThreshold_
     ) internal returns (ImmutableLaunchToken t, BondingCurve c) {
@@ -177,7 +170,6 @@ contract BondingCurveTest is Test {
             virtualToken_,
             creator_,
             protocolTreasury_,
-            ethUsdPrice_,
             delayBlocks_,
             graduationThreshold_,
             migrator,
@@ -210,11 +202,10 @@ contract BondingCurveTest is Test {
         assertEq(address(curve.token()), address(token));
         assertEq(curve.creator(), creator);
         assertEq(curve.protocolTreasury(), protocolTreasury);
-        assertEq(curve.ethUsdPrice(), DEFAULT_ETH_USD_PRICE);
         assertEq(curve.cumulativeVolume(), 0);
         assertEq(curve.creatorFeesOwed(), 0);
         assertEq(curve.protocolFeesOwed(), 0);
-        assertEq(curve.currentCreatorFeeShareBps(), MIN_CREATOR_BPS);
+        assertEq(curve.currentCreatorFeeShareBps(), CREATOR_SHARE_BPS);
         assertEq(curve.delayBlocks(), DEFAULT_DELAY_BLOCKS);
         assertEq(curve.maxWalletTokens(), (DEFAULT_SUPPLY * MAX_WALLET_BPS) / BPS_DENOMINATOR);
         assertEq(
@@ -232,20 +223,6 @@ contract BondingCurveTest is Test {
             DEFAULT_SUPPLY,
             "the reserved 20% still physically sits in the curve's own balance"
         );
-    }
-
-    function test_VolumeCapWei_ComputedFromUsdPriceReference() public {
-        // ethUsdPrice = $10,000/ETH -> volumeCapWei = $10,000,000 / $10,000 = 1,000 ETH.
-        (, BondingCurve c) = _deployPair(
-            DEFAULT_SUPPLY,
-            DEFAULT_VIRTUAL_ETH,
-            DEFAULT_VIRTUAL_TOKEN,
-            creator,
-            protocolTreasury,
-            10_000e18,
-            DEFAULT_DELAY_BLOCKS
-        );
-        assertEq(c.volumeCapWei(), 1_000e18);
     }
 
     /// @dev `_deployPair` performs TWO `new` calls (token, then curve);
@@ -273,7 +250,6 @@ contract BondingCurveTest is Test {
             DEFAULT_VIRTUAL_TOKEN,
             address(0),
             protocolTreasury,
-            DEFAULT_ETH_USD_PRICE,
             DEFAULT_DELAY_BLOCKS,
             UNREACHABLE_GRADUATION_THRESHOLD,
             migrator,
@@ -298,32 +274,6 @@ contract BondingCurveTest is Test {
             DEFAULT_VIRTUAL_TOKEN,
             creator,
             address(0),
-            DEFAULT_ETH_USD_PRICE,
-            DEFAULT_DELAY_BLOCKS,
-            UNREACHABLE_GRADUATION_THRESHOLD,
-            migrator,
-            0,
-            address(ethUsdPriceFeed),
-            address(0),
-            0,
-            address(0),
-            address(0)
-        );
-    }
-
-    function test_RevertWhen_EthUsdPriceIsZero() public {
-        address predictedCurve =
-            vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
-        ImmutableLaunchToken t = _deployTokenOnly(DEFAULT_SUPPLY, predictedCurve);
-
-        vm.expectRevert(bytes("BondingCurve: zero eth/usd price"));
-        new BondingCurve(
-            IERC20(address(t)),
-            DEFAULT_VIRTUAL_ETH,
-            DEFAULT_VIRTUAL_TOKEN,
-            creator,
-            protocolTreasury,
-            0,
             DEFAULT_DELAY_BLOCKS,
             UNREACHABLE_GRADUATION_THRESHOLD,
             migrator,
@@ -348,7 +298,6 @@ contract BondingCurveTest is Test {
             DEFAULT_VIRTUAL_TOKEN,
             creator,
             protocolTreasury,
-            DEFAULT_ETH_USD_PRICE,
             DEFAULT_DELAY_BLOCKS,
             0,
             migrator,
@@ -397,7 +346,7 @@ contract BondingCurveTest is Test {
     ///               and exactly == maxWalletTokens
     function test_PricingFormula_BuyMatchesManualCalculation() public {
         (ImmutableLaunchToken t, BondingCurve c) = _deployPair(
-            10_000e18, 7_821e18, 12_000e18, creator, protocolTreasury, DEFAULT_ETH_USD_PRICE, 0
+            10_000e18, 7_821e18, 12_000e18, creator, protocolTreasury, 0
         );
         _rollPastLaunchDelay(c);
 
@@ -436,7 +385,7 @@ contract BondingCurveTest is Test {
     /// outright.
     function test_PricingFormula_SellMatchesManualCalculation() public {
         (ImmutableLaunchToken t, BondingCurve c) = _deployPair(
-            10_000e18, 7_821e18, 12_000e18, creator, protocolTreasury, DEFAULT_ETH_USD_PRICE, 0
+            10_000e18, 7_821e18, 12_000e18, creator, protocolTreasury, 0
         );
         _rollPastLaunchDelay(c);
 
@@ -462,22 +411,20 @@ contract BondingCurveTest is Test {
     }
 
     /* -------------------------------------------------------------------- */
-    /*                Escalating creator fee share — checkpoints            */
+    /*                       Flat creator fee share                         */
     /* -------------------------------------------------------------------- */
 
-    /// @dev Deploys a curve whose volumeCapWei resolves to a clean 1,000
-    /// ETH: ethUsdPrice = $10,000/ETH -> $10,000,000 / $10,000 = 1,000 ETH.
-    function _deployCleanCapCurve() internal returns (BondingCurve c) {
+    /// @dev Deploys a curve already past its anti-snipe window, so `buy` is
+    /// immediately callable.
+    function _deployTradableCurve() internal returns (BondingCurve c) {
         (, c) = _deployPair(
             DEFAULT_SUPPLY,
             DEFAULT_VIRTUAL_ETH,
             DEFAULT_VIRTUAL_TOKEN,
             creator,
             protocolTreasury,
-            10_000e18,
             DEFAULT_DELAY_BLOCKS
         );
-        assertEq(c.volumeCapWei(), 1_000e18, "test setup: expected a clean 1,000 ETH cap");
         _rollPastLaunchDelay(c);
     }
 
@@ -485,48 +432,32 @@ contract BondingCurveTest is Test {
         stdstore.target(address(c)).sig("cumulativeVolume()").checked_write(volume);
     }
 
-    function test_CreatorShare_AtZeroVolume_Is75Percent() public {
-        BondingCurve c = _deployCleanCapCurve();
-        assertEq(c.currentCreatorFeeShareBps(), 7_500);
-    }
+    /// @dev The share is a constant now: no volume, however large, moves it.
+    /// This replaced a suite of checkpoint tests for a ramp that escalated
+    /// 75% -> 85% across a USD-denominated volume cap. The cap sat some two
+    /// orders of magnitude beyond the graduation threshold, so no real token
+    /// ever advanced along it — every creator was paid the floor rate while
+    /// the docs promised a ceiling. One flat rate is what was actually being
+    /// delivered, so it is now what is actually written down.
+    function test_CreatorShare_IsFlatRegardlessOfVolume() public {
+        BondingCurve c = _deployTradableCurve();
+        assertEq(c.currentCreatorFeeShareBps(), CREATOR_SHARE_BPS);
 
-    function test_CreatorShare_AtHalfCapVolume_Is80Percent() public {
-        BondingCurve c = _deployCleanCapCurve();
-        _setCumulativeVolume(c, 500e18); // 50% of the 1,000 ETH cap
-        assertEq(c.currentCreatorFeeShareBps(), 8_000);
-    }
+        _setCumulativeVolume(c, 500e18);
+        assertEq(c.currentCreatorFeeShareBps(), CREATOR_SHARE_BPS);
 
-    function test_CreatorShare_AtExactCapBoundary_Is85Percent() public {
-        BondingCurve c = _deployCleanCapCurve();
-        _setCumulativeVolume(c, 1_000e18); // exactly at the cap
-        assertEq(c.currentCreatorFeeShareBps(), 8_500);
-    }
-
-    function test_CreatorShare_BeyondCap_StaysCappedAt85Percent() public {
-        BondingCurve c = _deployCleanCapCurve();
-        _setCumulativeVolume(c, 2_000e18); // 2x the cap
-        assertEq(c.currentCreatorFeeShareBps(), 8_500, "must not exceed the 85% cap");
-    }
-
-    function test_CreatorShare_AtQuarterAndThreeQuarterCap() public {
-        BondingCurve c = _deployCleanCapCurve();
-
-        _setCumulativeVolume(c, 250e18); // 25% of cap
-        assertEq(c.currentCreatorFeeShareBps(), 7_750); // 7500 + 1000*0.25
-
-        _setCumulativeVolume(c, 750e18); // 75% of cap
-        assertEq(c.currentCreatorFeeShareBps(), 8_250); // 7500 + 1000*0.75
+        _setCumulativeVolume(c, 1_000_000e18);
+        assertEq(c.currentCreatorFeeShareBps(), CREATOR_SHARE_BPS, "must never escalate");
     }
 
     /* -------------------------------------------------------------------- */
     /*                      Fee split accuracy, to the wei                  */
     /* -------------------------------------------------------------------- */
 
-    /// @dev At exactly 50% of the cap (creator share = 80%), a fee of 1e18
-    /// wei must split into exactly 0.8e18 / 0.2e18 with nothing left over.
-    function test_FeeSplit_ExactToTheWei_AtEightyPercentCheckpoint() public {
-        BondingCurve c = _deployCleanCapCurve();
-        _setCumulativeVolume(c, 500e18);
+    /// @dev At the flat 75% share, a fee of 0.1e18 wei must split into
+    /// exactly 0.075e18 / 0.025e18 with nothing left over.
+    function test_FeeSplit_ExactToTheWei() public {
+        BondingCurve c = _deployTradableCurve();
 
         // Craft a buy whose fee is exactly 0.1e18: msg.value = 10e18 ->
         // feeAmount = 10e18 * 1% = 0.1e18.
@@ -534,8 +465,8 @@ contract BondingCurveTest is Test {
         vm.prank(alice);
         c.buy{value: 10e18}(0);
 
-        assertEq(c.creatorFeesOwed(), 0.08e18);
-        assertEq(c.protocolFeesOwed(), 0.02e18);
+        assertEq(c.creatorFeesOwed(), 0.075e18);
+        assertEq(c.protocolFeesOwed(), 0.025e18);
         assertEq(c.creatorFeesOwed() + c.protocolFeesOwed(), 0.1e18);
     }
 
@@ -546,7 +477,7 @@ contract BondingCurveTest is Test {
     function testFuzz_FeeSplit_AlwaysSumsExactlyToFeeAmount(uint256 volume, uint256 ethIn)
         public
     {
-        BondingCurve c = _deployCleanCapCurve();
+        BondingCurve c = _deployTradableCurve();
         volume = bound(volume, 0, 2_000e18);
         _setCumulativeVolume(c, volume);
 
@@ -628,34 +559,6 @@ contract BondingCurveTest is Test {
         assertEq(curve.cumulativeVolume(), expectedVolume);
     }
 
-    /// @dev The fee split used for trade N is based on volume accumulated
-    /// from trades 1..N-1 only — a trade cannot bump its own rate.
-    function test_CumulativeVolume_TradeDoesNotAffectItsOwnFeeSplit() public {
-        BondingCurve c = _deployCleanCapCurve();
-
-        // Right at the boundary: one more wei of volume would push bps to
-        // 8500, but THIS trade's own volume must not count toward its own
-        // split, so it should still be evaluated at cumulativeVolume=999e18.
-        _setCumulativeVolume(c, 999e18);
-        uint256 bpsBefore = c.currentCreatorFeeShareBps();
-        assertLt(bpsBefore, 8_500);
-
-        vm.deal(alice, 10 ether);
-        vm.prank(alice);
-        c.buy{value: 10 ether}(0);
-
-        // Volume now exceeds the cap (999e18 + 10e18 > 1000e18); the fee
-        // actually collected on the trade above must have used bpsBefore,
-        // not the post-trade (capped) 8500 rate. We can't read the
-        // in-flight rate directly, but we can confirm the post-trade rate
-        // moved to the capped 8500 while the trade's own recorded fee
-        // split (creator/protocol) is internally consistent with
-        // `bpsBefore`, not the new rate.
-        uint256 feeAmount = _feeOf(10 ether);
-        uint256 expectedCreatorFee = (feeAmount * bpsBefore) / BPS_DENOMINATOR;
-        assertEq(c.creatorFeesOwed(), expectedCreatorFee);
-        assertEq(c.currentCreatorFeeShareBps(), 8_500, "post-trade rate should now read as capped");
-    }
 
     /* -------------------------------------------------------------------- */
     /*                 Pull-payment withdrawal correctness                  */
@@ -739,7 +642,6 @@ contract BondingCurveTest is Test {
             DEFAULT_VIRTUAL_TOKEN,
             creator,
             address(treasury),
-            DEFAULT_ETH_USD_PRICE,
             DEFAULT_DELAY_BLOCKS
         );
         _rollPastLaunchDelay(c);
@@ -793,7 +695,6 @@ contract BondingCurveTest is Test {
             DEFAULT_VIRTUAL_TOKEN,
             address(attacker),
             protocolTreasury,
-            DEFAULT_ETH_USD_PRICE,
             DEFAULT_DELAY_BLOCKS
         );
         _rollPastLaunchDelay(c);
@@ -819,7 +720,6 @@ contract BondingCurveTest is Test {
             DEFAULT_VIRTUAL_TOKEN,
             creator,
             address(attacker),
-            DEFAULT_ETH_USD_PRICE,
             DEFAULT_DELAY_BLOCKS
         );
         _rollPastLaunchDelay(c);
@@ -979,7 +879,7 @@ contract BondingCurveTest is Test {
 
     function test_RevertWhen_BuyDustAmountTokensOutRoundsToZero() public {
         (, BondingCurve c) = _deployPair(
-            1e18, 1_000e18, 1e18, creator, protocolTreasury, DEFAULT_ETH_USD_PRICE, 0
+            1e18, 1_000e18, 1e18, creator, protocolTreasury, 0
         );
         _rollPastLaunchDelay(c);
 
@@ -1012,7 +912,6 @@ contract BondingCurveTest is Test {
             DEFAULT_VIRTUAL_TOKEN,
             creator,
             protocolTreasury,
-            DEFAULT_ETH_USD_PRICE,
             0
         );
         _rollPastLaunchDelay(c);
@@ -1059,7 +958,6 @@ contract BondingCurveTest is Test {
             DEFAULT_VIRTUAL_TOKEN,
             creator,
             protocolTreasury,
-            DEFAULT_ETH_USD_PRICE,
             1
         );
         // No roll: still in the deployment's own block.
@@ -1085,7 +983,6 @@ contract BondingCurveTest is Test {
             DEFAULT_VIRTUAL_TOKEN,
             creator,
             protocolTreasury,
-            DEFAULT_ETH_USD_PRICE,
             3
         );
         uint256 unlockBlock = c.launchBlock() + 3;
@@ -1109,7 +1006,6 @@ contract BondingCurveTest is Test {
             DEFAULT_VIRTUAL_TOKEN,
             creator,
             protocolTreasury,
-            DEFAULT_ETH_USD_PRICE,
             3
         );
         uint256 unlockBlock = c.launchBlock() + 3;
@@ -1132,7 +1028,6 @@ contract BondingCurveTest is Test {
             DEFAULT_VIRTUAL_TOKEN,
             creator,
             protocolTreasury,
-            DEFAULT_ETH_USD_PRICE,
             0
         );
 
@@ -1163,7 +1058,6 @@ contract BondingCurveTest is Test {
             DEFAULT_VIRTUAL_TOKEN,
             creator,
             protocolTreasury,
-            DEFAULT_ETH_USD_PRICE,
             1_000
         );
         assertEq(block.number, c.launchBlock(), "test setup: still in the launch block");
@@ -1201,7 +1095,6 @@ contract BondingCurveTest is Test {
             DEFAULT_VIRTUAL_TOKEN,
             creator,
             protocolTreasury,
-            DEFAULT_ETH_USD_PRICE,
             delayBlocks
         );
 
@@ -1234,7 +1127,7 @@ contract BondingCurveTest is Test {
     /// rather than a pricing hand-calc.
     function test_Buy_SucceedsExactlyAtMaxWalletCap() public {
         (ImmutableLaunchToken t, BondingCurve c) = _deployPair(
-            10_000e18, 7_821e18, 12_000e18, creator, protocolTreasury, DEFAULT_ETH_USD_PRICE, 0
+            10_000e18, 7_821e18, 12_000e18, creator, protocolTreasury, 0
         );
         _rollPastLaunchDelay(c);
 
@@ -1257,7 +1150,7 @@ contract BondingCurveTest is Test {
     /// exact `MaxWalletExceeded` values, and must NOT partially fill.
     function test_RevertWhen_BuyExceedsMaxWalletCapByOneWei() public {
         (ImmutableLaunchToken t, BondingCurve c) = _deployPair(
-            10_000e18, 7_821e18, 12_000e18, creator, protocolTreasury, DEFAULT_ETH_USD_PRICE, 0
+            10_000e18, 7_821e18, 12_000e18, creator, protocolTreasury, 0
         );
         _rollPastLaunchDelay(c);
 

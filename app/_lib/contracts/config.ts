@@ -62,12 +62,6 @@ export const DEFAULT_VIRTUAL_TOKEN_RESERVE = 1_066_666_667n;
 /** Anti-snipe delay applied to every new curve. */
 export const DEFAULT_DELAY_BLOCKS = 1n;
 
-/**
- * USD price of 1 ETH used ONCE at curve construction to convert the fixed
- * $10,000,000 volume cap into a wei threshold. Not a live oracle.
- */
-export const DEFAULT_ETH_USD_PRICE_WHOLE = 3_000n;
-
 /** Fixed graduation threshold: 4.2 ETH. */
 export const DEFAULT_GRADUATION_THRESHOLD_WEI = 4_200_000_000_000_000_000n; // 4.2 ether
 
@@ -89,15 +83,23 @@ export const DEFAULT_GRADUATION_THRESHOLD_WEI = 4_200_000_000_000_000_000n; // 4
 /// Constructed with Robinhood's real Uniswap V3 deployment: factory
 /// `0x1f7d7550b1b028f7571e69a784071f0205fd2efa`, position manager
 /// `0x73991a25c818bf1f1128deaab1492d45638de0d3`, SwapRouter02
-/// `0xcaf681a66d020601342297493863e78c959e5cb2`, pool fee 3000 (0.3%) —
+/// `0xcaf681a66d020601342297493863e78c959e5cb2`, pool fee 10000 (1%) —
 /// all verified to have real deployed bytecode on-chain before this
 /// contract was constructed against them.
+///
+/// Redeployed at the 1% tier, and holding the LP position in each token's
+/// `TokenFeeCollector` instead of burning it. The previous migrator
+/// (`0xBe8e28EA67015a7CF82173B617BF3Dd6ec008e9D`, 0.3%) still exists and
+/// still works: a curve stores its migrator immutably at construction, so
+/// every token launched before this change keeps graduating through the old
+/// one, with its LP burned and its pool fees unclaimable. Only tokens
+/// launched from here on get the new behaviour.
 ///
 /// !! Redeploying this again means updating this constant BEFORE the next
 /// launch — it is baked into each token as `pairSetter` and cannot be
 /// changed once minted. !!
 export const GRADUATION_MIGRATOR_ADDRESS =
-  "0xBe8e28EA67015a7CF82173B617BF3Dd6ec008e9D" as const;
+  "0xac17B4350202F5020905f6c16B89655aF5b8663c" as const;
 
 /**
  * Robinhood Chain's real Chainlink ETH/USD price feed — verified on-chain
@@ -138,7 +140,7 @@ export const UNISWAP_V3_FACTORY_ADDRESS =
  */
 export const WETH9_ADDRESS = "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73" as const;
 
-export const UNISWAP_V3_POOL_FEE = 3000;
+export const UNISWAP_V3_POOL_FEE = 10000;
 
 /**
  * Robinhood Chain's real Uniswap SwapRouter02 — confirmed to have deployed

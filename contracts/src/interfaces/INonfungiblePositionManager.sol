@@ -4,9 +4,10 @@ pragma solidity 0.8.26;
 import {IERC721} from "openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
 
 /// @title INonfungiblePositionManager (minimal)
-/// @notice Only the two mutating functions `GraduationMigrator` needs
-/// from Uniswap V3's periphery position manager: creating/initializing a
-/// pool if one doesn't already exist, and minting a new LP position.
+/// @notice Only the mutating functions this codebase needs from Uniswap
+/// V3's periphery position manager: creating/initializing a pool if one
+/// doesn't already exist, minting a new LP position, and collecting a
+/// position's accrued swap fees.
 /// Ownership of a minted position is represented by an ERC-721 the
 /// position manager itself mints — this interface extends `IERC721` so
 /// `safeTransferFrom` is available to burn that position's NFT.
@@ -46,4 +47,25 @@ interface INonfungiblePositionManager is IERC721 {
         external
         payable
         returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
+
+    struct CollectParams {
+        uint256 tokenId;
+        address recipient;
+        uint128 amount0Max;
+        uint128 amount1Max;
+    }
+
+    /// @notice Sweeps a position's accrued swap fees to `recipient`.
+    /// Callable only by the position's owner or an approved operator —
+    /// which is precisely why the LP NFT is now held by an immutable
+    /// `LiquidityLocker` rather than burned: fees accrue to the position,
+    /// and an unowned position can never realise them.
+    ///
+    /// @dev Only ever touches fees. It cannot withdraw liquidity — that
+    /// requires `decreaseLiquidity`, which this interface deliberately
+    /// does not vendor and the locker therefore cannot call.
+    function collect(CollectParams calldata params)
+        external
+        payable
+        returns (uint256 amount0, uint256 amount1);
 }

@@ -13,6 +13,11 @@
  *      poker, `aboveSince` never advances and NO token ever becomes
  *      eligible. This is the job that makes the $120k/24h rule real.
  *
+ *   4. COLLECT — call `TokenFeeCollector.collect()` for any migrated
+ *      token, so post-graduation fees land in claimable balances instead
+ *      of sitting inside the Uniswap position where the dashboard reads
+ *      them as zero.
+ *
  *   3. MIGRATE — call `GraduationMigrator.migrate(curve)` for any curve
  *      that has graduated but not yet migrated. BondingCurve deliberately
  *      never does this itself (see its NatSpec — DEX migration is kept out
@@ -43,6 +48,10 @@ import { notify, notifyMany } from "@/app/_lib/infofi/notify";
 import { BONDING_CURVE_ABI } from "@/app/_lib/contracts/BondingCurve";
 import { GRADUATION_MIGRATOR_ABI } from "@/app/_lib/contracts/GraduationMigrator";
 import { GRADUATION_MIGRATOR_ADDRESS } from "@/app/_lib/contracts/config";
+import { TAXABLE_LAUNCH_TOKEN_ABI } from "@/app/_lib/contracts/TaxableLaunchToken";
+import { TOKEN_FEE_COLLECTOR_ABI } from "@/app/_lib/contracts/TokenFeeCollector";
+
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -109,6 +118,7 @@ export async function POST(request: Request) {
   const poked: { token: string; txHash?: string; eligible?: boolean; error?: string }[] = [];
   const migrated: { token: string; curve: string; txHash?: string; pool?: string; error?: string }[] =
     [];
+  const collected: { token: string; collector: string; txHash?: string }[] = [];
 
   for (const row of tokens ?? []) {
     const token = (row.contract_address as string)?.toLowerCase();
@@ -164,6 +174,43 @@ export async function POST(request: Request) {
           const txHash = await poker.client.writeContract(simulated);
           migrated.push({ token, curve: curveAddress, txHash, pool: result[0] });
           isMigratedAfter = true;
+        }
+
+        // ---- Sweep post-graduation fees into claimable balances ----
+        //
+        // A graduated token's fees sit INSIDE its Uniswap position until
+        // `collect()` is called, so without this a creator opens their
+        // dashboard and sees zero while the position quietly accrues. The
+        // claim button calls `collect()` itself, but only once pressed —
+        // which means the number they are deciding on would be wrong at
+        // the moment they read it.
+        //
+        // Permissionless and non-custodial, exactly like `migrate`: every
+        // destination and split is fixed in the collector, so the poker
+        // can only move fees to the parties already entitled to them, and
+        // pays the gas to do it.
+        if (poker && isMigratedAfter) {
+          const collector = (await publicClient().readContract({
+            address: token as Address,
+            abi: TAXABLE_LAUNCH_TOKEN_ABI,
+            functionName: "feeCollector",
+          })) as Address;
+
+          if (collector && collector !== ZERO_ADDRESS) {
+            try {
+              const { request: simulated } = await publicClient().simulateContract({
+                address: collector,
+                abi: TOKEN_FEE_COLLECTOR_ABI,
+                functionName: "collect",
+                account: poker.account,
+              });
+              const txHash = await poker.client.writeContract(simulated);
+              collected.push({ token, collector, txHash });
+            } catch {
+              // `NothingCollected` is the normal case on a quiet token —
+              // the simulation reverts, no gas is spent, nothing to report.
+            }
+          }
         }
 
         if (isMigratedAfter && !row.migrated_notified_at && creatorWallet) {
@@ -395,6 +442,7 @@ export async function POST(request: Request) {
     syncedTokens: synced,
     poked,
     migrated,
+    collected,
   });
 }
 

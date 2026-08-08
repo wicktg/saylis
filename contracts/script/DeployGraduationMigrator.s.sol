@@ -27,9 +27,13 @@ import {GraduationMigrator} from "../src/GraduationMigrator.sol";
 ///                                    target chain.
 ///   WETH9_ADDRESS                  - canonical WETH9 for the target chain.
 ///   UNISWAP_V3_POOL_FEE             - fee tier (hundredths of a bip) to
-///                                    create/seed pools at, e.g. 3000 for
-///                                    the standard 0.3% tier. Must be a
-///                                    tier the factory recognizes.
+///                                    create/seed pools at. Use 10000 (the
+///                                    1% tier): the pool fee is the
+///                                    creator's main post-graduation
+///                                    income, since `TokenFeeCollector`
+///                                    now holds the LP position and can
+///                                    actually claim it. Must be a tier the
+///                                    factory recognizes.
 ///
 /// IMPORTANT: verify these addresses against Uniswap's own official
 /// deployment docs for the target chain before broadcasting — this script

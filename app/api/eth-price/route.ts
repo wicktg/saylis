@@ -2,10 +2,7 @@ import { NextResponse } from "next/server";
 import { createPublicClient, http, type Address } from "viem";
 import { robinhood } from "viem/chains";
 import { upstreamRpcUrl } from "@/app/_lib/serverRpcUrl";
-import {
-  ETH_USD_PRICE_FEED_ADDRESS,
-  DEFAULT_ETH_USD_PRICE_WHOLE,
-} from "@/app/_lib/contracts/config";
+import { ETH_USD_PRICE_FEED_ADDRESS } from "@/app/_lib/contracts/config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,6 +64,14 @@ const AGGREGATOR_ABI = [
  */
 const CACHE_TTL_MS = 60_000;
 
+/**
+ * Last-resort rate, used only on a cold start whose very first feed read
+ * failed — after that the cache always has something better. Deliberately a
+ * local constant: it used to be shared with the curve's constructor, which
+ * no longer takes a USD price at all.
+ */
+const FALLBACK_ETH_USD = 3_000;
+
 const client = createPublicClient({
   chain: robinhood,
   transport: http(upstreamRpcUrl(), { batch: { wait: 16 } }),
@@ -115,12 +120,11 @@ export async function GET() {
     cache = { price, at: Date.now() };
     return json({ usd: price, stale: false }, "miss");
   } catch {
-    // The last good rate beats the compile-time constant by a wide margin:
-    // DEFAULT_ETH_USD_PRICE_WHOLE is fixed at each curve's deploy time and
-    // only drifts further from reality. `stale` is reported honestly so the
-    // client can decide whether to trust it.
+    // The last good rate beats the compile-time constant by a wide
+    // margin. `stale` is reported honestly so the client can decide
+    // whether to trust it.
     if (cache) return json({ usd: cache.price, stale: true }, "stale");
-    return json({ usd: Number(DEFAULT_ETH_USD_PRICE_WHOLE), stale: true }, "fallback");
+    return json({ usd: FALLBACK_ETH_USD, stale: true }, "fallback");
   } finally {
     inFlight = null;
   }

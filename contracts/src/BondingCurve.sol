@@ -45,16 +45,14 @@ import {IReferralVault} from "./interfaces/IReferralVault.sol";
 /// adjusted) amount that isn't fee — fees are carved out to a separate pair
 /// of accumulator variables and never touch `realEthReserve`.
 ///
-/// FEE SPLIT — ESCALATING CREATOR SHARE
-/// --------------------------------------
+/// FEE SPLIT — FLAT
+/// -----------------
 /// Each 1% fee is split between the token's `creator` and the immutable
-/// `protocolTreasury`. The creator's share escalates LINEARLY from 75% to
-/// 85% of the fee as this specific curve's own cumulative trading volume
-/// (tracked on-chain, in wei, as the gross ETH value of every trade so far)
-/// grows from 0 up to a configured USD-equivalent cap (`$10,000,000` by
-/// spec, converted to a wei threshold at construction via a configurable
-/// ETH/USD price reference — see `ethUsdPrice` / `volumeCapWei` below).
-/// Past that cap, the creator's share is fixed at 85% forever. This
+/// `protocolTreasury`, 75% / 25%, for the life of the curve. There is no
+/// escalation: `CREATOR_SHARE_BPS` is a constant, and the split is
+/// identical on the first trade and the last. An earlier revision ramped
+/// it 75% -> 85% against a $10,000,000 volume cap that was unreachable by
+/// construction — see `CREATOR_SHARE_BPS` for why it was removed. This
 /// rewards tokens that sustain real trading activity without needing any
 /// on-chain oracle after deployment: the USD target is converted to an ETH
 /// figure ONCE, at deploy time, using whatever price the deployer supplies
@@ -199,8 +197,7 @@ import {IReferralVault} from "./interfaces/IReferralVault.sol";
 /// (in ETH) converted to USD via `ethUsdPriceFeed` — a live Chainlink-
 /// style oracle read on every taxable sell. This is a deliberate,
 /// narrowly-scoped EXCEPTION to this contract's general "no live oracle"
-/// posture (see `ethUsdPrice`/`volumeCapWei` above, which stays a
-/// one-time, non-live conversion): tiered whale gating cannot be done
+/// posture: tiered whale gating cannot be done
 /// without SOME live USD reference, and Chainlink's push-oracle model is
 /// the standard, widely-audited way to get one on-chain. To avoid that
 /// dependency ever blocking a seller's ability to exit (a "user must
@@ -344,20 +341,26 @@ contract BondingCurve is ReentrancyGuard {
     /// @notice Basis-point denominator (100% == 10_000 bps).
     uint256 public constant BPS_DENOMINATOR = 10_000;
 
-    /// @notice Creator's share of the fee at zero cumulative volume: 75%.
-    uint256 public constant MIN_CREATOR_SHARE_BPS = 7_500;
-
-    /// @notice Creator's share of the fee once cumulative volume reaches
-    /// `volumeCapWei`: 85%. Fixed at this value for all volume beyond the
-    /// cap.
-    uint256 public constant MAX_CREATOR_SHARE_BPS = 8_500;
-
-    /// @notice The USD volume target at which the creator share finishes
-    /// escalating, expressed as an 18-decimal fixed-point figure
-    /// ($10,000,000 exactly). This is a protocol-wide constant, not
-    /// configurable per curve — only the ETH/USD conversion (`ethUsdPrice`)
-    /// used to translate it into a wei threshold is configurable per curve.
-    uint256 public constant VOLUME_CAP_USD = 10_000_000e18;
+    /// @notice Creator's share of every trade fee: 75%, flat, forever. The
+    /// protocol takes the remaining 25%.
+    ///
+    /// @dev This replaced a ramp that escalated 75% -> 85% as a curve's
+    /// cumulative volume approached a $10,000,000 USD-equivalent cap. The
+    /// ramp was removed because it could not do what it described: a curve
+    /// graduates once `graduationThreshold` of NET reserve is raised — 4.2
+    /// ETH by default, order-of-magnitude $10k — and trading halts
+    /// permanently at that point. Reaching a $10M GROSS volume cap first
+    /// would have required turning over roughly three hundred times the
+    /// graduation size without ever netting past it. No token was going to
+    /// do that, so in practice every curve sat at the 75% floor for its
+    /// entire life while the code, the docs and the UI all described an
+    /// escalation that never moved.
+    ///
+    /// One honest rate is worth more than a mechanism whose only real
+    /// effect was to be explained. It also removes the `ethUsdPrice`
+    /// constructor parameter and the `volumeCapWei` immutable, which
+    /// existed solely to convert that cap into wei.
+    uint256 public constant CREATOR_SHARE_BPS = 7_500;
 
     /// @notice Max-wallet cap, in basis points of total supply: 2.5%.
     uint256 public constant MAX_WALLET_BPS = 250;
@@ -455,17 +458,6 @@ contract BondingCurve is ReentrancyGuard {
     /// forever at deployment.
     address public immutable protocolTreasury;
 
-    /// @notice USD price of 1 ETH, as an 18-decimal fixed-point number,
-    /// supplied at construction and used ONCE to compute `volumeCapWei`.
-    /// Not a live oracle — see the contract-level NatSpec for why.
-    uint256 public immutable ethUsdPrice;
-
-    /// @notice The cumulative-volume threshold (in wei) at which the
-    /// creator's fee share finishes escalating to `MAX_CREATOR_SHARE_BPS`.
-    /// Computed once at construction as
-    /// `VOLUME_CAP_USD * 1e18 / ethUsdPrice`.
-    uint256 public immutable volumeCapWei;
-
     /// @notice The block number this curve was deployed in. Combined with
     /// `delayBlocks` to gate `buy` against same-block/near-launch sniping.
     uint256 public immutable launchBlock;
@@ -533,8 +525,7 @@ contract BondingCurve is ReentrancyGuard {
 
     /// @notice Chainlink-style ETH/USD price feed used ONLY to gate the
     /// whale sell tax (see contract-level NatSpec) — a live oracle read on
-    /// every taxable sell, unlike `ethUsdPrice` above which is read once,
-    /// at construction, for the unrelated `volumeCapWei` computation.
+    /// every taxable sell. This is the contract's only oracle dependency.
     AggregatorV3Interface public immutable ethUsdPriceFeed;
 
     /// @notice `ethUsdPriceFeed`'s own decimals, fetched once at
@@ -622,9 +613,6 @@ contract BondingCurve is ReentrancyGuard {
     /// @param virtualTokenReserve_ Virtual token liquidity offset, > 0.
     /// @param creator_ Token creator; receives the escalating fee share.
     /// @param protocolTreasury_ Protocol fee-collection treasury address.
-    /// @param ethUsdPrice_ USD price of 1 ETH, 18-decimal fixed point
-    ///        (e.g. `3_000e18` for $3,000/ETH), used once to compute
-    ///        `volumeCapWei` from the fixed `VOLUME_CAP_USD` target.
     /// @param delayBlocks_ Number of blocks after deployment during which
     ///        `buy` is blocked (anti-snipe). `0` still blocks same-block
     ///        sniping (a bundled deploy+buy), since `buy` requires
@@ -662,7 +650,6 @@ contract BondingCurve is ReentrancyGuard {
         uint256 virtualTokenReserve_,
         address creator_,
         address protocolTreasury_,
-        uint256 ethUsdPrice_,
         uint256 delayBlocks_,
         uint256 graduationThreshold_,
         address migrator_,
@@ -678,7 +665,6 @@ contract BondingCurve is ReentrancyGuard {
         require(virtualTokenReserve_ > 0, "BondingCurve: zero virtual token reserve");
         require(creator_ != address(0), "BondingCurve: creator is zero address");
         require(protocolTreasury_ != address(0), "BondingCurve: protocol treasury is zero address");
-        require(ethUsdPrice_ > 0, "BondingCurve: zero eth/usd price");
         require(graduationThreshold_ > 0, "BondingCurve: zero graduation threshold");
         require(migrator_ != address(0), "BondingCurve: migrator is zero address");
         require(sellTaxBps_ <= MAX_SELL_TAX_BPS, "BondingCurve: sell tax too high");
@@ -696,8 +682,6 @@ contract BondingCurve is ReentrancyGuard {
         creator = creator_;
         creatorFeeRecipient = creatorFeeRecipient_ == address(0) ? creator_ : creatorFeeRecipient_;
         protocolTreasury = protocolTreasury_;
-        ethUsdPrice = ethUsdPrice_;
-        volumeCapWei = (VOLUME_CAP_USD * 1e18) / ethUsdPrice_;
         launchBlock = block.number;
         delayBlocks = delayBlocks_;
         graduationThreshold = graduationThreshold_;
@@ -990,14 +974,15 @@ contract BondingCurve is ReentrancyGuard {
         return (ethReserve() * (10 ** uint256(tokenDecimals))) / tokenReserve();
     }
 
-    /// @notice The creator's current share of the 1% fee, in basis points,
-    /// given `cumulativeVolume` so far. Linearly interpolates from
-    /// `MIN_CREATOR_SHARE_BPS` (at zero volume) to `MAX_CREATOR_SHARE_BPS`
-    /// (at `volumeCapWei` and beyond).
-    function currentCreatorFeeShareBps() public view returns (uint256) {
-        uint256 cappedVolume = cumulativeVolume >= volumeCapWei ? volumeCapWei : cumulativeVolume;
-        return MIN_CREATOR_SHARE_BPS
-            + ((MAX_CREATOR_SHARE_BPS - MIN_CREATOR_SHARE_BPS) * cappedVolume) / volumeCapWei;
+    /// @notice The creator's share of the 1% fee, in basis points.
+    ///
+    /// @dev Kept as a function rather than reading `CREATOR_SHARE_BPS`
+    /// directly at the call site: it was the ramp's entry point, several
+    /// integrations already read it, and a constant-returning view keeps
+    /// them working while leaving one place to change if the split ever
+    /// becomes dynamic again.
+    function currentCreatorFeeShareBps() public pure returns (uint256) {
+        return CREATOR_SHARE_BPS;
     }
 
     /// @notice Quote how many tokens `ethIn` wei would buy right now,

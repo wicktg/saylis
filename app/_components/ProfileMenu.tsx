@@ -14,7 +14,10 @@ import { useNotifications } from "@/app/_lib/useNotifications";
 import NotificationsModal from "@/app/_components/NotificationsModal";
 import Icon from "@/app/_components/Icon";
 
-const CLAIMABLE_TOOLTIP = "Total fees earned across all your launches.";
+const CLAIMABLE_TOOLTIP =
+  "Fees earned across all your launches, on the bonding curve and, once you graduate, on your Uniswap pool.";
+const TOKENS_TOOLTIP =
+  "Your share of post-graduation fees that arrived as tokens rather than ETH — the pool charges each trade in whatever was paid in, and whale sell tax is always tokens. Paid to you as tokens so nothing is sold on your behalf.";
 
 export default function ProfileMenu() {
   const [open, setOpen] = useState(false);
@@ -40,11 +43,15 @@ export default function ProfileMenu() {
 
   const {
     creatorFeesOwed,
+    creatorTokensOwed,
+    creatorTokensValueWei,
     isClaimBusy,
     hasClaimable,
     justClaimed,
     claim: handleClaim,
   } = useCreatorFees(address);
+
+  const hasTokenFees = (creatorTokensOwed ?? 0n) > 0n;
 
   if (!address) return null;
 
@@ -125,6 +132,30 @@ export default function ProfileMenu() {
                 {isClaimBusy ? "Claiming..." : justClaimed ? "Claimed" : "Claim"}
               </button>
             </div>
+
+            {/* Only after graduation does a token side exist at all, so
+                this row stays out of the way entirely until it does. */}
+            {hasTokenFees && (
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/5">
+                <span className="flex items-center gap-1.5 text-[11px] text-white/50">
+                  In tokens
+                  <span className="group relative flex items-center">
+                    <Icon
+                      icon="pixelarticons:info-box"
+                      className="text-white/30 text-[11px] cursor-help"
+                    />
+                    <span className="pointer-events-none absolute left-1/2 bottom-full mb-2 w-52 -translate-x-1/2 rounded-md bg-black border border-white/10 px-2.5 py-1.5 text-[10px] font-normal leading-snug text-white/80 opacity-0 group-hover:opacity-100 transition-opacity z-[60]">
+                      {TOKENS_TOOLTIP}
+                    </span>
+                  </span>
+                </span>
+                <span className="text-[11px] font-bold">
+                  {creatorTokensValueWei === undefined
+                    ? "—"
+                    : formatWeiAsUsdPrice(creatorTokensValueWei, ethUsdPrice)}
+                </span>
+              </div>
+            )}
 
             {/* Once bound, this row becomes the X identity itself — there
                 is deliberately no disconnect, so it never reverts to a

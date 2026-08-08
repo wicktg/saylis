@@ -46,13 +46,10 @@ import {BondingCurve} from "../src/BondingCurve.sol";
 ///                              - as in DeployImmutableLaunchToken.s.sol.
 ///   VIRTUAL_ETH_RESERVE        - virtual ETH liquidity, in whole ETH.
 ///   VIRTUAL_TOKEN_RESERVE      - virtual token liquidity, in whole tokens.
-///   CREATOR_ADDRESS            - token creator; receives the escalating
-///                                75%-85% share of the 1% trade fee.
+///   CREATOR_ADDRESS            - token creator; receives a flat 75% share
+///                                of the 1% trade fee, for the life of the
+///                                token.
 ///   PROTOCOL_TREASURY_ADDRESS  - already-deployed ProtocolTreasury address.
-///   ETH_USD_PRICE              - USD price of 1 ETH, whole dollars (e.g.
-///                                3000). Used once, at deploy time, to
-///                                convert the fixed $10,000,000 volume cap
-///                                into a wei threshold for this curve.
 ///   DELAY_BLOCKS               - number of blocks after deployment during
 ///                                which buy() is blocked (anti-snipe). E.g.
 ///                                1.
@@ -95,8 +92,6 @@ contract DeployTokenAndCurve is Script {
 
         address creator_ = vm.envAddress("CREATOR_ADDRESS");
         address protocolTreasury_ = vm.envAddress("PROTOCOL_TREASURY_ADDRESS");
-        uint256 wholeEthUsdPrice = vm.envUint("ETH_USD_PRICE");
-        uint256 ethUsdPrice_ = wholeEthUsdPrice * 1e18;
         uint256 delayBlocks_ = vm.envUint("DELAY_BLOCKS");
         uint256 graduationThreshold_ = vm.envUint("GRADUATION_THRESHOLD_WEI");
         address migrator_ = vm.envAddress("GRADUATION_MIGRATOR_ADDRESS");
@@ -118,7 +113,6 @@ contract DeployTokenAndCurve is Script {
             virtualTokenReserve_,
             creator_,
             protocolTreasury_,
-            ethUsdPrice_,
             delayBlocks_,
             graduationThreshold_,
             migrator_,
@@ -146,8 +140,7 @@ contract DeployTokenAndCurve is Script {
         console.log("Initial spot price (wei per whole token):", curve.getPrice());
         console.log("Creator:", curve.creator());
         console.log("Protocol treasury:", curve.protocolTreasury());
-        console.log("Volume cap (wei):", curve.volumeCapWei());
-        console.log("Initial creator fee share (bps):", curve.currentCreatorFeeShareBps());
+        console.log("Creator fee share (bps, flat):", curve.currentCreatorFeeShareBps());
         console.log("Launch block:", curve.launchBlock());
         console.log("Delay blocks:", curve.delayBlocks());
         console.log("Max wallet tokens (2.5% of supply):", curve.maxWalletTokens());

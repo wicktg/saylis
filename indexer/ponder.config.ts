@@ -12,7 +12,7 @@ import addresses from "./addresses.generated.json";
  * on both sides or pool discovery below silently watches the wrong (or a
  * now-superseded) migrator.
  */
-const GRADUATION_MIGRATOR_ADDRESS = "0xBe8e28EA67015a7CF82173B617BF3Dd6ec008e9D";
+const GRADUATION_MIGRATOR_ADDRESS = "0xac17B4350202F5020905f6c16B89655aF5b8663c";
 
 /**
  * Earliest block anything here needs to scan from. Deliberately the block

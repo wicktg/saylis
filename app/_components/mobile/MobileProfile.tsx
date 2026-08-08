@@ -50,7 +50,15 @@ export default function MobileProfile() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [myTokensOpen, setMyTokensOpen] = useState(false);
 
-  const { creatorFeesOwed, isClaimBusy, hasClaimable, justClaimed, claim } =
+  const {
+    creatorFeesOwed,
+    creatorTokensOwed,
+    creatorTokensValueWei,
+    isClaimBusy,
+    hasClaimable,
+    justClaimed,
+    claim,
+  } =
     useCreatorFees(address);
 
   // Every row below is scoped to a wallet, so with none connected there is
@@ -107,6 +115,16 @@ export default function MobileProfile() {
             {isClaimBusy ? "Claiming..." : justClaimed ? "Claimed" : "Claim"}
           </button>
         </div>
+        {(creatorTokensOwed ?? 0n) > 0n && (
+          <div className="flex items-center justify-between gap-3 mt-2 pt-2 border-t border-white/5">
+            <span className="text-[11px] text-white/50">In tokens</span>
+            <span className="text-[11px] font-bold">
+              {creatorTokensValueWei === undefined
+                ? "—"
+                : formatWeiAsUsdPrice(creatorTokensValueWei, ethUsdPrice)}
+            </span>
+          </div>
+        )}
         <p className="text-[10px] text-white/30 leading-snug mt-2">{CLAIMABLE_TOOLTIP}</p>
       </div>
 

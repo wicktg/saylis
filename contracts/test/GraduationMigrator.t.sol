@@ -7,6 +7,7 @@ import {IERC721} from "openzeppelin-contracts/contracts/token/ERC721/IERC721.sol
 import {ImmutableLaunchToken} from "../src/ImmutableLaunchToken.sol";
 import {BondingCurve} from "../src/BondingCurve.sol";
 import {GraduationMigrator} from "../src/GraduationMigrator.sol";
+import {TokenFeeCollector} from "../src/TokenFeeCollector.sol";
 import {INonfungiblePositionManager} from "../src/interfaces/INonfungiblePositionManager.sol";
 import {MockV3Aggregator} from "./mocks/MockV3Aggregator.sol";
 
@@ -42,7 +43,6 @@ contract GraduationMigratorTest is Test {
     // reach graduation with real headroom, not exhaust the sellable pool.
     uint256 internal constant VIRTUAL_ETH = 6e18;
     uint256 internal constant VIRTUAL_TOKEN = 1_066_666_667e18;
-    uint256 internal constant ETH_USD_PRICE = 3_000e18;
     uint256 internal constant GRADUATION_THRESHOLD = 4.2 ether;
 
     address internal creator = makeAddr("creator");
@@ -86,7 +86,6 @@ contract GraduationMigratorTest is Test {
             VIRTUAL_TOKEN,
             creator,
             protocolTreasury,
-            ETH_USD_PRICE,
             0,
             GRADUATION_THRESHOLD,
             address(migrator),
@@ -143,8 +142,18 @@ contract GraduationMigratorTest is Test {
         );
         assertTrue(curve.migrationExecuted(), "curve migration latch should be set");
 
-        // LP NFT confirmed burned, not sitting in the migrator.
-        assertEq(IERC721(POSITION_MANAGER).ownerOf(tokenId), BURN_ADDRESS, "LP NFT should be burned");
+        // LP NFT confirmed locked, not sitting in the migrator. It is no
+        // longer burned: fees accrue to the position and only its owner
+        // can `collect` them, so ownership moved to an immutable locker
+        // that can claim fees and nothing else. See LiquidityLocker.
+        address positionOwner = IERC721(POSITION_MANAGER).ownerOf(tokenId);
+        assertTrue(positionOwner != BURN_ADDRESS, "LP NFT must be locked, not burned");
+        assertTrue(positionOwner != address(migrator), "migrator must not retain the position");
+        TokenFeeCollector locker = TokenFeeCollector(payable(positionOwner));
+        assertEq(locker.tokenId(), tokenId, "locker must be bound to this exact position");
+        assertEq(locker.creator(), curve.creator(), "locker pays this token's creator");
+        assertEq(locker.protocolTreasury(), curve.protocolTreasury());
+        assertEq(locker.CREATOR_SHARE_BPS(), 7_500, "same 75/25 split as the curve");
         assertEq(
             IERC721(POSITION_MANAGER).balanceOf(address(migrator)), 0, "migrator should hold no leftover LP NFTs"
         );
@@ -184,7 +193,6 @@ contract GraduationMigratorTest is Test {
             VIRTUAL_TOKEN,
             creator,
             protocolTreasury,
-            ETH_USD_PRICE,
             0,
             GRADUATION_THRESHOLD,
             address(migrator),
@@ -310,7 +318,6 @@ contract GraduationMigratorTest is Test {
             VIRTUAL_TOKEN,
             creator,
             protocolTreasury,
-            ETH_USD_PRICE,
             0,
             GRADUATION_THRESHOLD,
             address(migrator),
@@ -341,7 +348,9 @@ contract GraduationMigratorTest is Test {
         assertTrue(pool != address(0));
         assertGt(liquidity, 0);
         assertTrue(migrator.migrated(address(curve)));
-        assertEq(IERC721(POSITION_MANAGER).ownerOf(tokenId), BURN_ADDRESS);
+        address positionOwner = IERC721(POSITION_MANAGER).ownerOf(tokenId);
+        assertTrue(positionOwner != BURN_ADDRESS && positionOwner != address(migrator));
+        assertEq(TokenFeeCollector(payable(positionOwner)).tokenId(), tokenId);
         assertEq(curve.realEthReserve(), 0);
     }
 }

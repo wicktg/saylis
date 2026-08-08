@@ -5,6 +5,7 @@ import TokenCard from "@/app/_components/TokenCard";
 import TokenSwapModal from "@/app/_components/token/TokenSwapModal";
 import { useLiveTokens } from "@/app/_lib/useLiveTokens";
 import { useTokenMarketData, type MarketData } from "@/app/_lib/useTokenMarketData";
+import { useAutoMigrate } from "@/app/_lib/useAutoMigrate";
 import type { SortOption } from "@/app/_lib/sort";
 import type { TokenRecord } from "@/app/_lib/types";
 import type { Address } from "viem";
@@ -24,6 +25,10 @@ export default function TokenGrid({ sortBy, search = "" }: { sortBy: SortOption;
     [tokens]
   );
   const { data: marketData } = useTokenMarketData(pairs);
+
+  // A graduated curve has halted with no pool yet. Nudge it along the
+  // moment we see one, rather than waiting on the 10-minute cron.
+  useAutoMigrate(marketData);
 
   // Ticker, name, or a full/partial contract address — whatever the user
   // actually has on hand when hunting for a specific token.

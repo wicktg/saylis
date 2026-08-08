@@ -21,13 +21,12 @@ contract BondingCurveReferralTest is Test {
     uint256 internal constant DEFAULT_SUPPLY = 1_000_000_000e18;
     uint256 internal constant DEFAULT_VIRTUAL_ETH = 2_000e18;
     uint256 internal constant DEFAULT_VIRTUAL_TOKEN = 1_073_000_000e18;
-    uint256 internal constant DEFAULT_ETH_USD_PRICE = 3_000e18;
     uint256 internal constant DEFAULT_DELAY_BLOCKS = 1;
     uint256 internal constant UNREACHABLE_GRADUATION_THRESHOLD = type(uint128).max;
 
     uint256 internal constant FEE_BPS = 100; // 1%
     uint256 internal constant BPS_DENOMINATOR = 10_000;
-    uint256 internal constant MIN_CREATOR_BPS = 7_500; // at zero cumulative volume
+    uint256 internal constant CREATOR_SHARE_BPS = 7_500; // flat, all volumes
     uint256 internal constant REFERRAL_BPS = 500; // 5%
 
     address internal protocolTreasury = makeAddr("protocolTreasury");
@@ -59,7 +58,6 @@ contract BondingCurveReferralTest is Test {
             DEFAULT_VIRTUAL_TOKEN,
             creator_,
             protocolTreasury,
-            DEFAULT_ETH_USD_PRICE,
             DEFAULT_DELAY_BLOCKS,
             UNREACHABLE_GRADUATION_THRESHOLD,
             migrator,
@@ -92,7 +90,7 @@ contract BondingCurveReferralTest is Test {
         c.buy{value: 5 ether}(0);
 
         uint256 feeAmount = _feeOf(5 ether);
-        uint256 expectedCreatorFee = (feeAmount * MIN_CREATOR_BPS) / BPS_DENOMINATOR;
+        uint256 expectedCreatorFee = (feeAmount * CREATOR_SHARE_BPS) / BPS_DENOMINATOR;
 
         assertEq(c.creatorFeesOwed(), expectedCreatorFee, "full creator fee, no cut taken");
         assertEq(vault.referralFeesOwed(creator), 0);
@@ -110,7 +108,7 @@ contract BondingCurveReferralTest is Test {
         c.buy{value: 5 ether}(0);
 
         uint256 feeAmount = _feeOf(5 ether);
-        uint256 expectedCreatorFee = (feeAmount * MIN_CREATOR_BPS) / BPS_DENOMINATOR;
+        uint256 expectedCreatorFee = (feeAmount * CREATOR_SHARE_BPS) / BPS_DENOMINATOR;
         assertEq(c.creatorFeesOwed(), expectedCreatorFee);
     }
 
@@ -132,7 +130,7 @@ contract BondingCurveReferralTest is Test {
         c.buy{value: 5 ether}(0);
 
         uint256 feeAmount = _feeOf(5 ether);
-        uint256 creatorFee = (feeAmount * MIN_CREATOR_BPS) / BPS_DENOMINATOR;
+        uint256 creatorFee = (feeAmount * CREATOR_SHARE_BPS) / BPS_DENOMINATOR;
         uint256 protocolFee = feeAmount - creatorFee;
         uint256 expectedReferralCut = (creatorFee * REFERRAL_BPS) / BPS_DENOMINATOR;
 
@@ -168,11 +166,9 @@ contract BondingCurveReferralTest is Test {
         uint256 protocolFeesBefore = c.protocolFeesOwed();
 
         uint256 grossEthOut = c.quoteSellGross(tokenBal);
-        // Cumulative volume from the buy already pushed the creator share
-        // slightly past MIN_CREATOR_BPS by the time this sell runs, so
-        // derive the expected split from the contract's own (pure) view —
-        // read BEFORE `sell()`, since the split it actually uses is based
-        // on cumulative volume from before THIS trade is added to it.
+        // Derive the expected split from the contract's own view rather
+        // than restating the constant, so this stays honest if the rate
+        // ever moves.
         uint256 creatorBps = c.currentCreatorFeeShareBps();
         c.sell(tokenBal, 0);
         vm.stopPrank();
@@ -214,7 +210,6 @@ contract BondingCurveReferralTest is Test {
             DEFAULT_VIRTUAL_TOKEN,
             creator,
             protocolTreasury,
-            DEFAULT_ETH_USD_PRICE,
             DEFAULT_DELAY_BLOCKS,
             UNREACHABLE_GRADUATION_THRESHOLD,
             migrator,
@@ -276,11 +271,11 @@ contract BondingCurveReferralTest is Test {
         vm.stopPrank();
 
         uint256 feeA = _feeOf(5 ether);
-        uint256 creatorFeeA = (feeA * MIN_CREATOR_BPS) / BPS_DENOMINATOR;
+        uint256 creatorFeeA = (feeA * CREATOR_SHARE_BPS) / BPS_DENOMINATOR;
         uint256 cutA = (creatorFeeA * REFERRAL_BPS) / BPS_DENOMINATOR;
 
         uint256 feeB = _feeOf(3 ether);
-        uint256 creatorFeeB = (feeB * MIN_CREATOR_BPS) / BPS_DENOMINATOR;
+        uint256 creatorFeeB = (feeB * CREATOR_SHARE_BPS) / BPS_DENOMINATOR;
         uint256 cutB = (creatorFeeB * REFERRAL_BPS) / BPS_DENOMINATOR;
 
         assertEq(
@@ -318,7 +313,7 @@ contract BondingCurveReferralTest is Test {
 
         assertEq(vault.referralFeesOwed(referrer), 0, "late registration has zero effect on this curve");
         uint256 feeAmount = _feeOf(5 ether);
-        uint256 expectedCreatorFee = (feeAmount * MIN_CREATOR_BPS) / BPS_DENOMINATOR;
+        uint256 expectedCreatorFee = (feeAmount * CREATOR_SHARE_BPS) / BPS_DENOMINATOR;
         assertEq(c.creatorFeesOwed(), expectedCreatorFee, "creator keeps the full fee share");
     }
 }

@@ -17,7 +17,7 @@ Saylis is a token launchpad built around one idea: every mechanic that moves mon
 
 Every token launched on Saylis gets its own **bonding curve**: a small, immutable smart contract that prices the token against ETH using a simple, public formula. There is no presale, no team allocation carved out in secret, no admin key that can pause trading, mint more supply, or blacklist a wallet. What you see in the contract is the entire system.
 
-When a token raises enough real ETH, it **graduates**: its liquidity moves permanently into a Uniswap V3 pool, and the LP position is burned; not locked with a timer, not held by a multisig, but sent to an address nobody controls. After that point, nobody, including the Saylis team, can ever pull that liquidity.
+When a token raises enough real ETH, it **graduates**: its liquidity moves permanently into a Uniswap V3 pool, and the LP position is sealed in a contract with no owner and no withdrawal function; not a timelock, not a multisig, not something with a future unlock date. After that point, nobody, including the Saylis team, can ever pull that liquidity.
 
 This section of the docs explains what you're actually looking at as a trader: how price is set, what protections exist against sniping and whale dumps, and what graduation actually means for the token you're holding.
 
@@ -39,7 +39,7 @@ As people buy, real ETH flows into \`realEthReserve\` and real tokens flow out o
 
 ## The 1% trade fee
 
-Every buy and every sell pays a flat **1% fee**, split between the token's creator and the protocol treasury. The split itself escalates over the token's lifetime; see **For Creators -> Fee Structure** for the exact numbers.
+Every buy and every sell pays a flat **1% fee**, split **75% to the token's creator and 25% to the protocol treasury**; see **For Creators -> Fee Structure** for the details.
 
 ## What happens to your ETH
 
@@ -130,9 +130,9 @@ Migration pulls together:
 
 ...and mints a **full-range** Uniswap V3 liquidity position from them.
 
-## The LP position is burned, not locked
+## The LP position is sealed permanently
 
-The LP NFT that position mints as is sent straight to \`0x000000000000000000000000000000000000dEaD\`; permanently. Not held by a timelock, not held by a multisig with a future unlock date: **there is no function anywhere in this system that could move it, ever again, for any reason.** See **Trust & Safety -> LP Lock** for why that's a meaningfully stronger guarantee than a locked-but-recoverable position.
+The LP NFT that position mints is handed to that token's \`TokenFeeCollector\` in the same transaction: no owner, no admin, no unlock date. **There is no function anywhere in this system that could move that position or withdraw its liquidity, ever again, for any reason.** The collector can do exactly one thing the burn address could not: claim the pool's trading fees and pay them out. See **Trust & Safety -> LP Lock** for why that's a stronger guarantee than a locked-but-recoverable position, and **For Creators -> Fee Structure** for where those fees go.
 
 ## Trading after graduation
 
@@ -146,8 +146,8 @@ Every field on a token's page is either read live from the chain or computed fro
 
 - **Market cap**: live price x total supply, computed from the curve's (or, post-graduation, the pool's) actual current reserves.
 - **Progress bar / bonding curve progress**: how close \`realEthReserve\` is to the graduation threshold. Fills to 100% and freezes once graduated.
-- **Volume**: the curve's own \`cumulativeVolume\`: the running gross ETH value of every trade this specific token has ever done. This is also what drives the creator's fee-share escalation (see **Fee Structure**).
-- **Graduated / Migrated badges** (reflect the curve's own \`graduated\` and \`migrationExecuted\` flags directly. "Graduated" means the ETH threshold was hit and trading halted; "Migrated" means the DEX pool has actually been created and the LP burned. There's a real, sometimes-brief gap between the two), a token can be graduated-but-not-yet-migrated.
+- **Volume**: the curve's own \`cumulativeVolume\`: the running gross ETH value of every trade this specific token has ever done.
+- **Graduated / Migrated badges** (reflect the curve's own \`graduated\` and \`migrationExecuted\` flags directly. "Graduated" means the ETH threshold was hit and trading halted; "Migrated" means the DEX pool has actually been created and the LP permanently locked. There's a real, sometimes-brief gap between the two), a token can be graduated-but-not-yet-migrated.
 - **Contract addresses**: the token and its curve are two separate, independently-viewable contracts. Both addresses link straight to the block explorer.
 
 Nothing on a token page requires trusting Saylis specifically; every number here is independently reproducible by reading the same contract calls yourself.
@@ -183,31 +183,63 @@ You never choose the total supply split, the virtual reserves, or the graduation
   "fee-structure": `
 # Fee Structure
 
-Every trade (buy or sell), pays a flat **1% fee**. That fee is split between you (the creator) and the protocol treasury, and your share **escalates over the token's lifetime** the more it trades:
+Every trade (buy or sell) pays a flat **1% fee**, and that fee is always split the same way:
 
 \`\`\`
-creatorShare(volume) = 75%  at zero cumulative volume
-                      -> 85%  once cumulative volume reaches $10,000,000
-                        (linear in between)
+creator  75%
+protocol 25%
 \`\`\`
 
-"Cumulative volume" here is the curve's own \`cumulativeVolume\`; the running gross ETH value (converted to USD once, at launch, using the ETH price you deployed with) of every trade this specific token has ever done, buys and sells both. It only ever goes up.
+There are no tiers, no milestones, and no volume thresholds. The share does not change with your token's age, its volume, or its market cap; it is a compile-time constant in the curve, and there is no owner, setter, or admin path that can move it after launch.
 
-## Why it escalates rather than staying flat
+## It survives graduation
 
-A creator whose token sustains real trading activity is rewarded for it; the first trades (thinnest liquidity, most launch-day risk) earn the protocol relatively more, while a token that's proven it has staying power shifts more of every subsequent trade's fee toward its creator.
+The 75/25 split is not a bonding-curve-only perk. After your token graduates to a DEX pool, you keep earning 75% of **two** separate streams:
 
-## A trade's fee split can't influence itself
+- **The pool's 1% trading fee**, on every buy and every sell, forever. Your token's LP position is held by an immutable \`TokenFeeCollector\`, and anyone may call \`collect()\` to claim what it has earned. (This is why the position is locked rather than burned; a burned position earns the same fees but nobody can ever claim them. See **Trust & Safety -> LP Lock**.)
+- **The whale sell tax**, which keeps applying on the pool exactly as it did on the curve.
 
-The split percentage used for any given trade is always computed from cumulative volume **as it stood before that trade**. This keeps the math simple and deterministic; a single large trade can't retroactively change its own split by pushing volume past a milestone mid-calculation.
+## You are paid in both ETH and tokens
+
+A Uniswap position earns in **both** pool assets, because V3 takes its fee out of whatever each trade paid in: buys arrive as ETH, sells arrive as tokens. So your 75% arrives partly as ETH and partly as tokens, and there are two balances to claim.
+
+**Your tokens are never sold on your behalf.** Converting them automatically would mean the protocol dumping roughly 1% of all sell volume straight back into your pool, forever — permanent, one-directional sell pressure on your own chart. Instead you receive the tokens and decide yourself whether to hold or sell, and when.
+
+The one exception is the protocol's own 25% of the token side, which is converted to ETH because the protocol treasury cannot hold ERC-20s at all. That sale is a quarter of one percent of sell volume rather than all of it, and it only happens when the pool's price passes an on-chain sanity check against its own time-weighted average — if the pool looks manipulated, the sale waits.
+
+## The whale sell tax is 100% yours, on both sides
+
+Before graduation the tax is taken in ETH out of the sale's proceeds. After graduation it is taken in tokens by the token's own transfer hook, because tokens are the only asset present at transfer time. Either way **the entire tax is yours** — no protocol cut and no referral cut, on either side of graduation.
+
+## Referrals are paid from the ETH side only
+
+If you were referred, the referrer takes 5% of your share — but only of your **ETH**, never your tokens. \`ReferralVault\` holds ETH and pools a referrer's earnings across every token they have referred; it has no way to hold tokens. Your token share is never reduced.
+
+## Why it's flat
+
+An earlier version of this curve escalated the creator's share from 75% up to 85% as cumulative volume climbed toward a fixed USD cap. In practice that cap sat roughly three hundred times further out than the graduation threshold, so no real token ever moved along the ramp: every creator earned the 75% floor while the docs advertised an 85% ceiling they could not reach. A flat 75% is what was actually being paid, so it is now simply what is written down and what the contract does.
 
 ## How you actually get paid
 
-Fees are **never pushed** to you mid-trade. They accumulate in the curve's own \`creatorFeesOwed\` balance, and you (or literally anyone, permissionlessly; the destination is fixed regardless of who calls it) trigger \`withdrawCreatorFees()\` whenever you want to sweep the current balance out. This "pull payment" design is deliberate: if fees were pushed automatically and your receiving address ever reverted on incoming ETH, it would break trading for *everyone*, not just you.
+Fees are **never pushed** to you mid-trade. They accumulate in a balance you sweep whenever you want, by pressing Claim in your profile. This "pull payment" design is deliberate: if fees were pushed automatically and your receiving address ever reverted on incoming ETH, it would break trading for *everyone*, not just you.
+
+Every one of these is permissionless — the destination is fixed in the contract regardless of who calls it, so anyone can trigger your payout but only you can receive it.
+
+**Before graduation** there is one balance and one call:
 
 \`\`\`solidity
-function withdrawCreatorFees() external returns (uint256 amount);
+curve.withdrawCreatorFees();       // your ETH
 \`\`\`
+
+**After graduation** your earnings live on your token's \`TokenFeeCollector\` instead, and there are two balances because you are paid in two assets:
+
+\`\`\`solidity
+collector.collect();               // sweep pool fees + sell tax into the balances
+collector.withdrawCreatorFees();   // your ETH
+collector.withdrawCreatorTokens(); // your tokens
+\`\`\`
+
+\`collect()\` is what moves fees out of the Uniswap position and into your claimable balance; it is permissionless, so it is usually already done for you before you ever press the button. The Claim button runs whichever of these still have something to do, so in practice you sign once or twice and the rest are skipped.
 
 ## Where the protocol's share goes
 
@@ -310,7 +342,7 @@ Refer another creator, and you earn **5% of their own creator fee share**: forev
 
 1. Share your referral link. Anyone who connects a wallet through it can permanently link you as their referrer with one signed transaction; this is one-way and can only ever be set once per wallet.
 2. From that point on, every token that wallet launches automatically resolves your address as its referrer at the moment it deploys.
-3. On every trade on any of their curves, **5% of their own creator-fee share** (never the protocol's share, never their sell tax, never their graduation bonus; specifically the 75%-85% escalating slice of the 1% trade fee) is redirected into your own balance instead of theirs.
+3. On every trade on any of their curves, **5% of their own creator-fee share** (never the protocol's share, never their sell tax, never their graduation bonus; specifically the 75% creator slice of the 1% trade fee) is redirected into your own balance instead of theirs.
 
 \`\`\`
 referralCut = creatorFee * 5%
@@ -323,7 +355,7 @@ Because this routes through a single protocol-wide contract rather than being tr
 
 ## What it costs the person you refer
 
-Nothing beyond the 5% carve-out of their own share; the protocol's cut of every trade is completely unaffected by whether a creator was referred or not. A referred creator still earns the full escalating 75%-85% split on the *remaining* 95% of their share; they just aren't the only one benefiting from their own success.
+Nothing beyond the 5% carve-out of their own share; the protocol's cut of every trade is completely unaffected by whether a creator was referred or not. A referred creator still earns their full 75% share on the *remaining* 95% of it; they just aren't the only one benefiting from their own success.
 
 ## Registration is permanent
 
@@ -478,17 +510,27 @@ A written claim that "the team can't rug this" is worth exactly as much as the t
   "lp-lock": `
 # LP Lock
 
-When a token graduates, its liquidity position on Uniswap is minted once and then sent to \`0x000000000000000000000000000000000000dEaD\`; a burn address nobody holds the private key to. This happens automatically, in the same transaction that creates the pool, with no separate step and no delay.
+When a token graduates, its liquidity position on Uniswap is minted once and immediately handed to that token's \`TokenFeeCollector\` in the same transaction. The collector has no owner, no admin, no setter, and no unlock date. It is not a timelock and it is not a multisig; it is a contract that is structurally incapable of releasing the position.
 
-## Why "burned" is a stronger guarantee than "locked"
+## Why this is a stronger guarantee than a "locked" LP
 
 A locked LP position is typically held by a timelock or a vesting contract with a future unlock date; which means, by construction, *something* holds it and *something* will eventually be able to move it. That something might be trustworthy. It might also be a multisig with a bug, a timelock with an admin escape hatch, or simply a promise that a future team doesn't keep.
 
-Burning removes the "something" from the equation entirely. There is no unlock date because there is no lock; the LP NFT is sent to an address with no known private key, which means **no signature could ever move it, even in principle**, regardless of who wanted to.
+The collector removes the "something" from the equation. There is no unlock date because there is no unlock function. There is no admin who could be compromised because there is no admin. Every parameter is fixed at deploy time and every destination is hardcoded.
 
 ## The "code absence" concept
 
-This is the important distinction: it's not that moving the LP is *forbidden* by a rule someone could break. It's that the *code required to do it doesn't exist anywhere in the deployed contracts*. There is no function, in any contract in this system, whose job is "transfer this LP position out." Not a restricted one, not an admin-only one; none at all. A rule can be violated. Code that was never written can't be.
+This is the important distinction: it's not that moving the LP is *forbidden* by a rule someone could break. It's that the *code required to do it doesn't exist anywhere in the deployed contracts*. Uniswap withdrawals go through \`decreaseLiquidity\`; the collector never calls it, and the interface it compiles against does not even declare it. There is no function whose job is "transfer this position out", no approval path, and no \`delegatecall\`. Not restricted ones, not admin-only ones; none at all. A rule can be violated. Code that was never written can't be.
+
+## It used to be burned, and here is why that changed
+
+Earlier versions sent the LP NFT to \`0x000...dEaD\`. That was an equally solid lock, and it had a flaw nobody benefited from: in Uniswap V3, trading fees accrue to the *position*, and the only way to realise them is \`collect()\`, which requires owning the position's NFT. An address with no private key can never call it. So every graduated token was permanently destroying the pool's entire fee income.
+
+The collector keeps the lock and recovers that income for the creator. The exchange is deliberate and narrow: it gains the ability to claim fees, and gains nothing else. You can verify this the same way you would verify the burn; by reading the deployed bytecode, where the withdrawal functions simply are not present.
+
+## What it means for automated scanners
+
+Rug-checking tools decide "is the LP locked?" by matching the position's owner against a list of known burn addresses and known locker contracts. A purpose-built contract is on no such list, so some scanners will report this as an unrecognised holder rather than a clean burn. That is a limitation of list-matching, not of the lock: the guarantee here is stronger than most allowlisted lockers offer, because those can typically release liquidity on a timer and this cannot release it at all. The contract is verified on the explorer, so the claim is checkable in about thirty seconds by anyone who wants to.
 
 ## What this means for you as a holder
 
@@ -529,7 +571,8 @@ These are the protocol-wide singleton contracts; deployed once, shared by every 
 | Contract | Purpose |
 |---|---|
 | **ProtocolTreasury** | Receives the protocol's share of every trade fee across every token. |
-| **GraduationMigrator** | Permissionlessly migrates a graduated curve's liquidity into a Uniswap V3 pool and burns the resulting LP position. |
+| **GraduationMigrator** | Permissionlessly migrates a graduated curve's liquidity into a Uniswap V3 pool and seals the resulting LP position in that token's \`TokenFeeCollector\`. |
+| **TokenFeeCollector** | Ownerless permanent custodian of one token's LP position, and the ledger its post-graduation fees are paid from. Can claim fees and nothing else; no withdrawal path for the liquidity exists. |
 | **InfoFiCampaign** | Protocol-wide singleton holding every launch's InfoFi campaign pool, gating eligibility, and settling payouts against published proofs. |
 | **ReferralVault** | Tracks referral relationships and holds every referrer's unified, lifetime pull-payment balance. |
 

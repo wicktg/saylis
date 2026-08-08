@@ -28,6 +28,14 @@ contract MockUniswapV3Pool is IUniswapV3Pool {
         shouldRevert = v;
     }
 
+    /// @notice The tick `slot0` reports. Separate from `twapTick` so tests
+    ///         can drive them apart and exercise deviation guards.
+    int24 public spotTick;
+
+    function setSpotTick(int24 v) external {
+        spotTick = v;
+    }
+
     /// @notice Sets `slot0` so the raw token1/token0 ratio equals
     ///         `priceWei / 1e18`.
     ///
@@ -50,7 +58,7 @@ contract MockUniswapV3Pool is IUniswapV3Pool {
         returns (uint160, int24, uint16, uint16, uint16, uint8, bool)
     {
         require(!shouldRevert, "MockUniswapV3Pool: forced revert");
-        return (sqrtPriceX96, int24(0), uint16(0), uint16(1), uint16(1), uint8(0), true);
+        return (sqrtPriceX96, spotTick, uint16(0), uint16(1), uint16(1), uint8(0), true);
     }
 
     /* ------------------------------------------------------------------ */

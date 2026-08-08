@@ -37,7 +37,6 @@ contract BondingCurveWhaleTaxTest is Test {
     // Chosen so virtualTokenReserve + initial realTokenReserve (80% of
     // TOTAL_SUPPLY, per the standard 80/20 split) == TOTAL_SUPPLY exactly.
     uint256 internal constant VIRTUAL_TOKEN = 200_000e18;
-    uint256 internal constant ETH_USD_PRICE = 3_000e18; // unrelated volumeCapWei knob
     uint256 internal constant UNREACHABLE_GRADUATION_THRESHOLD = type(uint128).max;
     uint8 internal constant FEED_DECIMALS = 8;
     uint256 internal constant SEED_ETH = 100 ether;
@@ -71,7 +70,6 @@ contract BondingCurveWhaleTaxTest is Test {
             VIRTUAL_TOKEN,
             creator,
             protocolTreasury,
-            ETH_USD_PRICE,
             0,
             UNREACHABLE_GRADUATION_THRESHOLD,
             migrator,
@@ -258,7 +256,7 @@ contract BondingCurveWhaleTaxTest is Test {
         uint256 feeAmount = (quotedGross * curve.FEE_BPS()) / curve.BPS_DENOMINATOR();
         uint256 expectedTax = (quotedGross * curve.sellTaxBps()) / curve.BPS_DENOMINATOR();
         // At zero cumulative volume the creator's ordinary fee share is
-        // MIN_CREATOR_SHARE_BPS (75%) of `feeAmount` — the tax is on top
+        // CREATOR_SHARE_BPS (75%) of `feeAmount` — the tax is on top
         // of that, not blended into the fee-split percentage.
         uint256 expectedOrdinaryCreatorFee = (feeAmount * 7_500) / 10_000;
         uint256 expectedProtocolFee = feeAmount - expectedOrdinaryCreatorFee;

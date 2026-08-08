@@ -26,7 +26,6 @@ contract InfoFiCampaignTest is Test {
 
     uint256 internal constant SUPPLY = 1_000_000_000e18;
     uint256 internal constant VIRTUAL_ETH = 6e18;
-    uint256 internal constant ETH_USD_PRICE = 3_000e18;
     uint256 internal constant GRADUATION_THRESHOLD = 4.2 ether;
     uint256 internal constant BPS = 10_000;
     uint256 internal constant LIQUIDITY_RESERVE_BPS = 2_000;
@@ -87,7 +86,6 @@ contract InfoFiCampaignTest is Test {
             virtualToken,
             creator,
             protocolTreasury,
-            ETH_USD_PRICE,
             0,
             GRADUATION_THRESHOLD,
             migrator,
@@ -249,7 +247,6 @@ contract InfoFiCampaignTest is Test {
             _virtualTokenFor(500),
             creator,
             protocolTreasury,
-            ETH_USD_PRICE,
             0,
             GRADUATION_THRESHOLD,
             migrator,
@@ -275,7 +272,6 @@ contract InfoFiCampaignTest is Test {
             _virtualTokenFor(300),
             creator,
             protocolTreasury,
-            ETH_USD_PRICE,
             0,
             GRADUATION_THRESHOLD,
             migrator,
@@ -892,7 +888,6 @@ contract InfoFiCampaignTest is Test {
             _virtualTokenFor(infoFiBps),
             creator,
             protocolTreasury,
-            ETH_USD_PRICE,
             0,
             GRADUATION_THRESHOLD,
             migrator,

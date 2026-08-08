@@ -17,18 +17,33 @@ import {TokenFeeCollector} from "./TokenFeeCollector.sol";
 /// @notice Seeds a Uniswap V3 pool for a graduated `BondingCurve`'s token,
 /// using exactly the assets that curve set aside for this purpose (its
 /// remaining real ETH reserve, and the 20% of total supply it never sold —
-/// see `BondingCurve.liquidityReserveTokens`), then permanently burns the
-/// resulting LP position by sending its NFT to the standard
-/// `0x000...dEaD` burn address. No custom lock contract, no
-/// owner-controlled unlock path anywhere in this contract — burning the
-/// LP NFT IS the lock, forever, exactly matching industry-standard
-/// "burn the LP" practice.
+/// see `BondingCurve.liquidityReserveTokens`), then permanently locks the
+/// resulting LP position in that token's immutable `TokenFeeCollector`.
+///
+/// LOCKED, NOT BURNED — AND WHY THAT CHANGED
+/// ----------------------------------------------
+/// This used to send the position NFT to `0x000...dEaD`, on the reasoning
+/// that burning the LP is the strongest possible proof it can never be
+/// pulled. That reasoning was sound; the side effect was not. Uniswap V3
+/// accrues swap fees to the POSITION, claimable only via `collect()` by
+/// the NFT's owner — so an unowned position earns fees that nobody can
+/// ever reach. Every graduated token was silently destroying `poolFee` of
+/// all its post-graduation volume.
+///
+/// `TokenFeeCollector` keeps the guarantee and recovers the income. It has
+/// no owner, no setter, no unlock path, and — critically — no
+/// `decreaseLiquidity` and no way to transfer or approve the NFT. Those
+/// are not admin-gated; they are absent from its bytecode. The liquidity
+/// is exactly as locked as it was under the burn address. Only the fees
+/// moved from unreachable to reachable. Holding the position in the same
+/// contract that already receives the whale sell tax also means one
+/// address, one ledger, and one claim per graduated token.
 ///
 /// SCOPE — ONE FUNCTION, ONE JOB
 /// --------------------------------
 /// This contract does exactly one thing: turn a graduated curve's
-/// reserved assets into a burned, full-range Uniswap V3 LP position. It
-/// holds no admin key, no pausable switch, no upgrade path, and no
+/// reserved assets into a permanently locked, full-range Uniswap V3 LP
+/// position. It holds no admin key, no pausable switch, no upgrade path, and no
 /// balance of its own beyond whatever a `migrate` call is mid-flight
 /// processing — consistent with the rest of this system's "no admin,
 /// ever" posture for anything that touches user/creator value.
@@ -40,8 +55,9 @@ import {TokenFeeCollector} from "./TokenFeeCollector.sol";
 /// `BondingCurve.withdrawCreatorFees`/`withdrawProtocolFees` already use.
 /// Nobody needs special permission to make migration happen, and doing so
 /// carries no redirection risk: the assets involved can only ever end up
-/// in the newly-seeded Uniswap V3 pool and then the burn address, never
-/// anywhere else, regardless of who calls `migrate`.
+/// in the newly-seeded Uniswap V3 pool and then that token's immutable
+/// `TokenFeeCollector`, never anywhere else, regardless of who calls
+/// `migrate`.
 ///
 /// ONE-TIME, IDEMPOTENT PER CURVE
 /// -----------------------------------
@@ -130,8 +146,8 @@ contract GraduationMigrator is ReentrancyGuard {
     /// tier `factory` recognizes.
     uint24 public immutable poolFee;
 
-    /// @notice Uniswap SwapRouter02, handed to each `TokenFeeCollector` so
-    /// it can convert collected tax into ETH.
+    /// @notice Uniswap SwapRouter02, handed to each `TokenFeeCollector`
+    /// and `LiquidityLocker` so they can convert collected fees into ETH.
     address public immutable swapRouter;
 
     /// @notice The widest valid tick range for `poolFee`'s tick spacing —
@@ -145,10 +161,10 @@ contract GraduationMigrator is ReentrancyGuard {
     mapping(address curve => bool) public migrated;
 
     /// @notice Emitted once per curve, immediately before the resulting
-    /// LP position's NFT is sent to `BURN_ADDRESS`.
+    /// LP position's NFT is locked in its `LiquidityLocker`.
     /// @param pool The Uniswap V3 pool seeded (created if it didn't
     ///        already exist).
-    /// @param tokenId The LP position's NFT id (now permanently burned).
+    /// @param tokenId The LP position's NFT id (now permanently locked).
     /// @param liquidity The liquidity amount minted into that position.
     event Migrated(address indexed pool, uint256 indexed tokenId, uint128 liquidity);
 
@@ -158,6 +174,19 @@ contract GraduationMigrator is ReentrancyGuard {
     event PostGraduationFeesWired(
         address indexed token, address indexed pool, address indexed collector
     );
+
+    /// @notice Emitted once the LP position has been handed to its
+    /// permanent, ownerless custodian. Replaces the old burn transfer.
+    /// @param collector The `TokenFeeCollector` now holding `tokenId` forever.
+    event LiquidityLocked(address indexed token, address indexed collector, uint256 indexed tokenId);
+
+    /// @notice How many observation slots each new pool's oracle buffer is
+    /// grown to at migration. `TokenFeeCollector` needs a TWAP to price the
+    /// protocol's fee slice safely, and a freshly created pool ships with
+    /// cardinality 1 — enough for spot, useless for a window. Each slot
+    /// holds at most one observation per second, so this bounds how far
+    /// back `observe` can reach.
+    uint16 public constant OBSERVATION_CARDINALITY = 120;
 
     /// @notice Emitted when a squatted, unfunded pool was shoved back to the
     /// price migration expects. See `alignPoolPrice`.
@@ -309,10 +338,22 @@ contract GraduationMigrator is ReentrancyGuard {
         // Tokens predating this feature have no `setAmmPair`, so the call
         // is best-effort: a failure leaves the (already complete and
         // valid) migration untouched rather than bricking it.
-        _wirePostGraduationFees(curve, tokenAddr, pool);
+        address collector = _wirePostGraduationFees(curve, tokenAddr, pool, tokenId);
 
-        // Burn: no lock contract, no unlock path — this transfer is final.
-        positionManager.safeTransferFrom(address(this), BURN_ADDRESS, tokenId);
+        // Give the pool's oracle enough history for the collector's TWAP
+        // check to be answerable. Permissionless and best-effort — a pool
+        // that rejects this is merely one whose protocol fee slice waits
+        // for better conditions, which must not unwind a valid migration.
+        try IUniswapV3Pool(pool).increaseObservationCardinalityNext(OBSERVATION_CARDINALITY) {}
+            catch {}
+
+        // Lock: the collector has no unlock path and cannot decrease
+        // liquidity, so this transfer is as final as the burn it replaced
+        // — but the position's fees stay claimable.
+        emit LiquidityLocked(tokenAddr, collector, tokenId);
+        positionManager.safeTransferFrom(address(this), collector, tokenId);
+
+
     }
 
     /// @notice Drag a squatted, UNFUNDED pool back to the price `migrate`
@@ -444,8 +485,12 @@ contract GraduationMigrator is ReentrancyGuard {
     /// so the whale sell tax keeps applying to every trade on the graduated
     /// pool — from any router or frontend — for the rest of the token's
     /// life. Silently skipped for non-taxable legacy tokens.
-    function _wirePostGraduationFees(BondingCurve curve, address tokenAddr, address pool)
-        private
+    function _wirePostGraduationFees(
+        BondingCurve curve,
+        address tokenAddr,
+        address pool,
+        uint256 tokenId_
+    ) private returns (address)
     {
         TokenFeeCollector collector = new TokenFeeCollector(
             tokenAddr,
@@ -453,16 +498,21 @@ contract GraduationMigrator is ReentrancyGuard {
             curve.protocolTreasury(),
             swapRouter,
             address(weth9),
-            poolFee
+            poolFee,
+            address(positionManager),
+            tokenId_,
+            pool,
+            curve.referralVault()
         );
 
         try TaxableLaunchToken(tokenAddr).setAmmPair(pool, address(collector)) {
             emit PostGraduationFeesWired(tokenAddr, pool, address(collector));
         } catch {
-            // Legacy (non-taxable) token — nothing to wire. The collector
-            // is left unused and inert; it holds no funds and has no
-            // authority over anything.
+            // Legacy (non-taxable) token — no sell tax to route. The
+            // collector still holds the LP position and still pays out its
+            // fees; only the whale-tax stream is absent.
         }
+        return address(collector);
     }
 
     /// @dev sqrtPriceX96 = sqrt(amount1/amount0) * 2**96, computed via
