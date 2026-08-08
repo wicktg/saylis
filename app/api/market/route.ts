@@ -94,13 +94,20 @@ const client = createPublicClient({
 });
 
 /**
- * Post-migration volume, from the indexer instead of from logs.
+ * Post-migration volume, summed from stored trades rather than from logs.
  *
  * A curve's `cumulativeVolume` stops at migration — a Uniswap swap never
  * touches the curve — so a busy migrated pool showed its graduation-day
  * total forever. The old fix was to scan the pool's Swap logs in every
- * browser. The indexer has recorded those same swaps all along, so this is
- * one indexed query, and it costs no upstream quota at all.
+ * browser. `trades` already holds those same swaps, written by the Alchemy
+ * webhook, so this is one query and it costs no upstream quota at all.
+ *
+ * This used to read `chain_trades`, a view over a Ponder indexer's tables.
+ * That view did not exist in the database, so every call landed in the
+ * catch below and returned nothing — migrated tokens have been showing
+ * their curve-era total this whole time. The webhook had been recording
+ * pool swaps into `trades` all along; only this query never moved across
+ * when the webhook replaced the indexer.
  */
 async function poolVolumeByCurve(curves: Address[]): Promise<Map<string, bigint>> {
   const totals = new Map<string, bigint>();
@@ -122,10 +129,10 @@ async function poolVolumeByCurve(curves: Address[]): Promise<Map<string, bigint>
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) return totals;
 
-  // Ponder writes addresses lowercased, and `in` is an exact match.
+  // Addresses are stored lowercased, and `in` is an exact match.
   const list = curves.map((address) => address.toLowerCase()).join(",");
   const query =
-    `${url}/rest/v1/chain_trades` +
+    `${url}/rest/v1/trades` +
     `?select=curve_address,eth_wei&venue=eq.pool&curve_address=in.(${list})`;
 
   try {
@@ -138,12 +145,12 @@ async function poolVolumeByCurve(curves: Address[]): Promise<Map<string, bigint>
     const rows = (await response.json()) as { curve_address: string; eth_wei: string }[];
     for (const row of rows) {
       const curve = row.curve_address.toLowerCase();
-      // eth_wei is TEXT in the view precisely so BigInt round-trips it —
-      // see supabase/indexer_views.sql.
+      // eth_wei is stored as TEXT precisely so BigInt round-trips it
+      // without losing precision to a float.
       totals.set(curve, (totals.get(curve) ?? 0n) + BigInt(row.eth_wei));
     }
   } catch {
-    // The indexer's view may not exist yet (a fresh re-index drops it).
+    // Never let a volume figure take down the whole market response.
     // Curve-era volume is still correct and still worth showing.
   }
   return totals;

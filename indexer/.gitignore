@@ -1,7 +1,0 @@
-.env.local
-.env.local.bak
-node_modules/
-.ponder/
-generated/
-ponder.run.log
-schema.snapshot.json
