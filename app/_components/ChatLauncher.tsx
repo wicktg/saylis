@@ -62,7 +62,7 @@ export default function ChatLauncher() {
         <button
           onClick={() => setOpen(true)}
           aria-label="Open chat"
-          className="fixed left-5 z-40 grid place-items-center w-12 h-12 rounded-[var(--r-lg)] border border-[var(--ink)] bg-[var(--surface)] text-[var(--brand)] transition-colors hover:bg-[var(--surface-sunken)]"
+          className="fixed left-5 z-40 grid place-items-center w-12 h-12 rounded-[var(--r-lg)] border border-[var(--ink)] bg-[var(--surface)] text-[var(--brand)] focus:outline-none focus-visible:outline-none"
           style={{ bottom: launcherBottom }}
         >
           <Icon icon="pixelarticons:message" className="text-lg" />
@@ -80,7 +80,7 @@ export default function ChatLauncher() {
             {/* Roughly two-thirds height: enough to read a conversation
                 while still showing what is behind, so the sheet reads as
                 temporary rather than as a route change. */}
-            <div className="h-[68%] flex flex-col border-t border-[var(--ink)] bg-[var(--surface)]">
+            <div className="h-[68%] flex flex-col border-t border-[var(--line)] bg-[var(--surface)]">
               <Header onClose={() => setOpen(false)} />
               <ChatPanel />
             </div>
@@ -89,7 +89,7 @@ export default function ChatLauncher() {
           <div
             role="dialog"
             aria-label="Chat"
-            className="fixed left-5 z-40 flex flex-col w-[340px] max-w-[calc(100vw-2.5rem)] h-[460px] max-h-[calc(100vh-8rem)] rounded-[var(--r-lg)] border border-[var(--ink)] bg-[var(--surface)] overflow-hidden"
+            className="fixed left-5 z-40 flex flex-col w-[340px] max-w-[calc(100vw-2.5rem)] h-[460px] max-h-[calc(100vh-8rem)] rounded-[var(--r-lg)] border border-[var(--line)] bg-[var(--surface)] overflow-hidden"
             style={{ bottom: launcherBottom }}
           >
             <Header onClose={() => setOpen(false)} />

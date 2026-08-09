@@ -106,11 +106,11 @@ export default function MyTokensModal({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={imageUrl}
-                    className="w-9 h-9 rounded-lg object-cover bg-[var(--surface-sunken)] shrink-0 ring-1 ring-transparent group-hover:ring-[rgba(207,56,221,0.3)] transition-all"
+                    className="w-9 h-9 rounded-lg object-cover bg-[var(--surface-sunken)] shrink-0"
                     alt={`${token.ticker} icon`}
                   />
                 ) : (
-                  <div className="w-9 h-9 rounded-lg bg-[rgba(207,56,221,0.2)] flex items-center justify-center shrink-0 ring-1 ring-transparent group-hover:ring-[rgba(207,56,221,0.3)] transition-all">
+                  <div className="w-9 h-9 rounded-lg bg-[var(--brand-tint)] flex items-center justify-center shrink-0">
                     <span className="text-xs font-black text-[var(--brand)]">
                       {token.ticker.charAt(0)}
                     </span>

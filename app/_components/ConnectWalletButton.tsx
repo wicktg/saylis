@@ -28,8 +28,8 @@ export default function ConnectWalletButton({
           disabled={isConnecting}
           className={
             size === "compact"
-              ? "btn btn-primary !h-[30px] !px-3 !text-[0.6875rem] !tracking-[0.03em]"
-              : "btn btn-primary !h-[38px] !px-5 !text-[0.75rem] !tracking-[0.04em]"
+              ? "btn btn-primary !h-[28px] !px-2.5 !text-[0.625rem] !tracking-[0.03em]"
+              : "btn btn-primary !h-[34px] !px-4 !text-[0.6875rem] !tracking-[0.04em]"
           }
         >
           {isConnecting ? "Connecting…" : "Connect wallet"}

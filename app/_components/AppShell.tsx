@@ -5,6 +5,7 @@ import TopNav from "@/app/_components/TopNav";
 import ChatLauncher from "@/app/_components/ChatLauncher";
 import ReferralPrompt from "@/app/_components/ReferralPrompt";
 import BottomTabBar from "@/app/_components/mobile/BottomTabBar";
+import MobileHeader from "@/app/_components/mobile/MobileHeader";
 import { useIsMobile } from "@/app/_lib/useIsMobile";
 import { useEnsureCorrectChain } from "@/app/_lib/useEnsureCorrectChain";
 import { useRegisterWallet } from "@/app/_lib/useRegisterWallet";
@@ -14,10 +15,9 @@ import { useCaptureReferralCode, useReferral } from "@/app/_lib/useReferral";
  * App chrome. Two genuinely different shells, not one shell restyled.
  *
  * Desktop is the floating header pill over a page that scrolls beneath it.
- * Mobile has no header at all: navigation is the bottom tab bar, and
- * connecting a wallet lives on the Profile tab, which already handles the
- * disconnected state. A header carrying only a logo was spending the least
- * reachable strip of a phone screen on decoration.
+ * Mobile has no pill: the logo and connect button sit directly on the page
+ * and scroll away with it, since navigation is the bottom tab bar and there
+ * is nothing a fixed strip up there would need to hold.
  *
  * This is conditional RENDERING rather than `hidden md:flex`, because the
  * two trees genuinely differ in structure rather than scale.
@@ -63,6 +63,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (isMobile) {
     return (
       <div className="relative z-[1] flex flex-col min-h-dvh w-full">
+        <MobileHeader />
         <main className="flex-1 flex flex-col">{children}</main>
         {/* Spacer matching the fixed tab bar, so the last item in a
             scrolling list is never trapped underneath it. */}
