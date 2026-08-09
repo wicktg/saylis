@@ -153,7 +153,7 @@ export default function CampaignsPage() {
 
             <p className="side-note">
               Pools are locked on-chain from the moment they are funded. Nothing unclaimed is
-              ever recoverable by us — it burns.
+              ever recoverable by us. It burns.
             </p>
           </aside>
         </div>

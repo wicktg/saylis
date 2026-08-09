@@ -120,7 +120,7 @@ export default function MobileProfile() {
             <span className="text-[11px] text-[var(--ink-soft)]">In tokens</span>
             <span className="text-[11px] font-bold">
               {creatorTokensValueWei === undefined
-                ? "—"
+                ? "-"
                 : formatWeiAsUsdPrice(creatorTokensValueWei, ethUsdPrice)}
             </span>
           </div>

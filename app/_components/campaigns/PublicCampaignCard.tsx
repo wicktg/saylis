@@ -67,12 +67,12 @@ export default function PublicCampaignCard({ campaign }: { campaign: PublicCampa
           </div>
           <div>
             <dt>Winners</dt>
-            <dd>{campaign.winnerCount ?? "—"}</dd>
+            <dd>{campaign.winnerCount ?? "-"}</dd>
           </div>
           <div>
             <dt>{isEnded ? "Ended" : "Opened"}</dt>
             <dd>
-              {campaign.openedAt ? formatTimeAgo(campaign.openedAt) : "—"}
+              {campaign.openedAt ? formatTimeAgo(campaign.openedAt) : "-"}
             </dd>
           </div>
         </dl>

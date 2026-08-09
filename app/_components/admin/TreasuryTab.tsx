@@ -194,7 +194,7 @@ export default function TreasuryTab() {
           )}
 
           <p className="text-[11px] text-[var(--ink-faint)] leading-relaxed">
-            Fees sit on each curve until claimed — there is no single pool. Claiming
+            Fees sit on each curve until claimed, so there is no single pool. Claiming
             sends to the address above, which is fixed in the curve and cannot be
             changed from here.
           </p>
@@ -236,7 +236,7 @@ export default function TreasuryTab() {
                   </div>
 
                   <span className="text-[12px] tabular-nums shrink-0">
-                    {owed === undefined ? "—" : `${formatEther(owed)} ETH`}
+                    {owed === undefined ? "-" : `${formatEther(owed)} ETH`}
                   </span>
 
                   <button

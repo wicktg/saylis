@@ -205,15 +205,15 @@ A Uniswap position earns in **both** pool assets, because V3 takes its fee out o
 
 **Your tokens are never sold on your behalf.** Converting them automatically would mean the protocol dumping roughly 1% of all sell volume straight back into your pool, forever — permanent, one-directional sell pressure on your own chart. Instead you receive the tokens and decide yourself whether to hold or sell, and when.
 
-The one exception is the protocol's own 25% of the token side, which is converted to ETH because the protocol treasury cannot hold ERC-20s at all. That sale is a quarter of one percent of sell volume rather than all of it, and it only happens when the pool's price passes an on-chain sanity check against its own time-weighted average — if the pool looks manipulated, the sale waits.
+The one exception is the protocol's own 25% of the token side, which is converted to ETH because the protocol treasury cannot hold ERC-20s at all. That sale is a quarter of one percent of sell volume rather than all of it, and it only happens when the pool's price passes an on-chain sanity check against its own time-weighted average. If the pool looks manipulated, the sale waits.
 
 ## The whale sell tax is 100% yours, on both sides
 
-Before graduation the tax is taken in ETH out of the sale's proceeds. After graduation it is taken in tokens by the token's own transfer hook, because tokens are the only asset present at transfer time. Either way **the entire tax is yours** — no protocol cut and no referral cut, on either side of graduation.
+Before graduation the tax is taken in ETH out of the sale's proceeds. After graduation it is taken in tokens by the token's own transfer hook, because tokens are the only asset present at transfer time. Either way **the entire tax is yours**: no protocol cut and no referral cut, on either side of graduation.
 
 ## Referrals are paid from the ETH side only
 
-If you were referred, the referrer takes 5% of your share — but only of your **ETH**, never your tokens. \`ReferralVault\` holds ETH and pools a referrer's earnings across every token they have referred; it has no way to hold tokens. Your token share is never reduced.
+If you were referred, the referrer takes 5% of your share, but only of your **ETH**, never your tokens. \`ReferralVault\` holds ETH and pools a referrer's earnings across every token they have referred; it has no way to hold tokens. Your token share is never reduced.
 
 ## Why it's flat
 
@@ -223,7 +223,7 @@ An earlier version of this curve escalated the creator's share from 75% up to 85
 
 Fees are **never pushed** to you mid-trade. They accumulate in a balance you sweep whenever you want, by pressing Claim in your profile. This "pull payment" design is deliberate: if fees were pushed automatically and your receiving address ever reverted on incoming ETH, it would break trading for *everyone*, not just you.
 
-Every one of these is permissionless — the destination is fixed in the contract regardless of who calls it, so anyone can trigger your payout but only you can receive it.
+Every one of these is permissionless. The destination is fixed in the contract regardless of who calls it, so anyone can trigger your payout but only you can receive it.
 
 **Before graduation** there is one balance and one call:
 

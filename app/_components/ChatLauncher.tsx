@@ -62,7 +62,7 @@ export default function ChatLauncher() {
         <button
           onClick={() => setOpen(true)}
           aria-label="Open chat"
-          className="fixed left-5 z-40 grid place-items-center w-12 h-12 rounded-[var(--r-lg)] border border-[var(--line)] bg-[var(--surface)] text-[var(--brand)] transition-colors hover:border-[var(--brand-soft)]"
+          className="fixed left-5 z-40 grid place-items-center w-12 h-12 rounded-[var(--r-lg)] border border-[var(--ink)] bg-[var(--surface)] text-[var(--brand)] transition-colors hover:bg-[var(--surface-sunken)]"
           style={{ bottom: launcherBottom }}
         >
           <Icon icon="pixelarticons:message" className="text-lg" />
@@ -80,7 +80,7 @@ export default function ChatLauncher() {
             {/* Roughly two-thirds height: enough to read a conversation
                 while still showing what is behind, so the sheet reads as
                 temporary rather than as a route change. */}
-            <div className="h-[68%] flex flex-col border-t border-[var(--line)] bg-[var(--surface)]">
+            <div className="h-[68%] flex flex-col border-t border-[var(--ink)] bg-[var(--surface)]">
               <Header onClose={() => setOpen(false)} />
               <ChatPanel />
             </div>
@@ -89,7 +89,7 @@ export default function ChatLauncher() {
           <div
             role="dialog"
             aria-label="Chat"
-            className="fixed left-5 z-40 flex flex-col w-[340px] max-w-[calc(100vw-2.5rem)] h-[460px] max-h-[calc(100vh-8rem)] rounded-[var(--r-lg)] border border-[var(--line)] bg-[var(--surface)] overflow-hidden"
+            className="fixed left-5 z-40 flex flex-col w-[340px] max-w-[calc(100vw-2.5rem)] h-[460px] max-h-[calc(100vh-8rem)] rounded-[var(--r-lg)] border border-[var(--ink)] bg-[var(--surface)] overflow-hidden"
             style={{ bottom: launcherBottom }}
           >
             <Header onClose={() => setOpen(false)} />
@@ -103,10 +103,7 @@ export default function ChatLauncher() {
 function Header({ onClose }: { onClose: () => void }) {
   return (
     <div className="shrink-0 flex items-center justify-between gap-2 px-3.5 py-3 border-b border-[var(--line)]">
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="status-dot shrink-0" aria-hidden="true" />
-        <span className="text-[0.75rem] font-bold text-[var(--ink)]">Live chat</span>
-      </div>
+      <span className="text-[0.75rem] font-bold text-[var(--ink)] truncate">Pod Chatter</span>
       <button
         onClick={onClose}
         aria-label="Close chat"

@@ -406,6 +406,28 @@ button {
   color: #fff;
 }
 
+/*
+ * On a phone the four sort options wrapped onto two ragged rows and left
+ * the search box squeezed beside them. One row of equal-width segments is
+ * both narrower and easier to hit, so the group goes full width and each
+ * option flexes to an even share of it.
+ */
+@media (max-width: 767px) {
+  .filters {
+    width: 100%;
+    flex-wrap: nowrap;
+  }
+  .filter {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 9px 4px;
+    font-size: 0.6875rem;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
 /* ---- Bonding-curve bar ---- */
 .curve {
   display: block;

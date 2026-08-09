@@ -7,10 +7,6 @@ import { usePathname } from "next/navigation";
 import { useAccount } from "wagmi";
 import ProfileMenu from "@/app/_components/ProfileMenu";
 import ConnectWalletButton from "@/app/_components/ConnectWalletButton";
-import ReferralPrompt from "@/app/_components/ReferralPrompt";
-import { useEnsureCorrectChain } from "@/app/_lib/useEnsureCorrectChain";
-import { useRegisterWallet } from "@/app/_lib/useRegisterWallet";
-import { useCaptureReferralCode, useReferral } from "@/app/_lib/useReferral";
 
 const NAV_LINKS = [
   { href: "/", label: "Explore" },
@@ -34,11 +30,7 @@ const NAV_LINKS = [
 export default function TopNav() {
   const pathname = usePathname();
   const [stuck, setStuck] = useState(false);
-  const { address, isConnected } = useAccount();
-  useEnsureCorrectChain();
-  useRegisterWallet(address);
-  useCaptureReferralCode();
-  const referral = useReferral(address);
+  const { isConnected } = useAccount();
 
   // Watches the window rather than an IntersectionObserver sentinel: the
   // shell scrolls the document itself, so this is the thing that moves.
@@ -89,16 +81,6 @@ export default function TopNav() {
           {isConnected ? <ProfileMenu /> : <ConnectWalletButton />}
         </div>
       </div>
-
-      {referral.pendingReferrer && (
-        <ReferralPrompt
-          referrer={referral.pendingReferrer}
-          confirming={referral.confirming}
-          error={referral.error}
-          onConfirm={referral.confirm}
-          onDismiss={referral.dismiss}
-        />
-      )}
     </header>
   );
 }

@@ -123,7 +123,7 @@ export default function ReferralPage() {
             Referrals
           </h1>
           <p className="board-lede">
-            Earn 5% of the creator fee share of every wallet you refer — forever, across every
+            Earn 5% of the creator fee share of every wallet you refer, forever, across every
             token they ever launch.
           </p>
         </header>
@@ -168,7 +168,7 @@ export default function ReferralPage() {
                   </button>
                 </div>
                 <p className="ref-hint">
-                  Anyone who connects a wallet through this link is bound to you permanently —
+                  Anyone who connects a wallet through this link is bound to you permanently.
                   there is no expiry and no cap.
                 </p>
               </div>
@@ -185,7 +185,7 @@ export default function ReferralPage() {
                     History unavailable
                   </h3>
                   <p className="mt-2 mx-auto max-w-sm text-[0.6875rem] font-medium leading-relaxed text-[var(--ink-faint)]">
-                    Couldn&apos;t reach the network to read your referral history just now — try
+                    Couldn&apos;t reach the network to read your referral history just now. Try
                     again in a moment. Your link still works, and any balance shown here is live
                     and claimable.
                   </p>
@@ -230,7 +230,7 @@ export default function ReferralPage() {
                     so when history could not be read we show nothing at all
                     rather than a number we cannot stand behind. */}
                 <p className="ref-figure">
-                  {historyUnavailable ? "—" : formatWeiAsUsdPrice(lifetimeTotal, ethUsdPrice)}
+                  {historyUnavailable ? "-" : formatWeiAsUsdPrice(lifetimeTotal, ethUsdPrice)}
                 </p>
                 <p className="ref-sub">
                   {historyUnavailable

@@ -89,13 +89,13 @@ export default function TokenCard({
 
           <div className="mt-2 flex items-baseline gap-3 flex-wrap">
             <span className="text-[0.8125rem] font-bold text-[var(--up)] tabular-nums">
-              {marketData ? formatUsdCompact(marketData.marketCapWei, ethUsdPrice) : "—"}
+              {marketData ? formatUsdCompact(marketData.marketCapWei, ethUsdPrice) : "-"}
               <em className="ml-1.5 not-italic text-[0.625rem] font-semibold uppercase tracking-[0.04em] text-[var(--ink-faint)]">
                 mcap
               </em>
             </span>
             <span className="text-[0.75rem] font-bold text-[var(--ink-soft)] tabular-nums">
-              {marketData ? formatUsdCompact(marketData.volumeWei, ethUsdPrice) : "—"}
+              {marketData ? formatUsdCompact(marketData.volumeWei, ethUsdPrice) : "-"}
               <em className="ml-1.5 not-italic text-[0.625rem] font-semibold uppercase tracking-[0.04em] text-[var(--ink-faint)]">
                 vol
               </em>

@@ -61,7 +61,7 @@ export default function ProfileMenu() {
 
   const note = hasTokenFees
     ? `Plus ${
-        creatorTokensValueWei === undefined ? "—" : formatWeiAsUsdPrice(creatorTokensValueWei, ethUsdPrice)
+        creatorTokensValueWei === undefined ? "-" : formatWeiAsUsdPrice(creatorTokensValueWei, ethUsdPrice)
       } owed in tokens, paid separately.`
     : "Fees across every token you launch, on the curve and the pool.";
 

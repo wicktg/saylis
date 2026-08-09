@@ -646,7 +646,7 @@ export default function SwapPanel({
 
         {migrated === true && (
           <p className="mt-2 text-[0.625rem] font-medium text-[var(--ink-faint)] leading-snug">
-            Estimated from the live pool price — the exact amount is confirmed on-chain.
+            Estimated from the live pool price. The exact amount is confirmed on-chain.
           </p>
         )}
 

@@ -70,15 +70,15 @@ export default function TokenSwapModal({
   const stats = [
     {
       label: "Price",
-      value: marketData ? formatWeiAsUsdPrice(marketData.priceWei, ethUsdPrice) : "—",
+      value: marketData ? formatWeiAsUsdPrice(marketData.priceWei, ethUsdPrice) : "-",
     },
     {
       label: "Market cap",
-      value: marketData ? formatUsdCompact(marketData.marketCapWei, ethUsdPrice) : "—",
+      value: marketData ? formatUsdCompact(marketData.marketCapWei, ethUsdPrice) : "-",
     },
     {
       label: "Volume",
-      value: marketData ? formatUsdCompact(marketData.volumeWei, ethUsdPrice) : "—",
+      value: marketData ? formatUsdCompact(marketData.volumeWei, ethUsdPrice) : "-",
     },
   ];
 
@@ -161,8 +161,8 @@ export default function TokenSwapModal({
         {marketData?.graduated && (
           <p className="px-[18px] py-2.5 border-t border-[var(--line)] shrink-0 text-[0.625rem] font-semibold text-[var(--ink-faint)]">
             {marketData.migrated
-              ? "Migrated — trading on the open market"
-              : "Migrating — the pool is being created"}
+              ? "Migrated. Trading on the open market."
+              : "Migrating. The pool is being created."}
           </p>
         )}
 

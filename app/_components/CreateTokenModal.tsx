@@ -254,7 +254,7 @@ export default function CreateTokenModal({
     // in the whole form, attached to an action that looked unrelated.
     if (file.size > MAX_IMAGE_BYTES) {
       const mb = (file.size / (1024 * 1024)).toFixed(1);
-      setImageError(`That image is ${mb}MB. The limit is ${MAX_IMAGE_MB}MB — try a smaller one.`);
+      setImageError(`That image is ${mb}MB. The limit is ${MAX_IMAGE_MB}MB, so try a smaller one.`);
       return;
     }
     if (!file.type.startsWith("image/")) {
