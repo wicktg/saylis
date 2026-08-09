@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useAccount } from "wagmi";
 import ConnectWalletButton from "@/app/_components/ConnectWalletButton";
 
@@ -24,6 +25,13 @@ import ConnectWalletButton from "@/app/_components/ConnectWalletButton";
  */
 export default function MobileHeader() {
   const { isConnected } = useAccount();
+  const pathname = usePathname();
+
+  // Connect belongs on the board and nowhere else. Campaigns and Referrals
+  // both explain themselves without a wallet, and the Profile tab already
+  // offers the connect flow to anyone who needs it, so repeating the button
+  // on every route was noise rather than a second chance to convert.
+  const showConnect = !isConnected && pathname === "/";
 
   return (
     <div className="shrink-0 flex items-center justify-between gap-3 px-[var(--gutter)] pt-4 pb-1">
@@ -38,7 +46,7 @@ export default function MobileHeader() {
         />
       </Link>
 
-      {!isConnected && <ConnectWalletButton size="compact" />}
+      {showConnect && <ConnectWalletButton size="compact" />}
     </div>
   );
 }

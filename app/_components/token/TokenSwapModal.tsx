@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Address } from "viem";
 import SwapPanel from "@/app/_components/token/SwapPanel";
 import Icon from "@/app/_components/Icon";
@@ -44,6 +44,12 @@ export default function TokenSwapModal({
   const isMobile = useIsMobile();
   const imageUrl = resolveIpfsUrl(token.image_url);
   const [copied, setCopied] = useState(false);
+  /** True while the swap panel is showing its confirmation. The token
+   *  header and its figures are about the trade you were ABOUT to make, so
+   *  they are stale the moment one lands. */
+  const [settled, setSettled] = useState(false);
+  // Stable identity, or the panel's effect would re-fire every render.
+  const handleSettledChange = useCallback((next: boolean) => setSettled(next), []);
 
   async function copyAddress() {
     await navigator.clipboard.writeText(token.contract_address);
@@ -105,18 +111,23 @@ export default function TokenSwapModal({
             established by the card this modal opened from, and repeating
             them here added nothing a trader needed while trading. */}
         <div className="flex items-center gap-2 p-[18px] pb-3.5 shrink-0">
-          <button
-            onClick={copyAddress}
-            className="flex items-center gap-1.5 min-w-0 text-[0.75rem] font-semibold text-[var(--ink-soft)] font-mono transition-colors hover:text-[var(--brand)]"
-            aria-label="Copy contract address"
-            title={token.contract_address}
-          >
-            <span className="truncate">{truncateAddress(token.contract_address)}</span>
-            <Icon
-              icon={copied ? "pixelarticons:check" : "pixelarticons:copy"}
-              className="text-xs shrink-0"
-            />
-          </button>
+          {/* The close button stays in every state: it is the only way out
+              of the sheet on a phone, so it must not vanish with the rest
+              of the header. */}
+          {!settled && (
+            <button
+              onClick={copyAddress}
+              className="flex items-center gap-1.5 min-w-0 text-[0.75rem] font-semibold text-[var(--ink-soft)] font-mono transition-colors hover:text-[var(--brand)]"
+              aria-label="Copy contract address"
+              title={token.contract_address}
+            >
+              <span className="truncate">{truncateAddress(token.contract_address)}</span>
+              <Icon
+                icon={copied ? "pixelarticons:check" : "pixelarticons:copy"}
+                className="text-xs shrink-0"
+              />
+            </button>
+          )}
 
           <button
             onClick={onClose}
@@ -129,6 +140,7 @@ export default function TokenSwapModal({
 
         {/* The three numbers, and only these three. Each is a contract read
             the grid already made, so opening this costs no request. */}
+        {!settled && (
         <dl className="flex gap-2 px-[18px] pb-3.5 shrink-0">
           {stats.map((stat) => (
             <div
@@ -144,6 +156,7 @@ export default function TokenSwapModal({
             </div>
           ))}
         </dl>
+        )}
 
         <div className="flex-1 min-h-0 overflow-y-auto">
           <SwapPanel
@@ -154,6 +167,7 @@ export default function TokenSwapModal({
             migrated={marketData?.migrated}
             poolPriceWei={marketData?.migrated ? marketData.priceWei : undefined}
             ethUsdPrice={ethUsdPrice}
+            onSettledChange={handleSettledChange}
             fill
           />
         </div>

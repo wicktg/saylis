@@ -118,6 +118,7 @@ export default function SwapPanel({
   poolPriceWei,
   ethUsdPrice,
   fill = false,
+  onSettledChange,
   initialMode,
 }: {
   tokenAddress: Address;
@@ -136,6 +137,10 @@ export default function SwapPanel({
   /** Fill the parent instead of being a fixed-width docked column. Set by
    *  the mobile sheet; the desktop panel leaves it false and is unchanged. */
   fill?: boolean;
+  /** Fires when a trade settles (and again when the confirmation is
+   *  dismissed), so a host can clear chrome that the confirmation replaces.
+   *  Optional: the panel is fully usable standalone without it. */
+  onSettledChange?: (settled: boolean) => void;
   /** Which tab to open on. The mobile bar has separate Buy and Sell
    *  buttons, so it opens the sheet already on the right one. */
   initialMode?: "buy" | "sell";
@@ -193,6 +198,12 @@ export default function SwapPanel({
     setAmount("");
     setError(null);
   }, [mode]);
+
+  // Mirrored out to the host rather than derived there, so the panel stays
+  // the single owner of whether a trade has settled.
+  useEffect(() => {
+    onSettledChange?.(receipt !== null);
+  }, [receipt, onSettledChange]);
 
   const amountWei = useMemo(() => {
     try {
