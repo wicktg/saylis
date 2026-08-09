@@ -1,6 +1,7 @@
 "use client";
 
 import TopNav from "@/app/_components/TopNav";
+import ChatLauncher from "@/app/_components/ChatLauncher";
 import BottomTabBar from "@/app/_components/mobile/BottomTabBar";
 import MobileHeader from "@/app/_components/mobile/MobileHeader";
 import { useIsMobile } from "@/app/_lib/useIsMobile";
@@ -24,7 +25,8 @@ import { useIsMobile } from "@/app/_lib/useIsMobile";
  * from ever moving, which is the one thing a floating header needs to do.
  * The body scrolls now, and the pill is `sticky`.
  *
- * The Live Chat column is deliberately absent pending its own design pass.
+ * Chat is a floating bottom-left launcher on both, rather than the docked
+ * column it used to be — see ChatLauncher for why.
  */
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const isMobile = useIsMobile();
@@ -41,6 +43,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           className="shrink-0 h-14"
           style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
         />
+        <ChatLauncher />
         <BottomTabBar />
       </div>
     );
@@ -50,6 +53,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <div className="relative z-[1] flex flex-col min-h-dvh w-full">
       <TopNav />
       <main className="flex-1 flex flex-col">{children}</main>
+      <ChatLauncher />
     </div>
   );
 }

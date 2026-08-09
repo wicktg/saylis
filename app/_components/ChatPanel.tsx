@@ -15,19 +15,15 @@ function formatTime(iso: string): string {
 
 /**
  * The chat itself: message list plus composer, with no opinion about where
- * it sits.
+ * it sits. `ChatLauncher` supplies the container — a popover on desktop, a
+ * bottom sheet on a phone — so this component is shared rather than
+ * duplicated between the two.
  *
- * Extracted from Sidebar so the desktop docked column and the mobile
- * floating overlay are the SAME component rather than two copies of the
- * same logic that drift apart. Only the container differs, which is
- * exactly the part each caller supplies.
- *
- * Purely ephemeral -- see useChat's own doc comment: broadcast-only,
- * capped at the last 50 messages this client has seen, nothing persisted
- * server-side. Username is always the sender's own truncated wallet
- * address; there is no separate nickname/identity system.
+ * Purely ephemeral — see `useChat`: the last 50 messages, hydrated once on
+ * mount and then fed by a broadcast channel. Identity is always the
+ * sender's own truncated wallet address; there is no nickname system.
  */
-export default function ChatPanel({ compact = false }: { compact?: boolean }) {
+export default function ChatPanel() {
   const { address: account } = useAccount();
   const { messages, send, error, cooldownSeconds, canSend } = useChat(account);
   const [draft, setDraft] = useState("");
@@ -49,65 +45,66 @@ export default function ChatPanel({ compact = false }: { compact?: boolean }) {
 
   return (
     <>
-      <div ref={listRef} className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3">
+      <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-3">
         {messages.length === 0 ? (
-          <p className="text-[11px] text-[var(--ink-faint)] text-center py-10">
-            <span className="text-[var(--ink-faint)]">{"// "}</span>no messages yet
+          <p className="py-12 text-center text-[0.75rem] font-medium text-[var(--ink-faint)]">
+            No messages yet.
           </p>
         ) : (
-          // Log-line layout rather than chat bubbles: timestamp, then
-          // sender, then message, the way a terminal transcript reads.
           messages.map((msg) => (
-            <div key={msg.id} className="group text-[11px] leading-relaxed">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-[var(--ink-faint)] shrink-0">[{formatTime(msg.sentAt)}]</span>
-                <WalletAvatar address={msg.walletAddress} size={14} />
-                <span className="text-[var(--ink)] truncate">
-                  {truncateAddress(msg.walletAddress)}
-                </span>
+            <div key={msg.id} className="flex gap-2.5">
+              <span className="shrink-0 mt-0.5">
+                <WalletAvatar address={msg.walletAddress} size={24} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[0.6875rem] font-bold text-[var(--ink)] font-mono truncate">
+                    {truncateAddress(msg.walletAddress)}
+                  </span>
+                  <span className="text-[0.5625rem] font-medium text-[var(--ink-faint)] shrink-0">
+                    {formatTime(msg.sentAt)}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-[0.75rem] leading-relaxed text-[var(--ink-soft)] break-words">
+                  {msg.message}
+                </p>
               </div>
-              <p className="text-[var(--ink-soft)] break-words pl-1">
-                <span className="text-[var(--accent)]">&gt; </span>
-                {msg.message}
-              </p>
             </div>
           ))
         )}
       </div>
 
-      <form onSubmit={handleSend} className={compact ? "p-3 border-t border-[var(--line)]" : "p-4 border-t border-[var(--line)]"}>
-        <div className="pixel-frame pixel-input relative group flex items-center">
-          <span className="pl-2 text-[11px] text-[var(--accent)] shrink-0">&gt;</span>
+      <form onSubmit={handleSend} className="shrink-0 p-3 border-t border-[var(--line)]">
+        <div className="pixel-frame pixel-input relative flex items-center">
           <input
             type="text"
             value={draft}
             onChange={(event) => setDraft(event.target.value.slice(0, CHAR_LIMIT))}
-            placeholder={account ? "type message" : "connect a wallet to chat"}
+            placeholder={account ? "Say something…" : "Connect a wallet to chat"}
             disabled={!account}
-            // py-3 on mobile keeps the composer a comfortable tap target;
-            // the desktop column stays at its original density.
-            className={`w-full bg-transparent text-xs pl-2 pr-10 focus:outline-none placeholder:text-[var(--ink-faint)] disabled:cursor-not-allowed ${
-              compact ? "py-3" : "py-2.5"
-            }`}
+            className="w-full bg-transparent text-[0.75rem] font-medium pl-3 pr-10 py-2.5 text-[var(--ink)] placeholder:text-[var(--ink-faint)] focus:outline-none disabled:cursor-not-allowed"
           />
           <button
             type="submit"
             disabled={!canSend || !draft.trim()}
             aria-label="Send message"
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--brand)] disabled:text-[rgba(207,56,221,0.3)] disabled:cursor-not-allowed transition-colors"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--brand)] disabled:text-[var(--ink-faint)] disabled:cursor-not-allowed transition-colors"
           >
-            <Icon icon="pixelarticons:send" />
+            <Icon icon="pixelarticons:send" className="text-sm" />
           </button>
         </div>
-        <div className="flex items-center justify-between mt-2 px-1">
+
+        <div className="flex items-center justify-between gap-2 mt-1.5 px-0.5">
           {cooldownSeconds > 0 ? (
-            <span className="text-[10px] text-[var(--ink-soft)]">wait {cooldownSeconds}s</span>
+            <span className="text-[0.5625rem] font-semibold text-[var(--ink-soft)]">
+              Wait {cooldownSeconds}s
+            </span>
           ) : error ? (
-            <span className="text-[10px] text-red-400">{error}</span>
+            <span className="text-[0.5625rem] font-semibold text-[var(--down)]">{error}</span>
           ) : (
             <span />
           )}
-          <span className="text-[10px] text-[var(--ink-faint)]">
+          <span className="text-[0.5625rem] font-medium text-[var(--ink-faint)] tabular-nums shrink-0">
             {draft.length}/{CHAR_LIMIT}
           </span>
         </div>

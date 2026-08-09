@@ -18,7 +18,7 @@ import {
 } from "@/app/_lib/contracts/config";
 import type { Address } from "viem";
 import Icon from "@/app/_components/Icon";
-import AsciiSlider from "@/app/_components/AsciiSlider";
+import Slider from "@/app/_components/Slider";
 import Spinner from "@/app/_components/Spinner";
 import { useIsMobile } from "@/app/_lib/useIsMobile";
 
@@ -725,7 +725,7 @@ function AdvancedFields({
           <span className="text-xs font-medium text-[var(--ink)]">Whale Sell Tax</span>
           <span className="text-xs font-bold text-[var(--brand)]">{whaleSellTax.toFixed(1)}%</span>
         </div>
-        <AsciiSlider
+        <Slider
           min={0}
           max={WHALE_TAX_MAX}
           step={0.1}
@@ -769,7 +769,7 @@ function AdvancedFields({
           <span className="text-xs font-medium text-[var(--ink)]">InfoFi Allocation</span>
           <span className="text-xs font-bold text-[var(--brand)]">{infoFiAllocation.toFixed(1)}%</span>
         </div>
-        <AsciiSlider
+        <Slider
           min={0}
           max={INFOFI_MAX_PCT}
           step={0.1}

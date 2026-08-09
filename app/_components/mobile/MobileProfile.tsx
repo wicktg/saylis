@@ -94,7 +94,7 @@ export default function MobileProfile() {
           be readable before anyone taps Claim. */}
       <div className="px-4 py-4 border-b border-[var(--line)]">
         <div className="flex items-center gap-1.5 mb-1">
-          <span className="ascii-label text-[9px]">creator fees</span>
+          <span className="text-[0.625rem] font-semibold uppercase tracking-[0.04em] text-[var(--ink-faint)]">Creator fees</span>
           <span
             className="text-[var(--ink-faint)] text-[9px]"
             title={CLAIMABLE_TOOLTIP}

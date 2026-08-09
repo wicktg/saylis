@@ -88,6 +88,21 @@ const PATHS: Record<string, string> = {
   "pixelarticons:logout":
     "M17 8l-1.41 1.41L17.17 11H9v2h8.17l-1.58 1.58L17 16l4-4-4-4ZM5 5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7v-2H5V5Z",
 
+  "pixelarticons:message":
+    "M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Zm0 14H5.17L4 17.17V4h16v12Z",
+  "pixelarticons:chart":
+    "M3 3h2v16h16v2H3V3Zm4 10h2v4H7v-4Zm4-4h2v8h-2V9Zm4-4h2v12h-2V5Z",
+  "pixelarticons:reload":
+    "M12 4V1L8 5l4 4V6a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8Z",
+  "pixelarticons:clock":
+    "M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8Zm1-13h-2v6l5 3 1-1.73-4-2.37V7Z",
+  "pixelarticons:lock":
+    "M18 8h-1V6a5 5 0 0 0-10 0v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2ZM9 6a3 3 0 0 1 6 0v2H9V6Zm9 14H6V10h12v10Z",
+  "pixelarticons:trash":
+    "M6 21a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v14ZM8 9h8v12H8V9Zm7.5-6-1-1h-5l-1 1H5v2h14V3h-3.5Z",
+  "pixelarticons:mail":
+    "M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 4-8 5-8-5V6l8 5 8-5v2Z",
+
   // ---- Social ----
   "mdi:telegram":
     "M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42Z",
