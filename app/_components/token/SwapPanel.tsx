@@ -20,6 +20,8 @@ import { writeWithGas } from "@/app/_lib/txGas";
 import Icon from "@/app/_components/Icon";
 import EthIcon from "@/app/_components/EthIcon";
 import Image from "next/image";
+import SwipeToConfirm from "@/app/_components/SwipeToConfirm";
+import SwapSuccessCard from "@/app/_components/SwapSuccessCard";
 
 const ONE_TOKEN = 10n ** 18n;
 
@@ -67,6 +69,14 @@ const BPS = 10_000n;
 
 function applySlippage(amount: bigint, bps: bigint): bigint {
   return (amount * (BPS - bps)) / BPS;
+}
+
+/** Trims a typed amount for display on the confirmation, without the
+ *  rounding hiding that a very small trade happened at all. */
+function formatAmount(raw: string, isEth: boolean): string {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return raw;
+  return n.toLocaleString(undefined, { maximumFractionDigits: isEth ? 5 : 2 });
 }
 
 /**
@@ -138,7 +148,9 @@ export default function SwapPanel({
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  /** Set once a trade lands, which swaps the panel body for the
+   *  confirmation card. Null means "still trading". */
+  const [receipt, setReceipt] = useState<{ paid: string; received: string } | null>(null);
 
   const [tokenBalance, setTokenBalance] = useState<bigint>(0n);
   const [ethBalance, setEthBalance] = useState<bigint>(0n);
@@ -180,7 +192,6 @@ export default function SwapPanel({
   useEffect(() => {
     setAmount("");
     setError(null);
-    setSuccess(null);
   }, [mode]);
 
   const amountWei = useMemo(() => {
@@ -257,7 +268,6 @@ export default function SwapPanel({
     if (!account || !walletClient || !publicClient || amountWei === 0n) return;
     setBusy(true);
     setError(null);
-    setSuccess(null);
 
     try {
       // Checked here rather than only in `canSubmit`, because the balance
@@ -280,8 +290,22 @@ export default function SwapPanel({
       } else {
         throw new Error("Trading venue not ready yet -- try again in a moment.");
       }
+      // Captured before `setAmount("")`, which would otherwise wipe the
+      // figures the confirmation is about to show.
+      setReceipt({
+        paid: `${formatAmount(amount, mode === "buy")} ${mode === "buy" ? "ETH" : tokenSymbol}`,
+        received:
+          estimatedOut === null
+            ? `- ${mode === "buy" ? tokenSymbol : "ETH"}`
+            : `${
+                mode === "buy"
+                  ? Number(formatUnits(estimatedOut, TOKEN_DECIMALS)).toLocaleString(undefined, {
+                      maximumFractionDigits: 2,
+                    })
+                  : Number(formatUnits(estimatedOut, 18)).toFixed(5)
+              } ${mode === "buy" ? tokenSymbol : "ETH"}`,
+      });
       setAmount("");
-      setSuccess(mode === "buy" ? "Bought." : "Sold.");
       setRefreshTick((n) => n + 1);
     } catch (err) {
       setError(getFriendlyErrorMessage(err));
@@ -546,6 +570,18 @@ export default function SwapPanel({
     }
   }
 
+  if (receipt) {
+    return (
+      <div className={fill ? "w-full flex-1 flex flex-col min-h-0" : "w-full flex flex-col"}>
+        <SwapSuccessCard
+          paid={receipt.paid}
+          received={receipt.received}
+          onDone={() => setReceipt(null)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className={fill ? "w-full flex-1 flex flex-col min-h-0" : "w-full flex flex-col"}>
       <div className="flex-1 flex flex-col px-[18px] pb-[18px] overflow-y-auto custom-scrollbar">
@@ -655,12 +691,6 @@ export default function SwapPanel({
             {error}
           </p>
         )}
-        {success && (
-          <p className="mt-2.5 text-[0.6875rem] font-semibold leading-snug text-[var(--up)]">
-            {success}
-          </p>
-        )}
-
         {/* ---- Action ---- */}
         <div className="mt-3">
           {!account ? (
@@ -672,9 +702,13 @@ export default function SwapPanel({
               )}
             </ConnectKitButton.Custom>
           ) : (
-            <button onClick={handleTrade} disabled={!canSubmit} className="btn btn-primary w-full">
-              {busy ? (payingEth ? "Buying…" : "Selling…") : payingEth ? "Buy" : "Sell"}
-            </button>
+            <SwipeToConfirm
+              label={payingEth ? "Swipe to buy" : "Swipe to sell"}
+              busyLabel={payingEth ? "Buying…" : "Selling…"}
+              onConfirm={handleTrade}
+              disabled={!canSubmit}
+              busy={busy}
+            />
           )}
         </div>
       </div>

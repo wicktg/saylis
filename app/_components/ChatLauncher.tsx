@@ -62,7 +62,7 @@ export default function ChatLauncher() {
         <button
           onClick={() => setOpen(true)}
           aria-label="Open chat"
-          className="fixed left-5 z-40 grid place-items-center w-12 h-12 rounded-[var(--r-lg)] border border-[var(--ink)] bg-[var(--surface)] text-[var(--brand)] focus:outline-none focus-visible:outline-none"
+          className="fixed left-5 z-40 grid place-items-center w-12 h-12 rounded-[var(--r-lg)] border-[0.5px] border-[var(--ink)] bg-[var(--surface)] text-[var(--brand)] focus:outline-none focus-visible:outline-none"
           style={{ bottom: launcherBottom }}
         >
           <Icon icon="pixelarticons:message" className="text-lg" />

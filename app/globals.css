@@ -1134,6 +1134,150 @@ button {
 }
 
 /* =================================================================
+ * SWIPE TO CONFIRM
+ * =================================================================
+ *
+ * Geometry is duplicated in SwipeToConfirm.tsx (HANDLE_PX, PAD_PX) because
+ * the drag maths needs the numbers in JS. Change one, change the other.
+ */
+.swipe-track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 48px;
+  padding: 4px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--surface-sunken);
+  overflow: hidden;
+  user-select: none;
+}
+
+.swipe-track.is-locked {
+  opacity: 0.45;
+}
+
+/* Trails the handle, so the track fills with brand as the gesture
+   progresses and the control reads as "nearly there". */
+.swipe-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: var(--r-md);
+  background: var(--brand-tint);
+  pointer-events: none;
+}
+
+.swipe-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  pointer-events: none;
+}
+
+.swipe-handle {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: var(--r-sm);
+  background: var(--brand);
+  color: #fff;
+  cursor: grab;
+  /* Without this a phone claims the horizontal drag as a page scroll. */
+  touch-action: none;
+}
+.swipe-handle:active {
+  cursor: grabbing;
+}
+.swipe-handle:disabled {
+  cursor: not-allowed;
+}
+
+/* =================================================================
+ * SWAP SUCCESS
+ * ================================================================= */
+
+.success-badge {
+  animation: success-pop 0.42s var(--ease) both;
+}
+
+/* The tick is drawn on rather than faded in: the stroke length is used as
+   its own dash, then the offset is animated to zero. */
+.success-tick {
+  stroke-dasharray: 30;
+  stroke-dashoffset: 30;
+  animation: success-draw 0.4s 0.18s ease-out both;
+}
+
+.success-line {
+  animation: success-rise 0.4s var(--ease) both;
+  animation-delay: 0.24s;
+}
+.success-line-2 {
+  animation-delay: 0.32s;
+}
+.success-line-3 {
+  animation-delay: 0.4s;
+}
+
+@keyframes success-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes success-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes success-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* The confirmation must still be readable with motion turned off, so the
+   elements land in their final state rather than never arriving. */
+@media (prefers-reduced-motion: reduce) {
+  .success-badge,
+  .success-tick,
+  .success-line {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    stroke-dashoffset: 0;
+  }
+}
+
+/* =================================================================
  * MISC
  * ================================================================= */
 
