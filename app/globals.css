@@ -32,8 +32,6 @@
   --up: #12b76a;
   --down: #e5484d;
 
-  /* rgb channels of --brand, for rgba() mixes */
-  --brand-rgb: 203, 42, 184;
   /* deepened brand, used only for shadow casts */
   --brand-shadow: 114, 29, 104;
 
@@ -95,16 +93,11 @@ body {
     Roboto, Helvetica, Arial, sans-serif;
   color: var(--ink);
   background-color: var(--surface);
-  /* faint blueprint grid + a soft brand glow at the top of the page */
-  background-image: radial-gradient(
-      120% 80% at 50% 0%,
-      rgba(var(--brand-rgb), 0.09) 0%,
-      rgba(var(--brand-rgb), 0) 60%
-    ),
-    linear-gradient(to right, rgba(31, 31, 36, 0.035) 1px, transparent 1px),
+  /* faint blueprint grid */
+  background-image: linear-gradient(to right, rgba(31, 31, 36, 0.035) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(31, 31, 36, 0.035) 1px, transparent 1px);
-  background-size: 100% 100%, 58px 58px, 58px 58px;
-  background-position: center top, center, center;
+  background-size: 58px 58px, 58px 58px;
+  background-position: center, center;
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -137,7 +130,6 @@ a {
 button {
   font: inherit;
   color: inherit;
-  border: 0;
   background: none;
 }
 
