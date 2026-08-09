@@ -1,7 +1,8 @@
-export type SortOption = "newest" | "oldest" | "graduated";
+export type SortOption = "trending" | "newest" | "mcap" | "graduated";
 
 export const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: "newest", label: "Newest First" },
-  { value: "oldest", label: "Oldest First" },
+  { value: "trending", label: "Trending" },
+  { value: "newest", label: "Newest" },
+  { value: "mcap", label: "Top mcap" },
   { value: "graduated", label: "Graduated" },
 ];

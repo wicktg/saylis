@@ -41,7 +41,7 @@ export default function WinnerCountStepper({
   if (locked) {
     return (
       <p className="text-xs font-bold">
-        {value} <span className="font-normal text-white/40">winners</span>
+        {value} <span className="font-normal text-[var(--ink-soft)]">winners</span>
       </p>
     );
   }
@@ -89,7 +89,7 @@ function StepButton({
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className="pixel-frame pixel-btn-ghost w-7 h-7 flex items-center justify-center text-white/70 hover:text-white transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
+      className="pixel-frame pixel-btn-ghost w-7 h-7 flex items-center justify-center text-[var(--ink)] hover:text-[var(--ink)] transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
     >
       <Icon icon={icon} className="text-sm" />
     </button>

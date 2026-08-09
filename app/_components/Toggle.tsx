@@ -18,15 +18,15 @@ export default function Toggle({
       onClick={onChange}
       className={`shrink-0 relative w-9 h-5 rounded-full transition-colors ${
         disabled
-          ? "bg-white/10 cursor-not-allowed"
+          ? "bg-[var(--surface-sunken)] cursor-not-allowed"
           : checked
-            ? "bg-[#cf38dd]"
-            : "bg-white/10"
+            ? "bg-[var(--brand)]"
+            : "bg-[var(--surface-sunken)]"
       }`}
     >
       <span
         className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-transform ${
-          disabled ? "bg-white/30" : "bg-black"
+          disabled ? "bg-[var(--surface-sunken)]" : "bg-[var(--surface)]"
         } ${checked ? "translate-x-4" : "translate-x-0"}`}
       />
     </button>

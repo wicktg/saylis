@@ -66,8 +66,8 @@ export default function MobileProfile() {
   if (!address) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 text-center">
-        <Icon icon="pixelarticons:user" className="text-3xl text-white/20" />
-        <p className="text-[11px] text-white/40 leading-relaxed">
+        <Icon icon="pixelarticons:user" className="text-3xl text-[var(--ink-faint)]" />
+        <p className="text-[11px] text-[var(--ink-soft)] leading-relaxed">
           Connect a wallet to see your tokens, notifications and creator fees.
         </p>
         <ConnectWalletButton />
@@ -78,11 +78,11 @@ export default function MobileProfile() {
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
       {/* ---- Identity ---- */}
-      <div className="flex items-center gap-3 px-4 py-4 border-b border-white/10">
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-[var(--line)]">
         <WalletAvatar address={address} size={40} />
         <div className="min-w-0">
           <p className="text-sm font-bold truncate">{truncateAddress(address)}</p>
-          <p className="text-[11px] text-white/40">
+          <p className="text-[11px] text-[var(--ink-soft)]">
             {balance ? formatEthShort(balance.value) : "0"} ETH
           </p>
         </div>
@@ -92,11 +92,11 @@ export default function MobileProfile() {
           Given its own block rather than a list row: it is the only thing
           on this screen that sends a transaction, and the amount needs to
           be readable before anyone taps Claim. */}
-      <div className="px-4 py-4 border-b border-white/10">
+      <div className="px-4 py-4 border-b border-[var(--line)]">
         <div className="flex items-center gap-1.5 mb-1">
           <span className="ascii-label text-[9px]">creator fees</span>
           <span
-            className="text-white/30 text-[9px]"
+            className="text-[var(--ink-faint)] text-[9px]"
             title={CLAIMABLE_TOOLTIP}
             aria-label={CLAIMABLE_TOOLTIP}
           >
@@ -116,8 +116,8 @@ export default function MobileProfile() {
           </button>
         </div>
         {(creatorTokensOwed ?? 0n) > 0n && (
-          <div className="flex items-center justify-between gap-3 mt-2 pt-2 border-t border-white/5">
-            <span className="text-[11px] text-white/50">In tokens</span>
+          <div className="flex items-center justify-between gap-3 mt-2 pt-2 border-t border-[var(--line)]">
+            <span className="text-[11px] text-[var(--ink-soft)]">In tokens</span>
             <span className="text-[11px] font-bold">
               {creatorTokensValueWei === undefined
                 ? "—"
@@ -125,16 +125,16 @@ export default function MobileProfile() {
             </span>
           </div>
         )}
-        <p className="text-[10px] text-white/30 leading-snug mt-2">{CLAIMABLE_TOOLTIP}</p>
+        <p className="text-[10px] text-[var(--ink-faint)] leading-snug mt-2">{CLAIMABLE_TOOLTIP}</p>
       </div>
 
       {/* ---- Rows ---- */}
       <button
         onClick={() => setMyTokensOpen(true)}
-        className="w-full flex items-center justify-between px-4 py-4 text-xs font-medium hover:bg-white/5 active:bg-white/5 transition-colors border-b border-white/10"
+        className="w-full flex items-center justify-between px-4 py-4 text-xs font-medium hover:bg-[var(--surface-sunken)] active:bg-[var(--surface-sunken)] transition-colors border-b border-[var(--line)]"
       >
         My Tokens
-        <Icon icon="pixelarticons:chevron-right" className="text-base text-white/30" />
+        <Icon icon="pixelarticons:chevron-right" className="text-base text-[var(--ink-faint)]" />
       </button>
 
       <button
@@ -142,16 +142,16 @@ export default function MobileProfile() {
           setNotificationsOpen(true);
           if (unreadCount > 0) markAllRead();
         }}
-        className="w-full flex items-center justify-between px-4 py-4 text-xs font-medium hover:bg-white/5 active:bg-white/5 transition-colors border-b border-white/10"
+        className="w-full flex items-center justify-between px-4 py-4 text-xs font-medium hover:bg-[var(--surface-sunken)] active:bg-[var(--surface-sunken)] transition-colors border-b border-[var(--line)]"
       >
         Notifications
         <span className="flex items-center gap-2">
           {unreadCount > 0 && (
-            <span className="min-w-[16px] h-4 px-1 rounded-full bg-[var(--accent)] text-[9px] font-bold flex items-center justify-center text-black">
+            <span className="min-w-[16px] h-4 px-1 rounded-full bg-[var(--accent)] text-[9px] font-bold flex items-center justify-center text-white">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
-          <Icon icon="pixelarticons:chevron-right" className="text-base text-white/30" />
+          <Icon icon="pixelarticons:chevron-right" className="text-base text-[var(--ink-faint)]" />
         </span>
       </button>
 
@@ -159,7 +159,7 @@ export default function MobileProfile() {
           deliberately no disconnect, so it never reverts to a "Connect"
           affordance. Same rule as the desktop dropdown. */}
       {xAccount ? (
-        <div className="w-full flex items-center gap-2 px-4 py-4 border-b border-white/10">
+        <div className="w-full flex items-center gap-2 px-4 py-4 border-b border-[var(--line)]">
           {xAccount.avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -168,22 +168,22 @@ export default function MobileProfile() {
               className="photo w-5 h-5 object-cover shrink-0"
             />
           ) : (
-            <Icon icon="ri:twitter-x-fill" className="text-white text-sm shrink-0" />
+            <Icon icon="ri:twitter-x-fill" className="text-[var(--ink)] text-sm shrink-0" />
           )}
-          <span className="text-xs font-medium text-white/80 truncate">
+          <span className="text-xs font-medium text-[var(--ink)] truncate">
             @{xAccount.username}
           </span>
         </div>
       ) : (
         <button
           onClick={() => setConnectXOpen(true)}
-          className="w-full flex items-center justify-between px-4 py-4 text-xs font-medium hover:bg-white/5 active:bg-white/5 transition-colors border-b border-white/10"
+          className="w-full flex items-center justify-between px-4 py-4 text-xs font-medium hover:bg-[var(--surface-sunken)] active:bg-[var(--surface-sunken)] transition-colors border-b border-[var(--line)]"
         >
           <span className="flex items-center gap-2">
-            <Icon icon="ri:twitter-x-fill" className="text-white text-sm shrink-0" />
+            <Icon icon="ri:twitter-x-fill" className="text-[var(--ink)] text-sm shrink-0" />
             Connect X
           </span>
-          <Icon icon="pixelarticons:chevron-right" className="text-base text-white/30" />
+          <Icon icon="pixelarticons:chevron-right" className="text-base text-[var(--ink-faint)]" />
         </button>
       )}
 
@@ -191,7 +191,7 @@ export default function MobileProfile() {
         href="/docs"
         target="_blank"
         rel="noopener noreferrer"
-        className="w-full flex items-center justify-between px-4 py-4 text-xs font-bold text-white/70 hover:text-white active:bg-white/5 transition-colors border-b border-white/10"
+        className="w-full flex items-center justify-between px-4 py-4 text-xs font-bold text-[var(--ink)] hover:text-[var(--ink)] active:bg-[var(--surface-sunken)] transition-colors border-b border-[var(--line)]"
       >
         Docs
         <Icon icon="pixelarticons:external-link" className="text-base shrink-0" />
@@ -199,7 +199,7 @@ export default function MobileProfile() {
 
       <button
         onClick={() => disconnect()}
-        className="w-full text-left px-4 py-4 text-xs font-bold text-white/70 hover:text-white active:bg-white/5 transition-colors border-b border-white/10"
+        className="w-full text-left px-4 py-4 text-xs font-bold text-[var(--ink)] hover:text-[var(--ink)] active:bg-[var(--surface-sunken)] transition-colors border-b border-[var(--line)]"
       >
         Disconnect
       </button>

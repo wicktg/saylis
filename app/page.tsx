@@ -1,81 +1,82 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import AppShell from "@/app/_components/AppShell";
 import TokenGrid from "@/app/_components/TokenGrid";
-import { useOutsideClick } from "@/app/_lib/useOutsideClick";
+import CreateTokenModal from "@/app/_components/CreateTokenModal";
+import Icon from "@/app/_components/Icon";
 import { SORT_OPTIONS, type SortOption } from "@/app/_lib/sort";
 
+/**
+ * The token board.
+ *
+ * Sorting is a segmented control rather than a dropdown: there are only
+ * four options and they are the primary way anyone navigates this page, so
+ * hiding them behind a click to save a row of space is the wrong trade.
+ */
 export default function ExplorePage() {
-  const [sortBy, setSortBy] = useState<SortOption>("newest");
-  const [sortOpen, setSortOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>("trending");
   const [search, setSearch] = useState("");
-  const sortRef = useRef<HTMLDivElement>(null);
-  useOutsideClick(sortRef, () => setSortOpen(false));
-
-  const activeLabel = SORT_OPTIONS.find((option) => option.value === sortBy)?.label;
+  const [createTokenOpen, setCreateTokenOpen] = useState(false);
 
   return (
     <AppShell>
-      <div className="ascii flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-3 gap-3">
-          <h1 className="text-lg text-white lowercase">
-            <span className="text-white/25">./</span>tokens
+      <div className="w-full max-w-[var(--shell)] mx-auto px-[var(--gutter)] pt-[clamp(24px,4vh,40px)] pb-[clamp(40px,7vh,72px)]">
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+          <h1 className="font-display text-[clamp(1.375rem,2.6vw,1.875rem)] leading-tight text-[#2e2e2e] m-0">
+            Tokens
           </h1>
 
-          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            <label className="ascii-box relative flex items-center gap-2 px-2.5 py-2.5 md:py-1.5 flex-1 md:flex-none md:w-56">
-              <span className="text-[11px] text-[var(--accent)] shrink-0">&gt;</span>
-              <input
-                type="text"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="search ticker or address"
-                className="bg-transparent text-[11px] text-white focus:outline-none placeholder:text-white/25 w-full"
-              />
-            </label>
-
-            <div className="relative" ref={sortRef}>
-              <button
-                onClick={() => setSortOpen((prev) => !prev)}
-                className="ascii-box relative flex items-center gap-2 px-2.5 py-2.5 md:py-1.5 cursor-pointer w-full md:w-[180px]"
-              >
-                <span className="ascii-label text-[11px] shrink-0">sort</span>
-                <span className="text-[11px] text-white truncate">{activeLabel}</span>
-                <span className="text-[10px] text-white/30 ml-auto shrink-0">
-                  {sortOpen ? "[-]" : "[+]"}
-                </span>
-              </button>
-
-              {sortOpen && (
-                <div className="ascii-box absolute right-0 top-full mt-1 w-[180px] z-50 py-1">
-                  {SORT_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => {
-                        setSortBy(option.value);
-                        setSortOpen(false);
-                      }}
-                      data-selected={option.value === sortBy}
-                      className={`ascii-option w-full text-left px-2.5 py-2.5 md:py-1.5 text-[11px] transition-colors ${
-                        option.value === sortBy
-                          ? "text-[var(--accent)]"
-                          : "text-white/60 hover:text-white hover:bg-white/5"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          {/* Rendered whether or not a wallet is connected: the modal
+              explains what to do about that, and hiding the entry point
+              leaves a disconnected visitor with no way to find out the
+              feature exists. */}
+          <button
+            type="button"
+            onClick={() => setCreateTokenOpen(true)}
+            className="btn btn-primary max-sm:w-full"
+          >
+            Create token
+          </button>
         </div>
 
-        <div className="ascii-rule text-[11px] leading-none mb-5" aria-hidden="true" />
+        <div className="mt-[clamp(20px,3vh,28px)] flex flex-wrap items-center justify-between gap-x-5 gap-y-3">
+          <div className="filters" role="group" aria-label="Sort tokens">
+            {SORT_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className="filter"
+                aria-pressed={option.value === sortBy}
+                onClick={() => setSortBy(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
 
-        <TokenGrid sortBy={sortBy} search={search} />
+          <label className="pixel-frame pixel-input flex items-center gap-2.5 h-10 px-[15px] flex-1 basis-[220px] max-w-full md:max-w-[300px] min-w-0">
+            <Icon
+              icon="pixelarticons:search"
+              className="text-[var(--ink-faint)] text-sm shrink-0"
+            />
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search name or ticker"
+              autoComplete="off"
+              className="w-full min-w-0 bg-transparent border-0 text-[0.8125rem] font-medium text-[var(--ink)] placeholder:text-[var(--ink-faint)] focus:outline-none"
+            />
+          </label>
+        </div>
+
+        <div className="mt-[clamp(28px,3.6vh,38px)]">
+          <TokenGrid sortBy={sortBy} search={search} />
+        </div>
       </div>
+
+      <CreateTokenModal open={createTokenOpen} onClose={() => setCreateTokenOpen(false)} />
     </AppShell>
   );
 }

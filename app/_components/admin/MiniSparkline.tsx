@@ -18,7 +18,7 @@ export default function MiniSparkline({
     return (
       <div
         style={{ width, height }}
-        className="flex items-center justify-center text-[9px] text-white/25"
+        className="flex items-center justify-center text-[9px] text-[var(--ink-faint)]"
       >
         Not enough data
       </div>

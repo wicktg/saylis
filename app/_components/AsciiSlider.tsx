@@ -46,8 +46,8 @@ export default function AsciiSlider({
         aria-hidden="true"
         className="ascii text-[13px] leading-none tracking-[-0.05em] whitespace-nowrap overflow-hidden"
       >
-        <span className={disabled ? "text-white/30" : "text-[var(--accent)]"}>{filled}</span>
-        <span className="text-white/20">{empty}</span>
+        <span className={disabled ? "text-[var(--ink-faint)]" : "text-[var(--accent)]"}>{filled}</span>
+        <span className="text-[var(--ink-faint)]">{empty}</span>
       </div>
 
       <input

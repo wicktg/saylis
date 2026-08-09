@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePublicClient, useReadContracts, useWalletClient } from "wagmi";
 import { formatEther, type Address } from "viem";
 import Icon from "@/app/_components/Icon";
-import AsciiSpinner from "@/app/_components/AsciiSpinner";
+import Spinner from "@/app/_components/Spinner";
 import { supabase } from "@/app/_lib/supabase";
 import { BONDING_CURVE_ABI } from "@/app/_lib/contracts/BondingCurve";
 import { PROTOCOL_TREASURY_ADDRESS } from "@/app/_lib/contracts/config";
@@ -159,8 +159,8 @@ export default function TreasuryTab() {
 
   if (loading) {
     return (
-      <div className="p-6 flex items-center gap-2 text-[11px] text-white/40">
-        <AsciiSpinner /> loading curves...
+      <div className="p-6 flex items-center gap-2 text-[11px] text-[var(--ink-soft)]">
+        <Spinner /> loading curves...
       </div>
     );
   }
@@ -168,20 +168,20 @@ export default function TreasuryTab() {
   return (
     <div className="p-6 space-y-6">
       <section>
-        <h2 className="text-[10px] uppercase tracking-wide text-white/30 mb-3">
+        <h2 className="text-[10px] uppercase tracking-wide text-[var(--ink-faint)] mb-3">
           Protocol treasury
         </h2>
 
         <div className="pixel-frame pixel-card p-4 space-y-3">
           <div className="flex items-baseline justify-between gap-3">
-            <span className="text-[11px] text-white/40">Destination</span>
-            <span className="text-[11px] font-mono text-white/80 break-all text-right">
+            <span className="text-[11px] text-[var(--ink-soft)]">Destination</span>
+            <span className="text-[11px] font-mono text-[var(--ink)] break-all text-right">
               {onChainTreasury ?? PROTOCOL_TREASURY_ADDRESS}
             </span>
           </div>
 
           <div className="flex items-baseline justify-between gap-3">
-            <span className="text-[11px] text-white/40">Total unclaimed</span>
+            <span className="text-[11px] text-[var(--ink-soft)]">Total unclaimed</span>
             <span className="text-sm font-bold">{formatEther(totalWei)} ETH</span>
           </div>
 
@@ -193,7 +193,7 @@ export default function TreasuryTab() {
             </p>
           )}
 
-          <p className="text-[11px] text-white/35 leading-relaxed">
+          <p className="text-[11px] text-[var(--ink-faint)] leading-relaxed">
             Fees sit on each curve until claimed — there is no single pool. Claiming
             sends to the address above, which is fixed in the curve and cannot be
             changed from here.
@@ -202,7 +202,7 @@ export default function TreasuryTab() {
       </section>
 
       <section>
-        <h2 className="text-[10px] uppercase tracking-wide text-white/30 mb-3">
+        <h2 className="text-[10px] uppercase tracking-wide text-[var(--ink-faint)] mb-3">
           Curves ({rows.length})
         </h2>
 
@@ -215,7 +215,7 @@ export default function TreasuryTab() {
         {rows.length === 0 ? (
           <Empty />
         ) : (
-          <div className="pixel-frame pixel-card divide-y divide-white/5">
+          <div className="pixel-frame pixel-card divide-y divide-[var(--line)]">
             {rows.map((row) => {
               const owed = row.owedWei;
               const hasOwed = owed !== undefined && owed > 0n;
@@ -230,7 +230,7 @@ export default function TreasuryTab() {
                     <p className="text-[12px] font-bold uppercase truncate">
                       {row.ticker}
                     </p>
-                    <p className="text-[10px] font-mono text-white/30">
+                    <p className="text-[10px] font-mono text-[var(--ink-faint)]">
                       {truncateAddress(row.curveAddress)}
                     </p>
                   </div>
@@ -263,11 +263,11 @@ export default function TreasuryTab() {
 function Empty() {
   return (
     <div className="flex flex-col items-center justify-center text-center py-16 gap-2">
-      <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-1">
-        <Icon icon="pixelarticons:coin" className="text-xl text-white/25" />
+      <div className="w-12 h-12 rounded-full bg-[var(--surface-sunken)] border border-[var(--line)] flex items-center justify-center mb-1">
+        <Icon icon="pixelarticons:coin" className="text-xl text-[var(--ink-faint)]" />
       </div>
-      <h2 className="text-sm font-bold text-white/70">No curves yet</h2>
-      <p className="text-[11px] text-white/35 max-w-xs leading-relaxed">
+      <h2 className="text-sm font-bold text-[var(--ink-soft)]">No curves yet</h2>
+      <p className="text-[11px] text-[var(--ink-faint)] max-w-xs leading-relaxed">
         Protocol fees appear here once a token has been launched and traded.
       </p>
     </div>

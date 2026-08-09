@@ -43,7 +43,7 @@ export default function MobileChatBubble() {
           aria-label="Open chat"
           // Sits above the bottom tab bar rather than beside it, and clears
           // the home indicator via the same safe-area inset the bar uses.
-          className="ascii fixed right-3 z-40 w-12 h-12 flex items-center justify-center border border-white/25 bg-black text-[var(--accent)] text-[13px] active:bg-white/10"
+          className="ascii fixed right-3 z-40 w-12 h-12 flex items-center justify-center border border-[var(--line)] bg-[var(--surface)] text-[var(--accent)] text-[13px] active:bg-[var(--surface-sunken)]"
           style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 4.5rem)" }}
         >
           [~]
@@ -55,18 +55,18 @@ export default function MobileChatBubble() {
           <button
             aria-label="Close chat"
             onClick={() => setOpen(false)}
-            className="flex-1 bg-black/60"
+            className="flex-1 bg-[rgba(20,18,34,0.28)]"
           />
           {/* Roughly two-thirds height: enough to read a conversation while
               still showing what is behind, so the overlay reads as
               temporary rather than as a route change. */}
-          <div className="ascii h-[68%] flex flex-col border-t border-white/20 bg-black">
-            <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 shrink-0">
-              <span className="text-[11px] text-white/35 lowercase">./chat</span>
+          <div className="ascii h-[68%] flex flex-col border-t border-[var(--line)] bg-[var(--surface)]">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--line)] shrink-0">
+              <span className="text-[11px] text-[var(--ink-faint)] lowercase">./chat</span>
               <button
                 onClick={() => setOpen(false)}
                 aria-label="Close chat"
-                className="text-[11px] text-white/40 active:text-white px-2 py-1"
+                className="text-[11px] text-[var(--ink-soft)] active:text-[var(--ink)] px-2 py-1"
               >
                 [x]
               </button>

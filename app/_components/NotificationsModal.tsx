@@ -4,7 +4,8 @@ import Link from "next/link";
 import { formatTimeAgo } from "@/app/_lib/time";
 import type { Notification, NotificationType } from "@/app/_lib/useNotifications";
 import Icon from "@/app/_components/Icon";
-import AsciiSpinner from "@/app/_components/AsciiSpinner";
+import Spinner from "@/app/_components/Spinner";
+import Portal from "@/app/_components/Portal";
 
 const ICON_BY_TYPE: Record<NotificationType, string> = {
   eligible: "pixelarticons:trophy",
@@ -22,17 +23,17 @@ const ICON_BY_TYPE: Record<NotificationType, string> = {
 };
 
 const TONE_BY_TYPE: Record<NotificationType, string> = {
-  eligible: "text-[#cf38dd]",
-  approved: "text-[#cf38dd]",
+  eligible: "text-[var(--brand)]",
+  approved: "text-[var(--brand)]",
   rejected: "text-red-400",
-  supply_sent: "text-white/50",
-  supply_confirmed: "text-[#cf38dd]",
-  graduated: "text-[#cf38dd]",
-  migrated: "text-[#cf38dd]",
-  campaign_ended: "text-white/50",
-  claim_period_ended: "text-white/50",
-  burned: "text-white/40",
-  leaderboard_entry: "text-[#cf38dd]",
+  supply_sent: "text-[var(--ink-soft)]",
+  supply_confirmed: "text-[var(--brand)]",
+  graduated: "text-[var(--brand)]",
+  migrated: "text-[var(--brand)]",
+  campaign_ended: "text-[var(--ink-soft)]",
+  claim_period_ended: "text-[var(--ink-soft)]",
+  burned: "text-[var(--ink-soft)]",
+  leaderboard_entry: "text-[var(--brand)]",
   announcement: "text-[var(--accent)]",
 };
 
@@ -56,12 +57,13 @@ export default function NotificationsModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/50">
-      <div className="mobile-sheet pixel-frame pixel-panel relative w-full max-w-sm mx-4 p-5">
+    <Portal>
+    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-[rgba(20,18,34,0.28)]">
+      <div className="mobile-sheet pixel-frame pixel-panel !shadow-none relative w-full max-w-sm mx-4 p-5">
         <button
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-4 top-4 text-white/40 hover:text-white transition-colors"
+          className="absolute right-4 top-4 text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors"
         >
           <Icon icon="pixelarticons:close" className="text-base" />
         </button>
@@ -70,12 +72,12 @@ export default function NotificationsModal({
 
         {isLoading ? (
           <div className="flex items-center justify-center py-10">
-            <AsciiSpinner className="text-base text-[#cf38dd]" />
+            <Spinner className="text-base text-[var(--brand)]" />
           </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center text-center py-8 gap-2">
-            <Icon icon="pixelarticons:bell" className="text-xl text-white/25" />
-            <p className="text-[11px] text-white/35 max-w-[14rem] leading-relaxed">
+            <Icon icon="pixelarticons:bell" className="text-xl text-[var(--ink-faint)]" />
+            <p className="text-[11px] text-[var(--ink-faint)] max-w-[14rem] leading-relaxed">
               Nothing yet. We&apos;ll let you know when a token hits InfoFi
               criteria, or a campaign is approved or rejected.
             </p>
@@ -89,6 +91,7 @@ export default function NotificationsModal({
         )}
       </div>
     </div>
+    </Portal>
   );
 }
 
@@ -97,7 +100,7 @@ function NotificationRow({ notification }: { notification: Notification }) {
     <div
       className={`flex items-start gap-2.5 px-2.5 py-2.5 rounded-lg transition-colors ${
         notification.read ? "" : "bg-white/[0.04]"
-      } ${notification.linkUrl ? "hover:bg-white/5" : ""}`}
+      } ${notification.linkUrl ? "hover:bg-[var(--surface-sunken)]" : ""}`}
     >
       <Icon
         icon={ICON_BY_TYPE[notification.type]}
@@ -107,11 +110,11 @@ function NotificationRow({ notification }: { notification: Notification }) {
         <div className="flex items-center gap-1.5">
           <p className="text-xs font-bold truncate">{notification.title}</p>
           {!notification.read && (
-            <span className="w-1.5 h-1.5 rounded-full bg-[#cf38dd] shrink-0" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--brand)] shrink-0" />
           )}
         </div>
-        <p className="text-[11px] text-white/45 leading-snug mt-0.5">{notification.body}</p>
-        <p className="text-[10px] text-white/25 mt-1">
+        <p className="text-[11px] text-[var(--ink-soft)] leading-snug mt-0.5">{notification.body}</p>
+        <p className="text-[10px] text-[var(--ink-faint)] mt-1">
           {formatTimeAgo(notification.createdAt)}
         </p>
       </div>

@@ -118,13 +118,13 @@ export default function SendSupplyModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/50">
+    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-[rgba(20,18,34,0.28)]">
       <div className="mobile-sheet pixel-frame pixel-panel relative w-full max-w-sm mx-4 p-5">
         <button
           onClick={handleClose}
           disabled={submitting}
           aria-label="Close"
-          className="absolute right-4 top-4 text-white/40 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="absolute right-4 top-4 text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
           <Icon icon="pixelarticons:close" className="text-base" />
         </button>
@@ -132,14 +132,14 @@ export default function SendSupplyModal({
         <h2 className="text-base font-bold mb-1">
           Send Supply {campaign.ticker ? `for ${campaign.ticker}` : ""}
         </h2>
-        <p className="text-[10px] text-white/40 leading-snug mb-3">
+        <p className="text-[10px] text-[var(--ink-soft)] leading-snug mb-3">
           Send the agreed token supply to the address below from your own
           wallet. This page watches that address live. Once your tokens
           land, submit below and the team creates the pool.
         </p>
 
         <div className="mb-3">
-          <p className="text-[10px] text-white/40 mb-1">Send tokens to</p>
+          <p className="text-[10px] text-[var(--ink-soft)] mb-1">Send tokens to</p>
           <button
             type="button"
             onClick={handleCopy}
@@ -150,7 +150,7 @@ export default function SendSupplyModal({
             </span>
             <Icon
               icon={copied ? "pixelarticons:check" : "pixelarticons:copy"}
-              className="text-white/40 text-sm shrink-0"
+              className="text-[var(--ink-soft)] text-sm shrink-0"
             />
           </button>
         </div>
@@ -169,8 +169,8 @@ export default function SendSupplyModal({
             </>
           ) : (
             <>
-              <span className="w-2 h-2 rounded-full bg-white/20 animate-pulse shrink-0" />
-              <span className="text-[11px] text-white/40">Waiting for tokens to arrive...</span>
+              <span className="w-2 h-2 rounded-full bg-[var(--surface-sunken)] animate-pulse shrink-0" />
+              <span className="text-[11px] text-[var(--ink-soft)]">Waiting for tokens to arrive...</span>
             </>
           )}
         </div>
@@ -184,7 +184,7 @@ export default function SendSupplyModal({
               maxLength={TITLE_MAX}
               onChange={(event) => setTitle(event.target.value)}
               required
-              className="w-full bg-transparent text-sm focus:outline-none placeholder:text-white/30"
+              className="w-full bg-transparent text-sm focus:outline-none placeholder:text-[var(--ink-faint)]"
             />
           </div>
 
@@ -196,15 +196,15 @@ export default function SendSupplyModal({
               maxLength={DESCRIPTION_MAX}
               onChange={(event) => setDescription(event.target.value)}
               required
-              className="w-full bg-transparent text-sm resize-none focus:outline-none placeholder:text-white/30"
+              className="w-full bg-transparent text-sm resize-none focus:outline-none placeholder:text-[var(--ink-faint)]"
             />
           </div>
 
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <span className="text-[10px] text-white/40">Airdrop winners</span>
+              <span className="text-[10px] text-[var(--ink-soft)]">Airdrop winners</span>
               {/* Submitting is what fixes this, so say so before they do. */}
-              <p className="text-[10px] text-white/25 leading-snug">
+              <p className="text-[10px] text-[var(--ink-faint)] leading-snug">
                 Set once -- cannot be changed after submitting.
               </p>
             </div>

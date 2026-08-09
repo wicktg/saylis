@@ -11,7 +11,7 @@ import TalkToTeamModal from "@/app/_components/campaigns/TalkToTeamModal";
 import { useMyCampaigns, type CampaignState } from "@/app/_lib/useMyCampaigns";
 import { getFriendlyErrorMessage } from "@/app/_lib/errors";
 import Icon from "@/app/_components/Icon";
-import AsciiSpinner from "@/app/_components/AsciiSpinner";
+import Spinner from "@/app/_components/Spinner";
 
 /** Once a campaign reaches one of these, it's public — everyone sees it in
  *  the grid below, not just its owner. */
@@ -88,31 +88,26 @@ export default function CampaignsPage() {
 
   return (
     <AppShell>
-      <div className="flex-1 flex overflow-hidden">
-        {/* ---- Main column ---- */}
-        <div className="flex-1 overflow-y-auto pixel-scrollbar">
-          <div className="px-6 py-5 border-b border-white/10">
-            <h1 className="text-lg font-bold">Campaigns</h1>
-            <p className="text-[11px] text-white/40 mt-0.5">
-              Reward the people who bring attention to a token.
-            </p>
-          </div>
+      <div className="w-full max-w-[var(--shell)] mx-auto px-[var(--gutter)] pt-[clamp(24px,4vh,40px)] pb-[clamp(40px,7vh,72px)]">
+        <header>
+          <h1 className="font-display text-[clamp(1.375rem,2.6vw,1.875rem)] leading-tight text-[#2e2e2e] m-0">
+            Campaigns
+          </h1>
+          <p className="board-lede">Reward the people who bring attention to a token.</p>
+        </header>
 
-          <div className="p-6">
+        <div className="split-layout">
+          <section aria-label="Campaigns">
             {loading ? (
               <div className="flex items-center justify-center py-16">
-                <AsciiSpinner className="text-xl text-[#cf38dd]" />
+                <Spinner className="text-xl text-[var(--brand)]" />
               </div>
             ) : loadError ? (
-              <EmptyState
-                icon="pixelarticons:close-box"
-                title="Could not load campaigns"
-                body={loadError}
-              />
+              <EmptyState title="Could not load campaigns" body={loadError} />
             ) : isEmpty ? (
-              <EmptyState icon="pixelarticons:zap" title="No campaigns yet" />
+              <EmptyState title="No campaigns yet" />
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <ul className="camp-list">
                 {myPendingCampaigns.map((campaign) => (
                   <CampaignCard
                     key={campaign.tokenAddress}
@@ -123,49 +118,45 @@ export default function CampaignsPage() {
                 {publicCampaigns.map((campaign) => (
                   <PublicCampaignCard key={campaign.tokenAddress} campaign={campaign} />
                 ))}
-              </div>
+              </ul>
             )}
-          </div>
+          </section>
+
+          {/* ---- Side rail ---- */}
+          <aside className="split-side" aria-label="About campaigns">
+            <button
+              onClick={() => setTalkToTeamOpen(true)}
+              className="btn btn-primary camp-cta"
+            >
+              <Icon icon="mdi:telegram" className="text-sm" />
+              Talk to team
+            </button>
+
+            <div className="side-panel">
+              <h2 className="side-title">How it works</h2>
+              <ol className="steps">
+                <Step n={1}>
+                  Reserve supply at mint, or talk to the team about a campaign for a token
+                  you&apos;ve already launched.
+                </Step>
+                <Step n={2}>
+                  If invited, send the agreed supply and submit your campaign details for the
+                  team to confirm.
+                </Step>
+                <Step n={3}>
+                  Once the token graduates and the team approves, the campaign runs for 7 days
+                  while people post about it.
+                </Step>
+                <Step n={4}>Mindshare is scored daily. The top wallets share the pool.</Step>
+              </ol>
+            </div>
+
+            <p className="side-note">
+              Pools are locked on-chain from the moment they are funded. Nothing unclaimed is
+              ever recoverable by us — it burns.
+            </p>
+          </aside>
         </div>
-
-        {/* ---- Side rail ---- */}
-        <aside className="w-64 shrink-0 border-l border-white/10 p-5 hidden lg:flex flex-col gap-4 overflow-y-auto pixel-scrollbar">
-          <button
-            onClick={() => setTalkToTeamOpen(true)}
-            className="pixel-frame pixel-btn w-full text-white font-bold py-2.5 text-sm flex items-center justify-center gap-2"
-          >
-            <Icon icon="mdi:telegram" className="text-sm" />
-            Talk to Team
-          </button>
-
-          <div className="space-y-2">
-            <h3 className="text-[10px] uppercase tracking-wide text-white/30">
-              How it works
-            </h3>
-            <ol className="space-y-2.5 text-[11px] text-white/45 leading-snug">
-              <Step n={1}>
-                Reserve supply at mint, or talk to the team about a campaign
-                for a token you&apos;ve already launched.
-              </Step>
-              <Step n={2}>
-                If invited, send the agreed supply and submit your
-                campaign details for the team to confirm.
-              </Step>
-              <Step n={3}>
-                Once the token graduates and the team approves, the
-                campaign runs for 7 days while people post about it.
-              </Step>
-              <Step n={4}>
-                Mindshare is scored daily. The top wallets share the pool.
-              </Step>
-            </ol>
-          </div>
-
-          <p className="text-[10px] text-white/25 leading-snug border-t border-white/10 pt-3">
-            Pools are locked on-chain from the moment they are funded. Nothing
-            unclaimed is ever recoverable by us; it burns.
-          </p>
-        </aside>
       </div>
 
       <TalkToTeamModal open={talkToTeamOpen} onClose={() => setTalkToTeamOpen(false)} />
@@ -175,29 +166,27 @@ export default function CampaignsPage() {
 
 function Step({ n, children }: { n: number; children: React.ReactNode }) {
   return (
-    <li className="flex gap-2">
-      <span className="text-white/25 font-bold shrink-0">{n}</span>
+    <li>
+      <span className="step-n">{n}</span>
       <span>{children}</span>
     </li>
   );
 }
 
-function EmptyState({
-  icon,
-  title,
-  body,
-}: {
-  icon: string;
-  title: string;
-  body?: string;
-}) {
+/**
+ * Deliberately text only. An icon in an empty state is decoration standing
+ * in for information — it never says anything the heading does not, and at
+ * this size it reads as a broken image more often than as a symbol.
+ */
+function EmptyState({ title, body }: { title: string; body?: string }) {
   return (
     <div className="flex flex-col items-center justify-center text-center py-20 gap-2">
-      <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-1">
-        <Icon icon={icon} className="text-xl text-white/25" />
-      </div>
-      <h2 className="text-sm font-bold text-white/70">{title}</h2>
-      {body && <p className="text-[11px] text-white/35 max-w-xs leading-relaxed">{body}</p>}
+      <h2 className="text-[0.875rem] font-bold text-[var(--ink-soft)]">{title}</h2>
+      {body && (
+        <p className="max-w-xs text-[0.6875rem] font-medium leading-relaxed text-[var(--ink-faint)]">
+          {body}
+        </p>
+      )}
     </div>
   );
 }

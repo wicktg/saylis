@@ -77,13 +77,13 @@ export default function ClaimPanel({
 
   if (!account) {
     return (
-      <p className="text-[11px] text-white/40">Connect your wallet to check your allocation.</p>
+      <p className="text-[11px] text-[var(--ink-soft)]">Connect your wallet to check your allocation.</p>
     );
   }
 
   if (campaignState === "burned") {
     return (
-      <p className="text-[11px] text-white/40">
+      <p className="text-[11px] text-[var(--ink-soft)]">
         This campaign&apos;s claim window closed and unclaimed tokens were burned.
       </p>
     );
@@ -91,17 +91,17 @@ export default function ClaimPanel({
 
   if (campaignState !== "settled") {
     return (
-      <p className="text-[11px] text-white/40">Claiming opens once results are published.</p>
+      <p className="text-[11px] text-[var(--ink-soft)]">Claiming opens once results are published.</p>
     );
   }
 
   if (claimStatus === "checking") {
-    return <p className="text-[11px] text-white/40">Checking claim status...</p>;
+    return <p className="text-[11px] text-[var(--ink-soft)]">Checking claim status...</p>;
   }
 
   if (claimStatus === "claimed") {
     return (
-      <p className="text-[11px] text-[#cf38dd] font-bold flex items-center gap-1.5">
+      <p className="text-[11px] text-[var(--brand)] font-bold flex items-center gap-1.5">
         <Icon icon="pixelarticons:check" className="text-sm" />
         Claimed
       </p>
@@ -160,7 +160,7 @@ export default function ClaimPanel({
   if (allocation) {
     return (
       <div className="flex flex-col gap-1.5">
-        <p className="text-[11px] text-white/60">
+        <p className="text-[11px] text-[var(--ink-soft)]">
           You can claim{" "}
           <span className="font-bold text-[var(--accent)]">
             {formatUnits(BigInt(allocation.amountRaw), TOKEN_DECIMALS)}
@@ -180,11 +180,11 @@ export default function ClaimPanel({
   }
 
   if (notEligible) {
-    return <p className="text-[11px] text-white/40">You&apos;re not eligible for this campaign.</p>;
+    return <p className="text-[11px] text-[var(--ink-soft)]">You&apos;re not eligible for this campaign.</p>;
   }
 
   if (claimDeadlinePassed) {
-    return <p className="text-[11px] text-white/40">The claim window has closed.</p>;
+    return <p className="text-[11px] text-[var(--ink-soft)]">The claim window has closed.</p>;
   }
 
   return (

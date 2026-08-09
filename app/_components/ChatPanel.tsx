@@ -51,8 +51,8 @@ export default function ChatPanel({ compact = false }: { compact?: boolean }) {
     <>
       <div ref={listRef} className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3">
         {messages.length === 0 ? (
-          <p className="text-[11px] text-white/25 text-center py-10">
-            <span className="text-white/15">{"// "}</span>no messages yet
+          <p className="text-[11px] text-[var(--ink-faint)] text-center py-10">
+            <span className="text-[var(--ink-faint)]">{"// "}</span>no messages yet
           </p>
         ) : (
           // Log-line layout rather than chat bubbles: timestamp, then
@@ -60,13 +60,13 @@ export default function ChatPanel({ compact = false }: { compact?: boolean }) {
           messages.map((msg) => (
             <div key={msg.id} className="group text-[11px] leading-relaxed">
               <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-white/25 shrink-0">[{formatTime(msg.sentAt)}]</span>
+                <span className="text-[var(--ink-faint)] shrink-0">[{formatTime(msg.sentAt)}]</span>
                 <WalletAvatar address={msg.walletAddress} size={14} />
-                <span className="text-white truncate">
+                <span className="text-[var(--ink)] truncate">
                   {truncateAddress(msg.walletAddress)}
                 </span>
               </div>
-              <p className="text-white/65 break-words pl-1">
+              <p className="text-[var(--ink-soft)] break-words pl-1">
                 <span className="text-[var(--accent)]">&gt; </span>
                 {msg.message}
               </p>
@@ -75,7 +75,7 @@ export default function ChatPanel({ compact = false }: { compact?: boolean }) {
         )}
       </div>
 
-      <form onSubmit={handleSend} className={compact ? "p-3 border-t border-white/10" : "p-4 border-t border-white/10"}>
+      <form onSubmit={handleSend} className={compact ? "p-3 border-t border-[var(--line)]" : "p-4 border-t border-[var(--line)]"}>
         <div className="pixel-frame pixel-input relative group flex items-center">
           <span className="pl-2 text-[11px] text-[var(--accent)] shrink-0">&gt;</span>
           <input
@@ -86,7 +86,7 @@ export default function ChatPanel({ compact = false }: { compact?: boolean }) {
             disabled={!account}
             // py-3 on mobile keeps the composer a comfortable tap target;
             // the desktop column stays at its original density.
-            className={`w-full bg-transparent text-xs pl-2 pr-10 focus:outline-none placeholder:text-white/30 disabled:cursor-not-allowed ${
+            className={`w-full bg-transparent text-xs pl-2 pr-10 focus:outline-none placeholder:text-[var(--ink-faint)] disabled:cursor-not-allowed ${
               compact ? "py-3" : "py-2.5"
             }`}
           />
@@ -94,20 +94,20 @@ export default function ChatPanel({ compact = false }: { compact?: boolean }) {
             type="submit"
             disabled={!canSend || !draft.trim()}
             aria-label="Send message"
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#cf38dd] disabled:text-[rgba(207,56,221,0.3)] disabled:cursor-not-allowed transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--brand)] disabled:text-[rgba(207,56,221,0.3)] disabled:cursor-not-allowed transition-colors"
           >
             <Icon icon="pixelarticons:send" />
           </button>
         </div>
         <div className="flex items-center justify-between mt-2 px-1">
           {cooldownSeconds > 0 ? (
-            <span className="text-[10px] text-white/40">wait {cooldownSeconds}s</span>
+            <span className="text-[10px] text-[var(--ink-soft)]">wait {cooldownSeconds}s</span>
           ) : error ? (
             <span className="text-[10px] text-red-400">{error}</span>
           ) : (
             <span />
           )}
-          <span className="text-[10px] text-white/30">
+          <span className="text-[10px] text-[var(--ink-faint)]">
             {draft.length}/{CHAR_LIMIT}
           </span>
         </div>

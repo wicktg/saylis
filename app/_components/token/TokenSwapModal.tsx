@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
-import Image from "next/image";
+import { useEffect, useState } from "react";
 import type { Address } from "viem";
 import SwapPanel from "@/app/_components/token/SwapPanel";
 import Icon from "@/app/_components/Icon";
@@ -44,6 +43,13 @@ export default function TokenSwapModal({
   const ethUsdPrice = useEthUsdPrice();
   const isMobile = useIsMobile();
   const imageUrl = resolveIpfsUrl(token.image_url);
+  const [copied, setCopied] = useState(false);
+
+  async function copyAddress() {
+    await navigator.clipboard.writeText(token.contract_address);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
 
   // Escape closes, and the page behind does not scroll while this is open —
   // on a phone that scroll-through is the difference between a sheet and a
@@ -63,22 +69,22 @@ export default function TokenSwapModal({
 
   const stats = [
     {
-      label: "price",
-      value: marketData ? formatWeiAsUsdPrice(marketData.priceWei, ethUsdPrice) : "-",
+      label: "Price",
+      value: marketData ? formatWeiAsUsdPrice(marketData.priceWei, ethUsdPrice) : "—",
     },
     {
-      label: "mcap",
-      value: marketData ? formatUsdCompact(marketData.marketCapWei, ethUsdPrice) : "-",
+      label: "Market cap",
+      value: marketData ? formatUsdCompact(marketData.marketCapWei, ethUsdPrice) : "—",
     },
     {
-      label: "volume",
-      value: marketData ? formatUsdCompact(marketData.volumeWei, ethUsdPrice) : "-",
+      label: "Volume",
+      value: marketData ? formatUsdCompact(marketData.volumeWei, ethUsdPrice) : "—",
     },
   ];
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center bg-black/80 sm:p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center bg-[rgba(20,18,34,0.28)] sm:p-4 backdrop-blur-[2px]"
       onClick={onClose}
       role="presentation"
     >
@@ -87,61 +93,63 @@ export default function TokenSwapModal({
           how tall it is, which is a genuine structural difference rather
           than something a breakpoint can scale into place. */}
       <div
-        className="ascii ascii-box relative w-full sm:max-w-sm bg-black max-h-[92dvh] sm:max-h-[86vh] flex flex-col overflow-hidden"
+        className="relative w-full sm:w-[392px] sm:max-w-[calc(100vw-32px)] max-h-[92dvh] sm:max-h-[86vh] flex flex-col overflow-hidden rounded-t-[var(--r-lg)] sm:rounded-[var(--r-lg)] border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-lg)]"
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label={`Trade ${token.ticker}`}
       >
-        <div className="flex items-start gap-3 p-3 border-b border-white/10 shrink-0">
-          <div className="w-11 h-11 shrink-0 bg-black border border-white/15 relative overflow-hidden">
-            {imageUrl ? (
-              <Image
-                src={imageUrl}
-                alt={token.ticker}
-                fill
-                sizes="44px"
-                className="object-cover"
-                unoptimized
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-white/20 text-[10px]">
-                ?
-              </div>
-            )}
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-bold truncate">{token.ticker}</p>
-            <p className="text-[11px] text-white/40 truncate">{token.name}</p>
-            <p className="text-[10px] text-white/25 mt-0.5">
-              {truncateAddress(token.contract_address)}
-            </p>
-          </div>
+        {/* ---- Head ----
+            Just the contract address: the one identifier that's actually
+            checkable against the chain. Name/ticker/art are already
+            established by the card this modal opened from, and repeating
+            them here added nothing a trader needed while trading. */}
+        <div className="flex items-center gap-2 p-[18px] pb-3.5 shrink-0">
+          <button
+            onClick={copyAddress}
+            className="flex items-center gap-1.5 min-w-0 text-[0.75rem] font-semibold text-[var(--ink-soft)] font-mono transition-colors hover:text-[var(--brand)]"
+            aria-label="Copy contract address"
+            title={token.contract_address}
+          >
+            <span className="truncate">{truncateAddress(token.contract_address)}</span>
+            <Icon
+              icon={copied ? "pixelarticons:check" : "pixelarticons:copy"}
+              className="text-xs shrink-0"
+            />
+          </button>
 
           <button
             onClick={onClose}
             aria-label="Close"
-            className="text-[11px] text-white/40 hover:text-white active:text-white px-2 py-1 -mr-1 -mt-1"
+            className="grid place-items-center w-[30px] h-[30px] shrink-0 ml-auto rounded-[var(--r-md)] border border-[var(--line)] bg-[var(--surface)] text-[var(--ink-soft)] transition-colors hover:border-[var(--brand-soft)] hover:text-[var(--brand)]"
           >
-            [x]
+            <Icon icon="pixelarticons:close" className="text-xs" />
           </button>
         </div>
 
         {/* The three numbers, and only these three. Each is a contract read
-            the grid already made. */}
-        <div className="grid grid-cols-3 border-b border-white/10 shrink-0">
+            the grid already made, so opening this costs no request. */}
+        <dl className="flex gap-2 px-[18px] pb-3.5 shrink-0">
           {stats.map((stat) => (
-            <div key={stat.label} className="px-3 py-2 border-r border-white/10 last:border-r-0">
-              <p className="text-[9px] uppercase tracking-wider text-white/30">{stat.label}</p>
-              <p className="text-[12px] font-medium tabular-nums truncate">{stat.value}</p>
+            <div
+              key={stat.label}
+              className="flex-1 min-w-0 px-2.5 py-2 rounded-[var(--r-md)] border border-[var(--line)]"
+            >
+              <dt className="text-[0.625rem] font-semibold tracking-[0.02em] text-[var(--ink-faint)]">
+                {stat.label}
+              </dt>
+              <dd className="mt-0.5 text-[0.8125rem] font-bold tabular-nums text-[var(--ink)] truncate">
+                {stat.value}
+              </dd>
             </div>
           ))}
-        </div>
+        </dl>
 
         <div className="flex-1 min-h-0 overflow-y-auto">
           <SwapPanel
             tokenAddress={token.contract_address as Address}
+            tokenSymbol={token.ticker}
+            tokenImageUrl={imageUrl}
             curveAddress={token.curve_address as Address}
             migrated={marketData?.migrated}
             poolPriceWei={marketData?.migrated ? marketData.priceWei : undefined}
@@ -151,17 +159,16 @@ export default function TokenSwapModal({
         </div>
 
         {marketData?.graduated && (
-          <p className="text-[10px] text-white/30 px-3 py-1.5 border-t border-white/10 shrink-0">
+          <p className="px-[18px] py-2.5 border-t border-[var(--line)] shrink-0 text-[0.625rem] font-semibold text-[var(--ink-faint)]">
             {marketData.migrated
-              ? "[migrated] trading on the open market"
-              : "[migrating] pool is being created"}
+              ? "Migrated — trading on the open market"
+              : "Migrating — the pool is being created"}
           </p>
         )}
 
         {!isMobile && (
-          <p className="text-[10px] text-white/20 px-3 py-1.5 border-t border-white/10 shrink-0">
-            <Icon icon="pixelarticons:info-box" className="inline mr-1 -mt-0.5" />
-            esc to close
+          <p className="px-[18px] py-2 border-t border-[var(--line)] shrink-0 text-[0.625rem] font-medium text-[var(--ink-faint)]">
+            Press Esc to close
           </p>
         )}
       </div>

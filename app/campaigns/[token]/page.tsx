@@ -15,7 +15,7 @@ import { truncateAddress } from "@/app/_lib/format";
 import type { TokenRecord } from "@/app/_lib/types";
 import { getFriendlyErrorMessage } from "@/app/_lib/errors";
 import Icon from "@/app/_components/Icon";
-import AsciiSpinner from "@/app/_components/AsciiSpinner";
+import Spinner from "@/app/_components/Spinner";
 
 type LeaderboardRow = {
   walletAddress: string;
@@ -125,7 +125,7 @@ export default function CampaignDetailPage() {
     return (
       <AppShell>
         <div className="flex-1 flex items-center justify-center">
-          <AsciiSpinner className="text-xl text-[#cf38dd]" />
+          <Spinner className="text-xl text-[var(--brand)]" />
         </div>
       </AppShell>
     );
@@ -136,7 +136,7 @@ export default function CampaignDetailPage() {
       <AppShell>
         <div className="flex-1 flex flex-col items-center justify-center gap-3">
           <p className="text-sm font-bold">Could not load this campaign.</p>
-          <p className="text-[11px] text-white/40">{loadError}</p>
+          <p className="text-[11px] text-[var(--ink-soft)]">{loadError}</p>
         </div>
       </AppShell>
     );
@@ -150,13 +150,13 @@ export default function CampaignDetailPage() {
 
   return (
     <AppShell>
-      <div className="flex-1 overflow-y-auto pixel-scrollbar">
+      <div className="w-full max-w-[var(--shell)] mx-auto px-[var(--gutter)] pt-[clamp(24px,4vh,40px)] pb-[clamp(40px,7vh,72px)]">
         {/* ---- Header ---- */}
-        <div className="flex items-center gap-3 px-6 py-5 border-b border-white/10">
+        <div className="flex items-center gap-3 px-6 py-5 border-b border-[var(--line)]">
           <Link
             href="/campaigns"
             aria-label="Back to Campaigns"
-            className="w-8 h-8 flex items-center justify-center shrink-0 border border-white/15 text-white/60 hover:text-white hover:border-white/40 hover:bg-white/5 transition-colors"
+            className="w-8 h-8 flex items-center justify-center shrink-0 border border-[var(--line)] text-[var(--ink-soft)] hover:text-[var(--ink)] hover:border-[var(--line)] hover:bg-[var(--surface-sunken)] transition-colors"
           >
             <Icon icon="pixelarticons:arrow-left" className="text-base" />
           </Link>
@@ -166,10 +166,10 @@ export default function CampaignDetailPage() {
             <img
               src={imageUrl}
               alt={token.ticker}
-              className="w-10 h-10 object-cover bg-white/5 shrink-0"
+              className="w-10 h-10 object-cover bg-[var(--surface-sunken)] shrink-0"
             />
           ) : (
-            <div className="w-10 h-10 bg-[var(--accent-tint)] flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-[var(--r-md)] bg-[var(--brand-tint)] text-[var(--brand)] flex items-center justify-center shrink-0">
               <span className="text-sm font-black text-[var(--accent)]">
                 {token.ticker.charAt(0)}
               </span>
@@ -181,9 +181,9 @@ export default function CampaignDetailPage() {
               <h1 className="text-base font-bold uppercase tracking-tight truncate">
                 {token.ticker}
               </h1>
-              <span className="text-[11px] text-white/40 truncate">{token.name}</span>
+              <span className="text-[11px] text-[var(--ink-soft)] truncate">{token.name}</span>
               {isEnded && (
-                <span className="text-[9px] font-bold uppercase bg-white/10 text-white/40 px-1.5 py-0.5 shrink-0">
+                <span className="text-[9px] font-bold uppercase bg-[var(--surface-sunken)] text-[var(--ink-soft)] px-1.5 py-0.5 shrink-0">
                   Ended
                 </span>
               )}
@@ -194,19 +194,19 @@ export default function CampaignDetailPage() {
         <div className="p-6 grid gap-6 lg:grid-cols-[1fr_280px]">
           {/* ---- Leaderboard ---- */}
           <div className="pixel-frame pixel-card overflow-hidden">
-            <div className="px-4 py-3 border-b border-white/10">
-              <h2 className="text-xs font-bold uppercase tracking-wide text-white/60">
+            <div className="px-4 py-3 border-b border-[var(--line)]">
+              <h2 className="text-xs font-bold uppercase tracking-wide text-[var(--ink-soft)]">
                 Leaderboard
               </h2>
             </div>
             {leaderboard.length === 0 ? (
-              <p className="text-[11px] text-white/30 text-center py-10">
+              <p className="text-[11px] text-[var(--ink-faint)] text-center py-10">
                 No mindshare scored yet.
               </p>
             ) : (
               <table className="w-full text-[11px]">
                 <thead>
-                  <tr className="text-white/30 uppercase text-[9px] tracking-wide">
+                  <tr className="text-[var(--ink-faint)] uppercase text-[9px] tracking-wide">
                     <th className="text-left font-medium px-4 py-2">Rank</th>
                     <th className="text-left font-medium px-4 py-2">Wallet</th>
                     <th className="text-right font-medium px-4 py-2">Mindshare</th>
@@ -216,13 +216,13 @@ export default function CampaignDetailPage() {
                   {leaderboard.map((row) => (
                     <tr
                       key={row.walletAddress}
-                      className={`border-t border-white/5 ${
+                      className={`border-t border-[var(--line)] ${
                         account && row.walletAddress.toLowerCase() === account.toLowerCase()
                           ? "bg-[rgba(207,56,221,0.05)]"
                           : ""
                       }`}
                     >
-                      <td className="px-4 py-2 text-white/50 font-mono">#{row.rank}</td>
+                      <td className="px-4 py-2 text-[var(--ink-soft)] font-mono">#{row.rank}</td>
                       <td className="px-4 py-2 font-mono">
                         <div className="flex items-center gap-2">
                           <WalletAvatar address={row.walletAddress} size={18} />
@@ -243,7 +243,7 @@ export default function CampaignDetailPage() {
           <div className="flex flex-col gap-4">
             {!isOwner && (
               <div className="pixel-frame pixel-card p-4 flex flex-col gap-2">
-                <h3 className="text-[10px] uppercase tracking-wide text-white/30">Participate</h3>
+                <h3 className="text-[10px] uppercase tracking-wide text-[var(--ink-faint)]">Participate</h3>
                 <JoinPanel
                   tokenAddress={tokenAddress}
                   campaignState={campaign.state}
@@ -257,7 +257,7 @@ export default function CampaignDetailPage() {
             )}
 
             <div className="pixel-frame pixel-card p-4 flex flex-col gap-2">
-              <h3 className="text-[10px] uppercase tracking-wide text-white/30">
+              <h3 className="text-[10px] uppercase tracking-wide text-[var(--ink-faint)]">
                 Your Allocation
               </h3>
               <ClaimPanel

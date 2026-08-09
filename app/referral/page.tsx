@@ -10,7 +10,7 @@ import { REFERRAL_VAULT_ADDRESS } from "@/app/_lib/contracts/config";
 import { REFERRAL_VAULT_ABI } from "@/app/_lib/contracts/ReferralVault";
 import { useEthUsdPrice } from "@/app/_lib/useEthUsdPrice";
 import Icon from "@/app/_components/Icon";
-import AsciiSpinner from "@/app/_components/AsciiSpinner";
+import Spinner from "@/app/_components/Spinner";
 import { waitForReceipt } from "@/app/_lib/txReceipt";
 import { getFriendlyErrorMessage } from "@/app/_lib/errors";
 
@@ -117,157 +117,172 @@ export default function ReferralPage() {
 
   return (
     <AppShell>
-      <div className="flex-1 overflow-y-auto pixel-scrollbar">
-        <div className="px-6 py-5 border-b border-white/10">
-          <h1 className="text-lg font-bold">Referral</h1>
-          <p className="text-[11px] text-white/40 mt-0.5">
-            Earn 5% of every wallet you refer&apos;s own creator fee share, forever, across
-            every token they ever launch.
+      <div className="w-full max-w-[var(--shell)] mx-auto px-[var(--gutter)] pt-[clamp(24px,4vh,40px)] pb-[clamp(40px,7vh,72px)]">
+        <header>
+          <h1 className="font-display text-[clamp(1.375rem,2.6vw,1.875rem)] leading-tight text-[#2e2e2e] m-0">
+            Referrals
+          </h1>
+          <p className="board-lede">
+            Earn 5% of the creator fee share of every wallet you refer — forever, across every
+            token they ever launch.
           </p>
-        </div>
+        </header>
 
         {!account ? (
-          <div className="flex flex-col items-center justify-center text-center py-20 gap-2">
-            <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-1">
-              <Icon icon="pixelarticons:wallet" className="text-xl text-white/25" />
-            </div>
-            <h2 className="text-sm font-bold text-white/70">Connect your wallet</h2>
-            <p className="text-[11px] text-white/35 max-w-xs leading-relaxed">
-              Your referral link is tied to the wallet that shares it.
-            </p>
-          </div>
+          <EmptyState
+            title="Connect your wallet"
+            body="Your referral link is tied to the wallet that shares it."
+          />
         ) : loading ? (
           <div className="flex items-center justify-center py-16">
-            <AsciiSpinner className="text-xl text-[#cf38dd]" />
+            <Spinner className="text-xl text-[var(--brand)]" />
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center justify-center text-center py-20 gap-2">
-            <h2 className="text-sm font-bold text-white/70">Could not load referral data</h2>
-            <p className="text-[11px] text-white/35 max-w-xs leading-relaxed">{error}</p>
-          </div>
+          <EmptyState title="Could not load referral data" body={error} />
         ) : (
-          <div className="p-6 flex flex-col gap-6">
-            {/* ---- Shareable link ---- */}
-            <div className="pixel-frame pixel-card p-4">
-              <h2 className="text-[10px] uppercase tracking-wide text-white/30 mb-2">
-                Your referral link
-              </h2>
-              <button
-                onClick={handleCopy}
-                disabled={!shareLink}
-                className="pixel-frame pixel-input w-full px-3 py-2.5 flex items-center justify-between gap-2 text-left"
-              >
-                <span className="text-[12px] font-mono truncate">
-                  {shareLink ?? "..."}
-                </span>
-                <Icon
-                  icon={copied ? "pixelarticons:check" : "pixelarticons:copy"}
-                  className="text-white/40 text-sm shrink-0"
-                />
-              </button>
-            </div>
-
-            {/* ---- Totals ---- */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="pixel-frame pixel-card p-4">
-                <p className="text-[9px] uppercase tracking-wide text-white/30">
-                  Lifetime earnings
-                </p>
-                {/* A zero here would be indistinguishable from a real zero,
-                    so when history could not be read we show nothing at all
-                    rather than a number we cannot stand behind. */}
-                <p className="text-lg font-bold mt-1">
-                  {historyUnavailable
-                    ? "n/a"
-                    : formatWeiAsUsdPrice(lifetimeTotal, ethUsdPrice)}
-                </p>
-              </div>
-              <div className="pixel-frame pixel-card p-4">
-                <p className="text-[9px] uppercase tracking-wide text-white/30">
-                  Withdrawable now
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <p className="text-lg font-bold text-[var(--accent)] leading-none">
-                    {formatWeiAsUsdPrice(currentBalance, ethUsdPrice)}
-                  </p>
+          <div className="split-layout">
+            <section aria-label="Your referrals">
+              {/* ---- Shareable link ---- */}
+              <div className="side-panel ref-link-panel">
+                <h2 className="side-title">Your referral link</h2>
+                <div className="ref-link">
+                  <input
+                    className="ref-url"
+                    type="text"
+                    value={shareLink ?? ""}
+                    readOnly
+                    aria-label="Your referral link"
+                  />
                   <button
-                    onClick={handleClaim}
-                    disabled={claiming || currentBalance === 0n}
-                    aria-label="Claim withdrawable earnings"
-                    title={currentBalance === 0n ? "Nothing to claim" : "Claim earnings"}
-                    className="text-[var(--accent)] disabled:text-white/20 disabled:cursor-not-allowed shrink-0 transition-colors flex items-center"
+                    type="button"
+                    onClick={handleCopy}
+                    disabled={!shareLink}
+                    className="ref-copy"
+                    data-copied={copied || undefined}
                   >
                     <Icon
-                      icon="pixelarticons:briefcase"
-                      className={`text-lg leading-none ${claiming ? "animate-pulse" : ""}`}
+                      icon={copied ? "pixelarticons:check" : "pixelarticons:copy"}
+                      className="text-sm"
                     />
+                    {copied ? "Copied" : "Copy"}
                   </button>
                 </div>
+                <p className="ref-hint">
+                  Anyone who connects a wallet through this link is bound to you permanently —
+                  there is no expiry and no cap.
+                </p>
               </div>
-            </div>
 
-            {claimError && <p className="text-[11px] text-red-400">{claimError}</p>}
-
-            {/* ---- Referred wallets ---- */}
-            <div>
-              <h2 className="text-[10px] uppercase tracking-wide text-white/30 mb-3">
-                Referred {historyUnavailable ? "" : `(${data?.referred.length ?? 0})`}
+              {/* ---- Referred wallets ---- */}
+              <h2 className="side-title ref-list-title">
+                Referred{" "}
+                {!historyUnavailable && <span>({data?.referred.length ?? 0})</span>}
               </h2>
+
               {historyUnavailable ? (
-                <div className="flex flex-col items-center justify-center text-center py-16 gap-2 pixel-frame pixel-card">
-                  <h3 className="text-sm font-bold text-white/70">History unavailable</h3>
-                  <p className="text-[11px] text-white/35 max-w-sm leading-relaxed">
-                    Couldn&apos;t reach the network to read your referral history just
-                    now — try again in a moment. Your link still works, and any
-                    balance shown above is live and claimable.
+                <div className="side-panel text-center py-10">
+                  <h3 className="text-[0.875rem] font-bold text-[var(--ink-soft)]">
+                    History unavailable
+                  </h3>
+                  <p className="mt-2 mx-auto max-w-sm text-[0.6875rem] font-medium leading-relaxed text-[var(--ink-faint)]">
+                    Couldn&apos;t reach the network to read your referral history just now — try
+                    again in a moment. Your link still works, and any balance shown here is live
+                    and claimable.
                   </p>
                 </div>
               ) : !data || data.referred.length === 0 ? (
-                <div className="flex flex-col items-center justify-center text-center py-16 gap-2 pixel-frame pixel-card">
-                  <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-1">
-                    <Icon icon="pixelarticons:users" className="text-xl text-white/25" />
-                  </div>
-                  <h3 className="text-sm font-bold text-white/70">Nobody yet</h3>
-                  <p className="text-[11px] text-white/35 max-w-xs leading-relaxed">
+                <div className="side-panel text-center py-10">
+                  <h3 className="text-[0.875rem] font-bold text-[var(--ink-soft)]">Nobody yet</h3>
+                  <p className="mt-2 mx-auto max-w-xs text-[0.6875rem] font-medium leading-relaxed text-[var(--ink-faint)]">
                     Share your link above. Once someone connects through it and confirms,
                     they&apos;ll show up here.
                   </p>
                 </div>
               ) : (
-                <div className="pixel-frame pixel-card overflow-hidden">
-                  <table className="w-full text-[11px]">
-                    <thead>
-                      <tr className="text-white/30 uppercase text-[9px] tracking-wide">
-                        <th className="text-left font-medium px-4 py-2">Wallet</th>
-                        <th className="text-left font-medium px-4 py-2">Joined</th>
-                        <th className="text-right font-medium px-4 py-2">Earnings</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.referred.map((r) => (
-                        <tr key={r.walletAddress} className="border-t border-white/5">
-                          <td className="px-4 py-2 font-mono">
-                            <div className="flex items-center gap-2">
-                              <WalletAvatar address={r.walletAddress} size={18} />
-                              {truncateAddress(r.walletAddress)}
-                            </div>
-                          </td>
-                          <td className="px-4 py-2 text-white/50">
-                            {r.joinedAt ? new Date(r.joinedAt).toLocaleDateString() : "N/A"}
-                          </td>
-                          <td className="px-4 py-2 text-right font-bold text-[var(--accent)]">
-                            {formatWeiAsUsdPrice(BigInt(r.earningsRaw), ethUsdPrice)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <ul className="ref-list">
+                  {data.referred.map((r) => (
+                    <li key={r.walletAddress} className="ref-row">
+                      <span className="ref-mark" aria-hidden="true">
+                        <WalletAvatar address={r.walletAddress} size={30} />
+                      </span>
+                      <span className="ref-who">
+                        <span className="ref-addr">{truncateAddress(r.walletAddress)}</span>
+                        <span className="ref-when">
+                          {r.joinedAt
+                            ? `joined ${new Date(r.joinedAt).toLocaleDateString()}`
+                            : "join date unknown"}
+                        </span>
+                      </span>
+                      <span className="ref-earned">
+                        {formatWeiAsUsdPrice(BigInt(r.earningsRaw), ethUsdPrice)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               )}
-            </div>
+            </section>
+
+            {/* ---- Earnings rail ---- */}
+            <aside className="split-side" aria-label="Your earnings">
+              <div className="side-panel">
+                <h2 className="side-title">Lifetime revenue</h2>
+                {/* A zero here would be indistinguishable from a real zero,
+                    so when history could not be read we show nothing at all
+                    rather than a number we cannot stand behind. */}
+                <p className="ref-figure">
+                  {historyUnavailable ? "—" : formatWeiAsUsdPrice(lifetimeTotal, ethUsdPrice)}
+                </p>
+                <p className="ref-sub">
+                  {historyUnavailable
+                    ? "History could not be read just now."
+                    : `across ${data?.referred.length ?? 0} referred wallet${
+                        (data?.referred.length ?? 0) === 1 ? "" : "s"
+                      }`}
+                </p>
+              </div>
+
+              <div className="side-panel">
+                <h2 className="side-title">Withdrawable now</h2>
+                <p className="ref-figure is-brand">
+                  {formatWeiAsUsdPrice(currentBalance, ethUsdPrice)}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleClaim}
+                  disabled={claiming || currentBalance === 0n}
+                  className="btn btn-primary ref-claim"
+                >
+                  {claiming ? "Claiming…" : "Claim"}
+                </button>
+                {claimError && (
+                  <p className="mt-2 text-[0.625rem] font-semibold leading-snug text-[var(--down)]">
+                    {claimError}
+                  </p>
+                )}
+              </div>
+
+              <p className="side-note">
+                A wallet counts once it connects through your link and confirms. Earnings accrue
+                on every trade of every token they launch, for as long as they launch.
+              </p>
+            </aside>
           </div>
         )}
       </div>
     </AppShell>
+  );
+}
+
+/** Text only, matching Campaigns — see that file for why. */
+function EmptyState({ title, body }: { title: string; body?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center text-center py-20 gap-2">
+      <h2 className="text-[0.875rem] font-bold text-[var(--ink-soft)]">{title}</h2>
+      {body && (
+        <p className="max-w-xs text-[0.6875rem] font-medium leading-relaxed text-[var(--ink-faint)]">
+          {body}
+        </p>
+      )}
+    </div>
   );
 }

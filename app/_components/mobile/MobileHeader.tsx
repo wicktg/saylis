@@ -1,11 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAccount } from "wagmi";
 import ConnectWalletButton from "@/app/_components/ConnectWalletButton";
-import CreateTokenModal from "@/app/_components/CreateTokenModal";
 import ReferralPrompt from "@/app/_components/ReferralPrompt";
 import { useEnsureCorrectChain } from "@/app/_lib/useEnsureCorrectChain";
 import { useRegisterWallet } from "@/app/_lib/useRegisterWallet";
@@ -28,7 +26,6 @@ import { useCaptureReferralCode, useReferral } from "@/app/_lib/useReferral";
  * opened on mobile would be dropped.
  */
 export default function MobileHeader() {
-  const [createTokenOpen, setCreateTokenOpen] = useState(false);
   const { address, isConnected } = useAccount();
   useEnsureCorrectChain();
   useRegisterWallet(address);
@@ -38,30 +35,19 @@ export default function MobileHeader() {
   // Matches the desktop header: logo hard against the left edge, the
   // action keeping its gap on the right.
   return (
-    <header className="h-12 shrink-0 flex items-center justify-between pl-2 pr-3 border-b border-white/10">
+    <header className="sticky top-0 z-30 h-[54px] shrink-0 flex items-center justify-between pl-3 pr-3 border-b border-[var(--line)] bg-[rgba(255,255,255,0.92)] backdrop-blur-[14px] backdrop-saturate-150">
       <Link href="/" aria-label="Home" className="flex items-center">
         <Image
-          src="/saylis-logo.png"
+          src="/brand-logo.png"
           alt="Saylis"
-          width={40}
-          height={40}
-          className="w-10 h-10 object-contain"
+          width={500}
+          height={500}
+          className="w-[38px] h-[38px] object-contain -ml-2"
           priority
         />
       </Link>
 
-      {isConnected ? (
-        <button
-          onClick={() => setCreateTokenOpen(true)}
-          className="pixel-frame pixel-btn h-7 px-2.5 flex items-center text-white text-[10px] lowercase"
-        >
-          [+] create
-        </button>
-      ) : (
-        <ConnectWalletButton size="compact" />
-      )}
-
-      <CreateTokenModal open={createTokenOpen} onClose={() => setCreateTokenOpen(false)} />
+      {!isConnected && <ConnectWalletButton size="compact" />}
 
       {referral.pendingReferrer && (
         <ReferralPrompt

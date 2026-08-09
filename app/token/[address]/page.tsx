@@ -81,11 +81,11 @@ export default function TokenDetailPage() {
     <AppShell>
       <div className="flex-1 flex items-center justify-center p-6">
         {lookupState === "loading" && (
-          <p className="ascii text-[11px] text-white/30">loading token...</p>
+          <p className="ascii text-[11px] text-[var(--ink-faint)]">loading token...</p>
         )}
         {lookupState === "missing" && (
-          <p className="ascii text-[11px] text-white/30">
-            <span className="text-white/20">{"// "}</span>
+          <p className="ascii text-[11px] text-[var(--ink-faint)]">
+            <span className="text-[var(--ink-faint)]">{"// "}</span>
             no token at that address
           </p>
         )}

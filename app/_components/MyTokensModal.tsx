@@ -9,6 +9,7 @@ import { resolveIpfsUrl } from "@/app/_lib/ipfs";
 import { formatUsdCompact } from "@/app/_lib/format";
 import { useEthUsdPrice } from "@/app/_lib/useEthUsdPrice";
 import Icon from "@/app/_components/Icon";
+import Portal from "@/app/_components/Portal";
 
 const PAGE_SIZE = 5;
 
@@ -62,12 +63,13 @@ export default function MyTokensModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/50">
-      <div className="mobile-sheet pixel-frame pixel-panel relative w-full max-w-sm mx-4 p-6 max-h-[80vh] flex flex-col">
+    <Portal>
+    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-[rgba(20,18,34,0.28)]">
+      <div className="mobile-sheet pixel-frame pixel-panel !shadow-none relative w-full max-w-sm mx-4 p-6 max-h-[80vh] flex flex-col">
         <button
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-4 top-4 text-white/40 hover:text-white transition-colors"
+          className="absolute right-4 top-4 text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors"
         >
           <Icon icon="pixelarticons:close" className="text-base" />
         </button>
@@ -76,14 +78,14 @@ export default function MyTokensModal({
 
         <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2 space-y-1.5">
           {loading && (
-            <div className="text-xs text-white/30 py-10 text-center">Loading...</div>
+            <div className="text-xs text-[var(--ink-faint)] py-10 text-center">Loading...</div>
           )}
 
           {!loading && tokens.length === 0 && (
             <div className="flex flex-col items-center gap-2 py-10 text-center">
-              <Icon icon="pixelarticons:coin" className="text-3xl text-white/15" />
-              <p className="text-xs font-bold text-white/50">No bags yet.</p>
-              <p className="text-[11px] text-white/25">
+              <Icon icon="pixelarticons:coin" className="text-3xl text-[var(--ink-faint)]" />
+              <p className="text-xs font-bold text-[var(--ink-soft)]">No bags yet.</p>
+              <p className="text-[11px] text-[var(--ink-faint)]">
                 Launch your first token to see it here.
               </p>
             </div>
@@ -98,18 +100,18 @@ export default function MyTokensModal({
                 key={token.id}
                 href={`/token/${token.contract_address}`}
                 onClick={onClose}
-                className="group flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.02] hover:bg-white/5 border border-transparent hover:border-white/10 transition-colors"
+                className="group flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.02] hover:bg-[var(--surface-sunken)] border border-transparent hover:border-[var(--line)] transition-colors"
               >
                 {imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={imageUrl}
-                    className="w-9 h-9 rounded-lg object-cover bg-white/5 shrink-0 ring-1 ring-transparent group-hover:ring-[rgba(207,56,221,0.3)] transition-all"
+                    className="w-9 h-9 rounded-lg object-cover bg-[var(--surface-sunken)] shrink-0 ring-1 ring-transparent group-hover:ring-[rgba(207,56,221,0.3)] transition-all"
                     alt={`${token.ticker} icon`}
                   />
                 ) : (
                   <div className="w-9 h-9 rounded-lg bg-[rgba(207,56,221,0.2)] flex items-center justify-center shrink-0 ring-1 ring-transparent group-hover:ring-[rgba(207,56,221,0.3)] transition-all">
-                    <span className="text-xs font-black text-[#cf38dd]">
+                    <span className="text-xs font-black text-[var(--brand)]">
                       {token.ticker.charAt(0)}
                     </span>
                   </div>
@@ -117,7 +119,7 @@ export default function MyTokensModal({
                 <span className="font-bold text-xs uppercase tracking-wide flex-1 truncate">
                   {token.ticker}
                 </span>
-                <span className="text-[11px] font-bold text-white/70 bg-white/5 rounded-full px-2.5 py-1 shrink-0">
+                <span className="text-[11px] font-bold text-[var(--ink)] bg-[var(--surface-sunken)] rounded-full px-2.5 py-1 shrink-0">
                   {marketCapWei !== undefined
                     ? formatUsdCompact(marketCapWei, ethUsdPrice)
                     : "..."}
@@ -128,23 +130,23 @@ export default function MyTokensModal({
         </div>
 
         {!loading && tokens.length > PAGE_SIZE && (
-          <div className="flex items-center justify-between pt-4 mt-3 border-t border-white/5">
+          <div className="flex items-center justify-between pt-4 mt-3 border-t border-[var(--line)]">
             <button
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={page === 0}
               aria-label="Previous page"
-              className="pixel-frame pixel-btn-ghost w-8 h-8 flex items-center justify-center text-white/70 disabled:cursor-not-allowed"
+              className="pixel-frame pixel-btn-ghost w-8 h-8 flex items-center justify-center text-[var(--ink)] disabled:cursor-not-allowed"
             >
               <Icon icon="pixelarticons:chevron-left" className="text-xs" />
             </button>
-            <span className="text-[11px] font-medium text-white/40">
+            <span className="text-[11px] font-medium text-[var(--ink-soft)]">
               <span className="text-[var(--accent)] font-bold">{page + 1}</span> / {totalPages}
             </span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
               disabled={page >= totalPages - 1}
               aria-label="Next page"
-              className="pixel-frame pixel-btn-ghost w-8 h-8 flex items-center justify-center text-white/70 disabled:cursor-not-allowed"
+              className="pixel-frame pixel-btn-ghost w-8 h-8 flex items-center justify-center text-[var(--ink)] disabled:cursor-not-allowed"
             >
               <Icon icon="pixelarticons:chevron-right" className="text-xs" />
             </button>
@@ -152,5 +154,6 @@ export default function MyTokensModal({
         )}
       </div>
     </div>
+    </Portal>
   );
 }

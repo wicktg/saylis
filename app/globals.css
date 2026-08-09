@@ -2,208 +2,1100 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --bg-main: #000000;
-  --bg-card: #000000;
-  --bg-sidebar: #000000;
-
-  /*
-   * Brand magenta. Three deliberate shades, not one:
-   *
-   *  --accent       the pure brand color. Use for anything drawn ON the
-   *                 black canvas — indicators, borders, focus rings, fills,
-   *                 progress. 5.27:1 against black, so fine for UI and text
-   *                 >=12px, but avoid it for the 9-10px labels on cards.
-   *  --accent-fill  a deeper shade for BUTTON BACKGROUNDS carrying white
-   *                 text. White on --accent is only 3.99:1 (below the 4.5:1
-   *                 AA threshold, and 12px bold is too small to qualify for
-   *                 the large-text exemption); white on this is 5.96:1.
-   *  --accent-soft  a lighter tint, for gradient ends and hover states.
-   */
-  --accent: #cf38dd;
-  --accent-fill: #a32baf;
-  --accent-fill-hover: #b731c4;
-  --accent-soft: #e879f9;
-  /* Pre-mixed low-alpha brand tint. Written out rather than composed with
-     Tailwind's `/10` opacity modifier, which does not reliably compile
-     against an arbitrary CSS variable in Tailwind v3. */
-  --accent-tint: rgba(207, 56, 221, 0.12);
-
-  --text-muted: #a8a3c9;
-}
-
-/*
- * Monospace everywhere. This is the single largest lever in the ASCII
- * conversion: a terminal UI is defined more by uniform character cells
- * than by any border treatment, and setting it once here means individual
- * components never have to opt in.
- *
- * The Satoshi webfont this used to load is gone with it — one fewer
- * external stylesheet fetch, and nothing references it any more.
- */
-body {
-  font-family: var(--font-jetbrains-mono), ui-monospace, "Cascadia Mono",
-    "Segoe UI Mono", "Liberation Mono", Menlo, Consolas, monospace;
-  font-variant-ligatures: none;
-  /* Live market figures update in place; tabular figures stop the numeric
-     columns jittering as digits change width. */
-  font-variant-numeric: tabular-nums;
-  background-color: var(--bg-main);
-  color: white;
-  margin: 0;
-  overflow: hidden;
-  position: relative;
-}
-
-/*
- * Every rounded surface (buttons, inputs, pills, cards, modals) is squared
- * off to a hard edge instead of Tailwind's `rounded-*` curves. Inherited
- * from the pixel-art design and kept unchanged: character cells are
- * rectangular, so a terminal UI has no curves either.
- *
- * `!important` because this deliberately wins over every `rounded-*`
- * utility class regardless of source order.
- */
-button,
-input,
-textarea,
-select,
-[class*="rounded-"] {
-  border-radius: 0 !important;
-}
-
-/* Loading spinners are the deliberate exception to the square-everything
- * rule above: a spinning ring reads as broken/wrong when squared off, and
- * "loading" is the one shape in this UI that's supposed to look like every
- * other spinner on the web. Named `.spinner-circle` specifically so it
- * never matches the `[class*="rounded-"]` selector (a `rounded-full`
- * class would, and lose to `!important` regardless of source order).
- */
-.spinner-circle {
-  border-radius: 50%;
-}
-
-
-
-
 /* =================================================================
- * SURFACE KIT (ASCII / terminal styling)
+ * DESIGN TOKENS
  * =================================================================
  *
- * These class NAMES are still `.pixel-*` while their appearance is now
- * ASCII. That is deliberate and worth explaining, because the mismatch
- * looks like an oversight:
+ * Ported from design/index.css. The app was previously a black
+ * terminal UI; it is now the light magenta system in that reference.
  *
- * The names appear at 175 call sites across 25 files. Renaming them all
- * would be a large mechanical diff with real regression risk (a missed
- * class silently renders an unstyled surface) in exchange for zero visual
- * change, since this stylesheet is the only thing that decides how they
- * look. Restyling the kit in place converts every surface in the app at
- * once and keeps the reviewable diff to this one block. A rename is
- * cosmetic follow-up work, tracked separately.
- *
- * The construction changes completely. The old kit drew each surface as a
- * sprite: four hard, blurless, OFFSET box-shadows leaving the corners
- * uncovered (a pixel-art notch), plus an inset shadow faking a bevel band.
- * A terminal box has none of that -- it is a single uniform rule, one cell
- * wide, with no bevel and no depth. So these are now plain 1px borders.
- *
- * One constraint carried over from the old kit, because it was learned the
- * hard way: `.pixel-frame` must NOT set `position`. This rule loads after
- * Tailwind's utilities, so declaring `position: relative` here silently
- * beat the `absolute` on every floated surface using the class, dropping
- * the profile dropdown and the Advanced popover back into normal flow.
- * Borders need no positioning; anything wanting a containing block sets
- * its own. This is also why `.pixel-frame` gets no corner ticks, unlike
- * `.ascii-box` further down, which is only applied to elements already
- * marked `relative`.
+ * Every token below is the single source of truth for its value. The
+ * component layer never hardcodes a hex — it reads these — so a future
+ * palette change is this block and nothing else.
  */
 :root {
-  --pixel-outline: rgba(255, 255, 255, 0.22);
+  /* ---- palette ---- */
+  --ink: #1f1f24;
+  --ink-soft: #6f6f78;
+  --ink-faint: #a6a6b0;
+  --surface: #ffffff;
+  --surface-sunken: #f6f7f7;
+  --line: #ececf0;
+
+  --brand: #cb2ab8;
+  --brand-bright: #db4dca;
+  --brand-soft: #e580d9;
+  --brand-tint: #fceefa;
+  --brand-line: #f5ccf0;
+
+  /* market-cap green, the one non-brand accent on the board */
+  --up: #12b76a;
+  --down: #e5484d;
+
+  /* rgb channels of --brand, for rgba() mixes */
+  --brand-rgb: 203, 42, 184;
+  /* deepened brand, used only for shadow casts */
+  --brand-shadow: 114, 29, 104;
+
+  /* ---- rhythm ---- */
+  --shell: 1180px;
+  --gutter: clamp(16px, 3.2vw, 44px);
+  --header-h: 62px;
+  --header-gap: 14px;
+
+  /* slight-rounded rectangle scale — no pills, no circles */
+  --r-xs: 6px;
+  --r-sm: 8px;
+  --r-md: 11px;
+  --r-lg: 16px;
+
+  --shadow-sm: 0 1px 2px rgba(24, 20, 48, 0.05);
+  --shadow-md: 0 10px 30px -12px rgba(var(--brand-shadow), 0.28);
+  --shadow-lg: 0 22px 48px -20px rgba(var(--brand-shadow), 0.45);
+
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  /*
+   * Compatibility aliases.
+   *
+   * ~200 call sites still read `--accent*`, named when the brand was a
+   * neon magenta on black. They now resolve to the light system's brand
+   * so no component had to change to pick up the new palette. New code
+   * should use `--brand*`.
+   */
+  --accent: var(--brand);
+  --accent-fill: var(--brand);
+  --accent-fill-hover: var(--brand-bright);
+  --accent-soft: var(--brand-soft);
+  --accent-tint: var(--brand-tint);
+  --text-muted: var(--ink-soft);
 }
 
-.pixel-frame {
-  border: 1px solid var(--pixel-outline);
-  background-color: var(--pixel-fill, transparent);
-  box-shadow: none;
-  transition: border-color 120ms linear, background-color 120ms linear;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
-/* ---- Primary action: solid accent fill ---- */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+/*
+ * Inter throughout, Zen Dots reserved for display headings via
+ * `.font-display`. The old build set JetBrains Mono on `body` to make
+ * every surface read as a terminal; that is exactly the thing this
+ * redesign removes, so the mono face is now opt-in (`.font-mono`) for
+ * the places it still earns its keep — addresses and hashes.
+ */
+body {
+  margin: 0;
+  min-height: 100dvh;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  color: var(--ink);
+  background-color: var(--surface);
+  /* faint blueprint grid + a soft brand glow at the top of the page */
+  background-image: radial-gradient(
+      120% 80% at 50% 0%,
+      rgba(var(--brand-rgb), 0.09) 0%,
+      rgba(var(--brand-rgb), 0) 60%
+    ),
+    linear-gradient(to right, rgba(31, 31, 36, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(31, 31, 36, 0.035) 1px, transparent 1px);
+  background-size: 100% 100%, 58px 58px, 58px 58px;
+  background-position: center top, center, center;
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.font-display {
+  font-family: var(--font-zen-dots), var(--font-inter), sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.font-mono {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Live figures update in place; tabular figures stop numeric columns
+   jittering as digits change width. */
+.tabular-nums,
+.mcap,
+[class*="tabular"] {
+  font-variant-numeric: tabular-nums;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* =================================================================
+ * SURFACE KIT
+ * =================================================================
+ *
+ * The class NAMES here are still `.pixel-*` / `.ascii-*` while their
+ * appearance is now the light magenta system. That mismatch is
+ * deliberate and worth explaining, because it looks like an oversight:
+ *
+ * The names appear at ~200 call sites across 25 files. Renaming them
+ * would be a large mechanical diff with real regression risk (a missed
+ * class silently renders an unstyled surface) in exchange for zero
+ * visual change, since this stylesheet is the only thing deciding how
+ * they look. Restyling the kit in place converts every surface at once
+ * and keeps the reviewable diff to this one block.
+ *
+ * One constraint carried over from the old kit, learned the hard way:
+ * `.pixel-frame` must NOT set `position`. This rule loads after
+ * Tailwind's utilities, so declaring `position: relative` here silently
+ * beat the `absolute` on every floated surface using the class,
+ * dropping the profile dropdown back into normal flow.
+ */
+
+.pixel-frame,
+.ascii-box {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background-color: var(--pixel-fill, var(--surface));
+  transition: border-color 0.18s var(--ease), background-color 0.18s var(--ease),
+    color 0.18s var(--ease);
+}
+
+/* ---- Primary action: solid brand fill ---- */
 .pixel-btn {
-  --pixel-fill: var(--accent-fill);
-  --pixel-outline: var(--accent);
+  border-color: var(--brand-soft);
+  background-color: var(--brand);
+  color: #fff;
+  cursor: pointer;
 }
 .pixel-btn:hover:not(:disabled) {
-  --pixel-fill: var(--accent-fill-hover);
-  --pixel-outline: var(--accent-soft);
+  filter: brightness(1.06);
 }
 .pixel-btn:active:not(:disabled) {
-  --pixel-fill: var(--accent-fill);
+  filter: brightness(0.98);
 }
 .pixel-btn:disabled {
-  --pixel-fill: transparent;
-  --pixel-outline: rgba(255, 255, 255, 0.15);
+  background-color: var(--surface-sunken);
+  border-color: var(--line);
+  color: var(--ink-faint);
+  cursor: not-allowed;
 }
 
 /* ---- Secondary / neutral action ---- */
 .pixel-btn-ghost {
-  --pixel-fill: transparent;
-  --pixel-outline: rgba(255, 255, 255, 0.22);
+  background-color: var(--surface);
+  border-color: var(--line);
+  color: var(--ink-soft);
+  cursor: pointer;
 }
 .pixel-btn-ghost:hover:not(:disabled) {
-  --pixel-fill: rgba(255, 255, 255, 0.05);
-  --pixel-outline: rgba(255, 255, 255, 0.5);
+  border-color: var(--brand-soft);
+  color: var(--brand);
 }
 .pixel-btn-ghost:disabled {
-  --pixel-outline: rgba(255, 255, 255, 0.1);
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
-/* ---- Modal / dropdown panel ---- */
+/* ---- Modal / dropdown panel ----
+   Opaque, not tinted: a panel floats over live content and has to
+   occlude it completely. */
 .pixel-panel {
-  /* Opaque, not tinted: a panel floats over live content and has to occlude
-     it completely. */
-  --pixel-fill: #000000;
-  --pixel-outline: rgba(255, 255, 255, 0.4);
+  background-color: var(--surface);
+  border-color: var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
 }
 
-/* ---- Token card ---- */
+/* ---- Card ---- */
 .pixel-card {
-  --pixel-fill: #000000;
-  --pixel-outline: rgba(255, 255, 255, 0.22);
-}
-.pixel-card:hover {
-  --pixel-fill: rgba(207, 56, 221, 0.05);
-  --pixel-outline: var(--accent);
+  background-color: var(--surface);
+  border-color: var(--line);
+  border-radius: var(--r-lg);
 }
 
-/* ---- Text input / search bar ---- */
+/* ---- Text input / search ---- */
 .pixel-input {
-  --pixel-fill: transparent;
-  --pixel-outline: rgba(255, 255, 255, 0.22);
+  background-color: var(--surface-sunken);
+  border-color: var(--line);
 }
 .pixel-input:focus-within,
 .pixel-input:focus {
-  --pixel-outline: var(--accent);
+  border-color: var(--brand-soft);
+  background-color: var(--surface);
 }
 
-/*
- * "Online" indicator. Was a plus-shaped cluster of lit pixels; now a single
- * filled character cell, the terminal equivalent of a status LED.
- */
 .pixel-dot {
   width: 6px;
   height: 6px;
-  background: var(--accent);
-  box-shadow: none;
+  border-radius: 50%;
+  background: var(--up);
 }
 
-/* A newly-landed trade sliding into the top of the transactions feed. */
+/*
+ * The ASCII kit's corner ticks and hover tint are gone — both were
+ * terminal affectations. `.ascii-box` now resolves to a plain card so
+ * the pages still using it inherit the new system unchanged.
+ */
+.ascii {
+  font-family: inherit;
+}
+
+.ascii-box {
+  border-radius: var(--r-lg);
+}
+
+.ascii-rule {
+  display: block;
+  height: 1px;
+  background: var(--line);
+  overflow: hidden;
+  color: transparent;
+  user-select: none;
+}
+.ascii-rule::after {
+  content: "";
+}
+
+/* Dim label / solid value, the standard two-tone of a readout. */
+.ascii-label {
+  color: var(--ink-faint);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.ascii-value {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* Selected rows in a menu are tinted rather than prefixed. */
+.ascii-option[data-selected="true"] {
+  background: var(--brand-tint);
+  color: var(--brand);
+}
+
+/* =================================================================
+ * COMPONENTS
+ * ================================================================= */
+
+/* ---- Header pill ---- */
+.header-pill {
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  transition: background 0.25s var(--ease), border-color 0.25s var(--ease);
+}
+.header-pill[data-stuck="true"] {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: var(--brand-line);
+}
+
+/* ---- Nav ---- */
+.nav-link {
+  color: var(--ink-soft);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: color 0.18s var(--ease);
+}
+.nav-link:hover,
+.nav-link:focus-visible {
+  color: var(--ink);
+}
+.nav-link[aria-current="page"] {
+  color: var(--brand);
+  font-weight: 700;
+}
+
+/* ---- Buttons ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding-inline: 26px;
+  border-radius: var(--r-md);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.18s var(--ease), border-color 0.18s var(--ease),
+    color 0.18s var(--ease), filter 0.18s var(--ease);
+}
+
+.btn-primary {
+  border: 1px solid var(--brand-soft);
+  background: var(--brand);
+  color: #fff;
+}
+.btn-primary:hover:not(:disabled),
+.btn-primary:focus-visible {
+  filter: brightness(1.06);
+}
+.btn-primary:active:not(:disabled) {
+  filter: brightness(0.98);
+}
+.btn-primary:disabled {
+  background: var(--surface-sunken);
+  border-color: var(--line);
+  color: var(--ink-faint);
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+}
+.btn-ghost:hover:not(:disabled) {
+  border-color: var(--brand-soft);
+  color: var(--brand);
+}
+
+/* ---- Filter group ---- */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+}
+
+.filter {
+  padding: 8px 16px;
+  /* inner radius = container radius minus its 5px padding, so the
+     corners nest instead of bulging */
+  border-radius: var(--r-xs);
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.18s var(--ease), background 0.18s var(--ease);
+}
+.filter:hover {
+  color: var(--ink);
+}
+.filter[aria-pressed="true"] {
+  background: var(--brand);
+  color: #fff;
+}
+
+/* ---- Bonding-curve bar ---- */
+.curve {
+  display: block;
+  height: 5px;
+  border-radius: var(--r-xs);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+.curve-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--brand-bright), var(--brand));
+  transition: width 0.4s var(--ease);
+}
+
+/* a graduated curve is finished, so it greys out rather than competing
+   with the still-climbing ones */
+.curve-fill[data-complete="true"] {
+  background: #b9b9c4;
+}
+
+/* ---- Graduation medallion ----
+   Raw emoji sitting on the top edge of a graduated card — no container.
+   The grid's row gap clears the overhang. */
+.grad-cap {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  translate: -50% -58%;
+  z-index: 1;
+  font-size: 30px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 3px rgba(var(--brand-shadow), 0.25));
+  pointer-events: none;
+}
+
+/* ---- Token thumbnail gradient fallback ---- */
+.token-thumb {
+  background: linear-gradient(150deg, var(--c1, #f3c2ff), var(--c2, #a020c0));
+}
+
+/* =================================================================
+ * SPLIT LAYOUT — Campaigns and Referrals
+ * =================================================================
+ *
+ * Both pages are the same shape: a list on the left, a sticky rail of
+ * summary panels on the right. The rail is what makes it worth sharing —
+ * it holds the primary action and the explanatory copy on Campaigns, and
+ * the earnings figures on Referrals, and in both cases it must stay in
+ * view while a long list scrolls past it.
+ */
+
+.board-lede {
+  margin: 8px 0 0;
+  max-width: 62ch;
+  color: var(--ink-soft);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.split-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 268px;
+  align-items: start;
+  gap: 20px;
+  margin-top: clamp(20px, 3vh, 28px);
+}
+
+.split-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: sticky;
+  top: calc(var(--header-h) + var(--header-gap) + 16px);
+}
+
+.side-panel {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+
+.side-title {
+  margin: 0 0 11px;
+  color: var(--ink-faint);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.side-note {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface-sunken);
+  color: var(--ink-faint);
+  font-size: 0.625rem;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.steps li {
+  display: flex;
+  gap: 9px;
+  color: var(--ink-soft);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.step-n {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-xs);
+  color: var(--ink-faint);
+  font-size: 0.5625rem;
+  font-weight: 700;
+}
+
+/* ---- Campaigns ---- */
+
+.camp-filters {
+  margin-bottom: 16px;
+}
+
+.camp-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.camp-card {
+  display: flex;
+  flex-direction: column;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+
+.camp-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.camp-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.camp-thumb {
+  display: grid;
+  place-items: center;
+  position: relative;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: var(--r-md);
+  background: linear-gradient(150deg, var(--c1, #f3c2ff), var(--c2, #a020c0));
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.camp-id {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.camp-name {
+  color: var(--ink);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.camp-ticker {
+  color: var(--brand);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.camp-status {
+  flex: 0 0 auto;
+  padding: 4px 9px;
+  border-radius: var(--r-sm);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* solid brand keeps white text above the AA line, which the tint
+   background would not */
+.camp-status[data-state="live"] {
+  background: var(--brand);
+  color: #fff;
+}
+.camp-status[data-state="soon"] {
+  border: 1px solid var(--line);
+  background: var(--surface-sunken);
+  color: var(--ink-soft);
+}
+.camp-status[data-state="ended"] {
+  border: 1px solid var(--line);
+  background: var(--surface-sunken);
+  color: var(--ink-faint);
+}
+
+/* the auto bottom margin absorbs the slack from shorter copy, so the
+   figures line up across a row of cards */
+.camp-desc {
+  margin: 11px 0 auto;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.camp-figures {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+.camp-figures > div {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.camp-figures dt {
+  color: var(--ink-faint);
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.camp-figures dd {
+  margin: 3px 0 0;
+  color: var(--ink);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.camp-figures dd span {
+  color: var(--ink-faint);
+  font-size: 0.625rem;
+  font-weight: 600;
+}
+
+.camp-cta {
+  width: 100%;
+  gap: 8px;
+}
+
+/* ---- Referrals ---- */
+
+.ref-link-panel {
+  margin-bottom: 22px;
+}
+
+.ref-link {
+  display: flex;
+  gap: 8px;
+}
+
+.ref-url {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 40px;
+  padding-inline: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+  color: var(--ink);
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+}
+.ref-url:focus-visible {
+  outline: 0;
+  border-color: var(--brand-soft);
+  background: var(--surface);
+}
+
+.ref-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  height: 40px;
+  padding-inline: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.18s var(--ease), color 0.18s var(--ease);
+}
+.ref-copy:hover,
+.ref-copy[data-copied="true"] {
+  border-color: var(--brand-soft);
+  color: var(--brand);
+}
+
+.ref-hint {
+  margin: 10px 0 0;
+  color: var(--ink-faint);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.ref-list-title {
+  margin-bottom: 10px;
+}
+.ref-list-title span {
+  color: var(--ink-soft);
+}
+
+.ref-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ref-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+.ref-mark {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: var(--r-sm);
+  background: linear-gradient(150deg, var(--c1, #f3c2ff), var(--c2, #a020c0));
+}
+
+.ref-who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  margin-right: auto;
+}
+
+.ref-addr {
+  color: var(--ink);
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.ref-when {
+  color: var(--ink-faint);
+  font-size: 0.625rem;
+  font-weight: 500;
+}
+
+.ref-launches {
+  flex: 0 0 auto;
+  color: var(--ink-soft);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ref-earned {
+  flex: 0 0 auto;
+  min-width: 74px;
+  color: var(--ink);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.ref-figure {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.375rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.ref-figure.is-brand {
+  color: var(--brand);
+}
+
+.ref-sub {
+  margin: 6px 0 0;
+  color: var(--ink-faint);
+  font-size: 0.625rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.ref-claim {
+  width: 100%;
+  height: 38px;
+  margin-top: 12px;
+}
+
+/* The rail drops below the list and stops sticking. */
+@media (max-width: 960px) {
+  .split-layout {
+    grid-template-columns: 1fr;
+  }
+  .split-side {
+    position: static;
+  }
+}
+
+/* =================================================================
+ * WALLET MENU
+ * =================================================================
+ *
+ * The connected-wallet trigger and its dropdown. Ported close to
+ * verbatim from the reference — every variable it uses already exists
+ * as a design token, so this is mostly a direct transcription rather
+ * than an adaptation.
+ *
+ * No box-shadow anywhere in this block, deliberately: a 1px border is
+ * enough separation from the page, and it reads lighter than a
+ * shadow would.
+ */
+
+.wallet-wrap {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+/* ---- Trigger ---- */
+.wallet-btn.is-connected {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+  cursor: pointer;
+  transition: border-color 0.18s var(--ease), background 0.18s var(--ease);
+}
+
+.wallet-pfp {
+  display: block;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: var(--r-xs);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+/* ---- Panel ---- */
+.wallet-menu {
+  position: absolute;
+  right: -10px;
+  top: calc(100% + 18px);
+  z-index: 30;
+  width: 240px;
+  max-width: calc(100vw - 32px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+/* ---- Identity header ---- */
+.wm-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--line);
+}
+.wm-pfp {
+  width: 30px;
+  height: 30px;
+}
+.wm-id {
+  min-width: 0;
+}
+
+.wm-addr {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wm-state {
+  margin: 2px 0 0;
+  color: var(--ink-faint);
+  font-size: 0.625rem;
+  font-weight: 600;
+}
+
+/* ---- Claimable ---- */
+.wm-claim-block {
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-sunken);
+}
+.wm-claim {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.wm-label {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.wm-amount {
+  margin: 3px 0 0;
+  color: var(--ink);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+/* Replaces a hover tooltip — one quiet line, always readable rather
+   than needing to be discovered. */
+.wm-note {
+  margin: 8px 0 0;
+  color: var(--ink-faint);
+  font-size: 0.5625rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.wm-claim-btn {
+  flex: 0 0 auto;
+  height: 32px;
+  padding-inline: 15px;
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+}
+
+/* ---- Items ---- */
+.wm-items {
+  padding: 5px;
+}
+
+.wm-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: var(--r-sm);
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.18s var(--ease), color 0.18s var(--ease);
+}
+.wm-item .ico {
+  font-size: 14px;
+  color: var(--ink-faint);
+  transition: color 0.18s var(--ease);
+}
+.wm-item:hover,
+.wm-item:focus-visible {
+  background: var(--surface-sunken);
+  color: var(--ink);
+}
+.wm-item:hover .ico {
+  color: var(--ink-soft);
+}
+
+.wm-trail {
+  margin-left: auto;
+  font-size: 12px;
+}
+
+.wm-item.is-exit:focus-visible {
+  outline: none;
+}
+
+/* =================================================================
+ * MISC
+ * ================================================================= */
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--up);
+}
+
+.price-up {
+  color: var(--up);
+}
+.price-down {
+  color: var(--down);
+}
+
+.tag-pill {
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xs);
+}
+
+.surface-circuit {
+  background-color: var(--surface);
+}
+
+.spinner-circle {
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  opacity: 0.8;
+  animation: spin 0.65s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* A newly-landed trade sliding into the top of a feed. */
 @keyframes tx-row-enter {
   from {
     opacity: 0;
     transform: translateY(-6px);
-    background-color: var(--accent-tint);
+    background-color: var(--brand-tint);
   }
   to {
     opacity: 1;
@@ -211,65 +1103,8 @@ select,
     background-color: transparent;
   }
 }
-
 .tx-row-enter {
   animation: tx-row-enter 0.9s ease-out 1;
-}
-
-
-/*
- * Create Token modal's surface. This was a dot-grid "circuit board"
- * texture, the last of three decorative surface treatments (alongside the
- * film-grain noise and diagonal weave, both now deleted) that gave each
- * elevated panel its own tactile identity.
- *
- * A terminal has exactly one surface: the background. Textured panels are
- * the single most anti-ASCII thing in the old design, so this is now flat
- * black. The class is kept rather than removed from its two call sites so
- * the modal retains an explicit, named surface to restyle later.
- */
-.surface-circuit {
-  background-color: var(--bg-main);
-}
-
-
-/**
- * Scrollbars are hidden everywhere — every scrollable surface in this app
- * uses .custom-scrollbar or .pixel-scrollbar, so hiding the bar on both
- * (rather than styling it) covers the whole site. Scrolling itself is
- * completely unaffected; only the visible bar UI is gone.
- */
-.custom-scrollbar,
-.pixel-scrollbar,
-.no-scrollbar {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* old Edge/IE */
-}
-.custom-scrollbar::-webkit-scrollbar,
-.pixel-scrollbar::-webkit-scrollbar,
-.no-scrollbar::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, new Edge */
-  width: 0;
-  height: 0;
-}
-
-.tag-pill {
-  background: #1a1a1a;
-  border: 1px solid #222;
-}
-
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 0;
-  background: #4ade80;
-}
-
-.price-up {
-  color: #22c55e;
-}
-.price-down {
-  color: #ef4444;
 }
 
 @keyframes rocket-launch {
@@ -285,7 +1120,6 @@ select,
     opacity: 0;
   }
 }
-
 @keyframes rocket-flame {
   0%,
   100% {
@@ -297,141 +1131,51 @@ select,
     transform: scaleY(1.15);
   }
 }
-
 .animate-rocket-launch {
   animation: rocket-launch 1.6s cubic-bezier(0.61, 0, 0.9, 0.45) infinite;
 }
-
 .animate-rocket-flame {
   animation: rocket-flame 0.25s ease-in-out infinite;
 }
 
-
-/* =================================================================
- * ASCII UI KIT (terminal / box-drawing styling)
- * =================================================================
+/*
+ * NO SCROLLBARS, ANYWHERE.
  *
- * The successor to the pixel-art kit above, currently scoped to the
- * Explore page while the look is being evaluated. Both kits coexist on
- * purpose — nothing here overrides `.pixel-*`, so unconverted routes keep
- * rendering exactly as before.
+ * Scrolling itself is untouched — wheel, trackpad, touch, keyboard and
+ * scroll-into-view all behave exactly as before. Only the visible bar is
+ * gone.
  *
- * The rule this kit follows: STRUCTURE is CSS, TEXTURE is characters.
- * Frames are 1px CSS borders rather than strings of `┌─┐`, because a real
- * character-grid box cannot reflow — it needs an exact column count, so it
- * breaks the moment a ticker is long or the viewport is narrow. The
- * terminal feel comes instead from monospace type, lowercase labels, and
- * genuinely character-drawn elements (progress bars, dividers, prefixes)
- * where the content is fixed-width anyway.
+ * Applied globally rather than to the three opt-in classes this used to
+ * name. Once the document itself began scrolling (see AppShell), the
+ * window's own bar appeared down the right of every page, and it is the
+ * one bar those classes could never reach. Doing it globally also means a
+ * new scrollable surface cannot forget to opt in.
+ *
+ * `scrollbar-width` and `-ms-overflow-style` cover Firefox and old Edge,
+ * which have no ::-webkit-scrollbar to hide.
  */
-
-.ascii {
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
-  font-variant-ligatures: none;
-  /* Terminal cells are uniform, so tabular figures keep numeric columns
-     from jittering as live market data updates. */
-  font-variant-numeric: tabular-nums;
+html {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
-.ascii-box {
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background-color: #000000;
-  transition: border-color 120ms linear, background-color 120ms linear;
+*,
+*::-webkit-scrollbar {
+  scrollbar-width: none;
 }
 
-.ascii-box:hover {
-  border-color: var(--accent);
-  background-color: rgba(207, 56, 221, 0.05);
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 /*
- * ...but not when the box IS the dialog.
- *
- * `.ascii-box` carries a hover tint because it is normally a card or a
- * control — something you are pointing at in order to act on it. A modal is
- * the opposite: the pointer is inside it the entire time it is open, so the
- * tint applied permanently and the swap panel sat there washed magenta.
- *
- * Keyed on `role="dialog"` rather than a modifier class so it holds for any
- * dialog built out of this box, present or future, without each one having
- * to remember to opt out.
- */
-[role="dialog"].ascii-box:hover {
-  border-color: rgba(255, 255, 255, 0.22);
-  background-color: #000000;
-}
-
-/* Corner ticks. Four 1px L-shapes inset from the frame, echoing the
-   `┌ ┐ └ ┘` junctions of a drawn box without the character-grid problem.
-   Drawn on ::before/::after (two corners each) so no extra markup is
-   needed; the parent must establish a stacking context via `relative`. */
-.ascii-box::before,
-.ascii-box::after {
-  content: "";
-  position: absolute;
-  width: 5px;
-  height: 5px;
-  pointer-events: none;
-  opacity: 0.5;
-}
-
-.ascii-box::before {
-  top: 2px;
-  left: 2px;
-  border-top: 1px solid currentColor;
-  border-left: 1px solid currentColor;
-}
-
-.ascii-box::after {
-  bottom: 2px;
-  right: 2px;
-  border-bottom: 1px solid currentColor;
-  border-right: 1px solid currentColor;
-}
-
-/* A full-width horizontal rule drawn as repeated `─`, not a border — it
-   wraps to the container and reads as terminal output rather than chrome. */
-.ascii-rule {
-  overflow: hidden;
-  white-space: nowrap;
-  color: rgba(255, 255, 255, 0.15);
-  user-select: none;
-}
-
-.ascii-rule::after {
-  content: "────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────";
-}
-
-/* Dim label / bright value, the standard two-tone of a terminal readout. */
-.ascii-label {
-  color: rgba(255, 255, 255, 0.35);
-  text-transform: lowercase;
-}
-
-.ascii-value {
-  color: #ffffff;
-}
-
-/* Selected rows in a menu get a `>` gutter marker rather than a fill. */
-.ascii-option::before {
-  content: "  ";
-  white-space: pre;
-}
-
-.ascii-option[data-selected="true"]::before {
-  content: "> ";
-  color: var(--accent);
-}
-
-/*
- * Strip the native spinner from number inputs.
- *
- * The Swap panel's amount field is `type="number"` for the numeric keypad
- * and decimal input mode it brings on mobile, but the up/down stepper
- * arrows browsers attach on hover are a native widget: they do not follow
- * this UI's colours, they have no ASCII equivalent, and nudging a trade
- * size by one whole unit at a time is not a useful gesture anyway. The
- * value is still typed or set by the preset buttons.
+ * Strip the native spinner from number inputs. The swap amount field is
+ * `type="number"` for the numeric keypad it brings up on mobile, but the
+ * up/down stepper arrows are a native widget: they do not follow this
+ * UI's colours, and nudging a trade size by one whole unit is not a
+ * useful gesture. The value is still typed or set by the preset buttons.
  */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
@@ -449,14 +1193,12 @@ input[type="number"] {
  * slide-up sheet on a phone.
  *
  * Done in CSS rather than by branching each modal's JSX because the
- * STRUCTURE is identical in both cases -- same content, same controls,
- * same close handler -- and only the container geometry differs. Adding
- * one class per modal keeps every modal's own markup untouched and makes
- * the desktop rendering provably unchanged.
+ * STRUCTURE is identical in both cases — same content, same controls,
+ * same close handler — and only the container geometry differs.
  *
  * A centred `max-w-sm` box is wrong on a phone twice over: it wastes the
- * screen, and it puts its close button and primary action in the middle of
- * the display where a thumb reaches worst. Full-bleed fixes both.
+ * screen, and it puts its close button and primary action in the middle
+ * of the display where a thumb reaches worst.
  */
 @media (max-width: 767px) {
   .mobile-sheet {
@@ -471,7 +1213,6 @@ input[type="number"] {
     overflow-y: auto;
     overscroll-behavior: contain;
     animation: sheet-slide-up 220ms cubic-bezier(0.16, 1, 0.3, 1);
-    /* Clear the notch and the home indicator on devices that have them. */
     padding-top: max(1.25rem, env(safe-area-inset-top, 0px));
     padding-bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
   }
@@ -486,9 +1227,18 @@ input[type="number"] {
   }
 }
 
-/* Motion here is decorative -- the sheet is equally usable without it. */
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
   .mobile-sheet {
     animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

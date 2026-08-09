@@ -1,13 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAccount } from "wagmi";
 import ProfileMenu from "@/app/_components/ProfileMenu";
 import ConnectWalletButton from "@/app/_components/ConnectWalletButton";
-import CreateTokenModal from "@/app/_components/CreateTokenModal";
 import ReferralPrompt from "@/app/_components/ReferralPrompt";
 import { useEnsureCorrectChain } from "@/app/_lib/useEnsureCorrectChain";
 import { useRegisterWallet } from "@/app/_lib/useRegisterWallet";
@@ -19,71 +18,77 @@ const NAV_LINKS = [
   { href: "/referral", label: "Referral" },
 ];
 
+/**
+ * The floating header bar.
+ *
+ * Identity and wallet only. "Create token" used to live here too, which put
+ * a page-level action in global chrome — it followed you onto Campaigns and
+ * Referrals, where there is nothing to create. It now sits in the board
+ * head on Explore, opposite the title, as the reference design has it.
+ *
+ * Not a full-width rail: the pill hugs its own content and is centred over
+ * the page, so the board's blueprint grid stays visible either side of it.
+ * It firms up from translucent to near-solid once content scrolls beneath,
+ * which is the only cue that it is floating rather than docked.
+ */
 export default function TopNav() {
   const pathname = usePathname();
-  const [createTokenOpen, setCreateTokenOpen] = useState(false);
+  const [stuck, setStuck] = useState(false);
   const { address, isConnected } = useAccount();
   useEnsureCorrectChain();
   useRegisterWallet(address);
   useCaptureReferralCode();
   const referral = useReferral(address);
 
-  // Asymmetric padding on purpose: the logo is the leftmost thing on the
-  // page and reads as indented at `px-6`, while the right-hand cluster
-  // still needs room to breathe off the edge.
+  // Watches the window rather than an IntersectionObserver sentinel: the
+  // shell scrolls the document itself, so this is the thing that moves.
+  useEffect(() => {
+    const onScroll = () => setStuck(window.scrollY > 4);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <header className="h-16 grid grid-cols-3 items-center pl-2 pr-6 border-b border-white/10">
-      <div className="flex items-center justify-self-start">
-        <Image
-          src="/saylis-logo.png"
-          alt="Saylis Logo"
-          width={48}
-          height={48}
-          className="w-12 h-12 object-contain"
-        />
+    <header className="sticky top-0 z-30 pt-3.5 px-[var(--gutter)]">
+      <div
+        data-stuck={stuck}
+        className="header-pill mx-auto w-fit max-w-full min-h-[62px] flex items-center gap-3 lg:gap-6 pl-[22px] pr-3"
+      >
+        {/* The artwork carries ~22% transparent margin on every side, so
+            the box is pulled back to keep the mark optically level with
+            the pill inset and the nav gap. */}
+        <Link href="/" aria-label="Home" className="flex items-center -ml-[9px] -mr-1 shrink-0">
+          <Image
+            src="/brand-logo.png"
+            alt="Saylis"
+            width={500}
+            height={500}
+            className="w-[42px] h-[42px] object-contain"
+            priority
+          />
+        </Link>
+
+        <nav className="flex items-center gap-2 lg:gap-[18px]" aria-label="Primary">
+          {NAV_LINKS.map((link) => {
+            const isActive = pathname === link.href;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={isActive ? "page" : undefined}
+                className="nav-link px-1 py-2"
+              >
+                {link.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="flex items-center gap-2.5 shrink-0">
+          {isConnected ? <ProfileMenu /> : <ConnectWalletButton />}
+        </div>
       </div>
-
-      <nav className="flex items-center gap-5 justify-self-center">
-        {NAV_LINKS.map((link) => {
-          const isActive = pathname === link.href;
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`inline-block text-xs py-1.5 lowercase transition-colors ${
-                isActive ? "text-white" : "text-white/45 hover:text-white"
-              }`}
-            >
-              {/* The active route is marked with a gutter caret rather than
-                  a underline or pill, matching the `>` selection marker used
-                  in every dropdown. The inactive spacer keeps the label from
-                  shifting sideways as selection moves. */}
-              <span className={isActive ? "text-[var(--accent)]" : "text-transparent"}>
-                &gt;
-              </span>
-              {link.label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      <div className="flex items-center gap-4 justify-self-end">
-        {isConnected ? (
-          <>
-            <button
-              onClick={() => setCreateTokenOpen(true)}
-              className="pixel-frame pixel-btn h-9 flex items-center text-white px-4 text-xs lowercase"
-            >
-              [+] create token
-            </button>
-            <ProfileMenu />
-          </>
-        ) : (
-          <ConnectWalletButton />
-        )}
-      </div>
-
-      <CreateTokenModal open={createTokenOpen} onClose={() => setCreateTokenOpen(false)} />
 
       {referral.pendingReferrer && (
         <ReferralPrompt

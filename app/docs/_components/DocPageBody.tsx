@@ -16,17 +16,21 @@ export default function DocPageBody({ slug }: { slug: string }) {
 
   return (
     <article>
-      <p className="text-[10px] uppercase tracking-wide text-white/30 mb-2">{meta.category}</p>
+      <p className="text-[0.625rem] font-bold uppercase tracking-[0.06em] text-[var(--ink-faint)] mb-2">
+        {meta.category}
+      </p>
       <div className="docs-prose">{renderMarkdown(source)}</div>
 
-      <div className="mt-12 pt-6 border-t border-white/10 flex items-center justify-between gap-4">
+      <div className="mt-12 pt-6 border-t border-[var(--line)] flex items-center justify-between gap-4">
         {prev ? (
           <Link
             href={`/docs/${prev.slug}`}
-            className="pixel-frame pixel-card px-4 py-3 flex-1 hover:bg-white/5 transition-colors"
+            className="pixel-frame pixel-card px-4 py-3 flex-1 hover:border-[var(--brand-soft)] transition-colors"
           >
-            <p className="text-[9px] uppercase tracking-wide text-white/30">Previous</p>
-            <p className="text-[12px] font-bold mt-0.5">{prev.title}</p>
+            <p className="text-[0.5625rem] font-bold uppercase tracking-[0.06em] text-[var(--ink-faint)]">
+              Previous
+            </p>
+            <p className="text-[0.75rem] font-bold text-[var(--ink)] mt-0.5">{prev.title}</p>
           </Link>
         ) : (
           <div className="flex-1" />
@@ -34,10 +38,12 @@ export default function DocPageBody({ slug }: { slug: string }) {
         {next && (
           <Link
             href={`/docs/${next.slug}`}
-            className="pixel-frame pixel-card px-4 py-3 flex-1 text-right hover:bg-white/5 transition-colors"
+            className="pixel-frame pixel-card px-4 py-3 flex-1 text-right hover:border-[var(--brand-soft)] transition-colors"
           >
-            <p className="text-[9px] uppercase tracking-wide text-white/30">Next</p>
-            <p className="text-[12px] font-bold mt-0.5">{next.title}</p>
+            <p className="text-[0.5625rem] font-bold uppercase tracking-[0.06em] text-[var(--ink-faint)]">
+              Next
+            </p>
+            <p className="text-[0.75rem] font-bold text-[var(--ink)] mt-0.5">{next.title}</p>
           </Link>
         )}
       </div>

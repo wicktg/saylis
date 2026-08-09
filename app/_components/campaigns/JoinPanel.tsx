@@ -42,12 +42,12 @@ export default function JoinPanel({
   if (isOwner) return null;
 
   if (!account) {
-    return <p className="text-[11px] text-white/40">Connect your wallet to join this campaign.</p>;
+    return <p className="text-[11px] text-[var(--ink-soft)]">Connect your wallet to join this campaign.</p>;
   }
 
   if (joined) {
     return (
-      <p className="text-[11px] text-[#cf38dd] flex items-center gap-1.5">
+      <p className="text-[11px] text-[var(--brand)] flex items-center gap-1.5">
         <Icon icon="pixelarticons:check" className="text-sm" />
         Joined{joinedXUsername ? ` as @${joinedXUsername}` : ""}
       </p>

@@ -2,11 +2,22 @@ import Image from "next/image";
 import type { TokenRecord } from "@/app/_lib/types";
 import type { MarketData } from "@/app/_lib/useTokenMarketData";
 import { resolveIpfsUrl } from "@/app/_lib/ipfs";
-import { formatUsdCompact } from "@/app/_lib/format";
+import { formatUsdCompact, truncateAddress } from "@/app/_lib/format";
 import { formatTimeAgo } from "@/app/_lib/time";
-import { asciiBar } from "@/app/_lib/asciiBar";
 import { useEthUsdPrice } from "@/app/_lib/useEthUsdPrice";
 
+/**
+ * One token on the board.
+ *
+ * A landscape card: square art on the left, everything else stacked beside
+ * it. That shape is why the same component serves the phone list — a
+ * thumbnail beside a stat block already reads as a list row, so mobile is
+ * this card at full width rather than a second component.
+ *
+ * Deliberately no hover lift or shadow. The board can hold a hundred of
+ * these; a card that reacts to the pointer turns scanning into a light
+ * show. Keyboard focus still marks itself, via the wrapping button.
+ */
 export default function TokenCard({
   token,
   marketData,
@@ -19,18 +30,26 @@ export default function TokenCard({
 
   // A graduated curve is at 100% by definition; progressPct only tracks the
   // pre-graduation climb.
-  const progressPct = marketData?.graduated ? 100 : marketData?.progressPct ?? 0;
+  const graduated = marketData?.graduated ?? false;
+  const progressPct = graduated ? 100 : marketData?.progressPct ?? 0;
 
   return (
-    <div className="ascii ascii-box relative p-4 sm:p-3 cursor-pointer group h-full flex flex-col">
-      <div className="flex gap-3">
-        <div className="w-16 h-16 sm:w-14 sm:h-14 shrink-0 bg-black border border-white/15 relative overflow-hidden">
+    <div className="pixel-frame pixel-card relative h-full p-3.5 transition-colors group-hover:border-[var(--brand-line)]">
+      {graduated && (
+        <span className="grad-cap">
+          <span aria-hidden="true">🎓</span>
+          <span className="sr-only">Graduated</span>
+        </span>
+      )}
+
+      <div className="flex gap-3.5">
+        <div className="token-thumb w-[76px] h-[76px] sm:w-[84px] sm:h-[84px] shrink-0 rounded-[var(--r-md)] relative overflow-hidden">
           {imageUrl ? (
             <Image
               src={imageUrl}
               alt={token.ticker}
               fill
-              sizes="(max-width: 640px) 64px, 56px"
+              sizes="(max-width: 640px) 76px, 84px"
               className="object-cover"
               // Every card ships through here (a live-updating grid, not a
               // fixed handful) — never worth marking any one of them
@@ -39,57 +58,68 @@ export default function TokenCard({
               loading="lazy"
             />
           ) : (
-            <span className="absolute inset-0 flex items-center justify-center text-lg text-white/40">
+            <span className="absolute inset-0 flex items-center justify-center text-2xl font-extrabold text-white/90">
               {token.ticker.charAt(0).toUpperCase()}
             </span>
           )}
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-2">
-            {/* Full name is not shown as its own row — it would double the
-                card height for a value that is rarely what you scan by. It
-                stays reachable as a tooltip. */}
-            <h3 className="text-[13px] text-white uppercase truncate" title={token.name}>
-              {token.ticker}
-            </h3>
-            <span className="text-[10px] text-white/30 shrink-0">
-              {formatTimeAgo(token.created_at)}
+          <div className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5">
+            {/* The full name carries the card's identity; the ticker is
+                what people actually scan by, so it gets the brand colour. */}
+            <span className="text-[0.875rem] font-bold leading-tight text-[var(--ink)] truncate max-w-full">
+              {token.name}
+            </span>
+            <span className="text-[0.75rem] font-bold tracking-[0.02em] text-[var(--brand)]">
+              ${token.ticker}
             </span>
           </div>
 
-          <div className="mt-1.5 space-y-0.5 text-[11px]">
-            <div className="flex justify-between gap-2">
-              <span className="ascii-label">mcap</span>
-              <span className="ascii-value truncate">
-                {marketData ? formatUsdCompact(marketData.marketCapWei, ethUsdPrice) : "-"}
-              </span>
-            </div>
-            <div className="flex justify-between gap-2">
-              <span className="ascii-label">vol</span>
-              <span className="ascii-value truncate">
-                {marketData ? formatUsdCompact(marketData.volumeWei, ethUsdPrice) : "-"}
-              </span>
-            </div>
+          <p className="mt-1.5 text-[0.6875rem] font-medium text-[var(--ink-faint)] truncate">
+            by{" "}
+            <b className="font-bold text-[var(--ink-soft)] font-mono">
+              {truncateAddress(token.creator_wallet_address)}
+            </b>
+            <span className="px-1.5" aria-hidden="true">
+              ·
+            </span>
+            {formatTimeAgo(token.created_at)}
+          </p>
+
+          <div className="mt-2 flex items-baseline gap-3 flex-wrap">
+            <span className="text-[0.8125rem] font-bold text-[var(--up)] tabular-nums">
+              {marketData ? formatUsdCompact(marketData.marketCapWei, ethUsdPrice) : "—"}
+              <em className="ml-1.5 not-italic text-[0.625rem] font-semibold uppercase tracking-[0.04em] text-[var(--ink-faint)]">
+                mcap
+              </em>
+            </span>
+            <span className="text-[0.75rem] font-bold text-[var(--ink-soft)] tabular-nums">
+              {marketData ? formatUsdCompact(marketData.volumeWei, ethUsdPrice) : "—"}
+              <em className="ml-1.5 not-italic text-[0.625rem] font-semibold uppercase tracking-[0.04em] text-[var(--ink-faint)]">
+                vol
+              </em>
+            </span>
+          </div>
+
+          <div
+            className="curve mt-2.5"
+            role="img"
+            aria-label={`Bonding curve ${Math.round(progressPct)} percent`}
+          >
+            <span
+              className="curve-fill"
+              data-complete={graduated || undefined}
+              style={{ width: `${Math.min(100, Math.max(0, progressPct))}%` }}
+            />
           </div>
         </div>
       </div>
 
-      <div className="mt-3 pt-2 flex items-center gap-2 text-[11px] border-t border-white/10">
-        <span
-          className={`tracking-[-0.05em] ${
-            marketData?.graduated ? "text-white/30" : "text-[var(--accent)]"
-          }`}
-        >
-          {asciiBar(progressPct)}
-        </span>
-        <span className="ascii-value ml-auto shrink-0">{Math.round(progressPct)}%</span>
-      </div>
-
-      {marketData?.graduated && (
-        <div className="mt-1 text-[10px] text-white/40">
-          {marketData.migrated ? "[migrated]" : "[migrating]"}
-        </div>
+      {graduated && (
+        <p className="mt-2.5 text-[0.625rem] font-semibold uppercase tracking-[0.04em] text-[var(--ink-faint)]">
+          {marketData?.migrated ? "Migrated · trading on the open market" : "Migrating…"}
+        </p>
       )}
     </div>
   );

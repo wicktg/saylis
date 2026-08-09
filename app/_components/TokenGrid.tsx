@@ -49,19 +49,19 @@ export default function TokenGrid({ sortBy, search = "" }: { sortBy: SortOption;
   );
 
   if (loading) {
-    return <EmptyState>loading tokens...</EmptyState>;
+    return <EmptyState>Loading tokens…</EmptyState>;
   }
 
   if (tokens.length === 0) {
-    return <EmptyState>no tokens launched yet</EmptyState>;
+    return <EmptyState>No tokens launched yet.</EmptyState>;
   }
 
   if (search.trim() && searchedTokens.length === 0) {
-    return <EmptyState>no tokens match &quot;{search.trim()}&quot;</EmptyState>;
+    return <EmptyState>No tokens match &quot;{search.trim()}&quot;.</EmptyState>;
   }
 
   if (sortedTokens.length === 0) {
-    return <EmptyState>no graduated tokens yet</EmptyState>;
+    return <EmptyState>No graduated tokens yet</EmptyState>;
   }
 
   return (
@@ -72,7 +72,8 @@ export default function TokenGrid({ sortBy, search = "" }: { sortBy: SortOption;
     // used, since these need roughly double the width to keep the numeric
     // column from wrapping.
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
+      {/* Row gap clears the 17px overhang of the graduation medallion. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-3.5 gap-y-7">
         {sortedTokens.map((token) => (
           // A button, not a link. Trading is the only thing there is to do
           // with a token now, so tapping a card opens the trade surface
@@ -82,7 +83,7 @@ export default function TokenGrid({ sortBy, search = "" }: { sortBy: SortOption;
             key={token.id}
             type="button"
             onClick={() => setOpenToken(token)}
-            className="text-left"
+            className="group text-left rounded-[var(--r-lg)] focus-visible:outline-2 focus-visible:outline-[var(--brand)] focus-visible:outline-offset-2"
             aria-label={`Trade ${token.ticker}`}
           >
             <TokenCard token={token} marketData={marketData[token.curve_address as Address]} />
@@ -104,9 +105,8 @@ export default function TokenGrid({ sortBy, search = "" }: { sortBy: SortOption;
 
 function EmptyState({ children }: { children: React.ReactNode }) {
   return (
-    <div className="ascii text-[11px] text-white/30 py-16 text-center">
-      <span className="text-white/20">{"// "}</span>
-      {children}
+    <div className="flex flex-col items-center justify-center text-center py-20 gap-2">
+      <h2 className="text-[0.875rem] font-bold text-[var(--ink-soft)]">{children}</h2>
     </div>
   );
 }
@@ -119,12 +119,30 @@ function sortTokens(
   const withData = (token: TokenRecord) => marketData[token.curve_address as Address];
   const createdAtMs = (token: TokenRecord) => new Date(token.created_at).getTime();
 
+  // A token with no market data yet sorts last rather than as a zero, so a
+  // still-loading row never displaces a real one from the top.
+  const metric = (token: TokenRecord, key: "volumeWei" | "marketCapWei") => {
+    const data = withData(token);
+    return data ? data[key] : -1n;
+  };
+  const byMetric = (key: "volumeWei" | "marketCapWei") => (a: TokenRecord, b: TokenRecord) => {
+    const av = metric(a, key);
+    const bv = metric(b, key);
+    if (av === bv) return createdAtMs(b) - createdAtMs(a);
+    return bv > av ? 1 : -1;
+  };
+
   switch (sortBy) {
+    // Trending is volume, not price action: it answers "what is being traded
+    // right now", which is the question the board is actually for.
+    case "trending":
+      return [...tokens].sort(byMetric("volumeWei"));
+
+    case "mcap":
+      return [...tokens].sort(byMetric("marketCapWei"));
+
     case "newest":
       return [...tokens].sort((a, b) => createdAtMs(b) - createdAtMs(a));
-
-    case "oldest":
-      return [...tokens].sort((a, b) => createdAtMs(a) - createdAtMs(b));
 
     case "graduated":
       // Filter down to graduated tokens only, newest-launched first (since

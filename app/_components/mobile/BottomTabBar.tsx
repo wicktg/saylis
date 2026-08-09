@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Icon from "@/app/_components/Icon";
 
 /**
  * Mobile primary navigation.
@@ -20,10 +21,10 @@ import { usePathname } from "next/navigation";
  * it is anchored to.
  */
 const TABS = [
-  { href: "/", label: "explore", glyph: "[#]" },
-  { href: "/campaigns", label: "campaigns", glyph: "[*]" },
-  { href: "/referral", label: "referral", glyph: "[+]" },
-  { href: "/dashboard", label: "profile", glyph: "[@]" },
+  { href: "/", label: "Explore", icon: "pixelarticons:dashboard" },
+  { href: "/campaigns", label: "Campaigns", icon: "pixelarticons:trophy" },
+  { href: "/referral", label: "Referral", icon: "pixelarticons:users" },
+  { href: "/dashboard", label: "Profile", icon: "pixelarticons:user" },
 ] as const;
 
 export default function BottomTabBar() {
@@ -31,7 +32,7 @@ export default function BottomTabBar() {
 
   return (
     <nav
-      className="ascii fixed bottom-0 inset-x-0 z-40 flex items-stretch border-t border-white/15 bg-black"
+      className="fixed bottom-0 inset-x-0 z-40 flex items-stretch border-t border-[var(--line)] bg-[rgba(255,255,255,0.94)] backdrop-blur-[14px] backdrop-saturate-150"
       // Keeps the bar clear of the iOS home indicator / Android gesture
       // area, which would otherwise sit on top of the right-hand tab.
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
@@ -49,13 +50,11 @@ export default function BottomTabBar() {
             aria-current={isActive ? "page" : undefined}
             // min-h-14 keeps every tab at/above the ~44px touch target
             // guidance, which the desktop nav's 12px text does not meet.
-            className={`flex-1 min-h-14 flex flex-col items-center justify-center gap-0.5 text-[10px] lowercase transition-colors ${
-              isActive ? "text-[var(--accent)]" : "text-white/40 active:text-white"
+            className={`flex-1 min-h-14 flex flex-col items-center justify-center gap-1 text-[10px] font-bold transition-colors ${
+              isActive ? "text-[var(--brand)]" : "text-[var(--ink-faint)] active:text-[var(--ink)]"
             }`}
           >
-            <span aria-hidden="true" className="text-[13px] leading-none">
-              {tab.glyph}
-            </span>
+            <Icon icon={tab.icon} className="text-base leading-none" />
             {tab.label}
           </Link>
         );

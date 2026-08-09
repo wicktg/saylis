@@ -17,6 +17,9 @@ import { getFriendlyErrorMessage } from "@/app/_lib/errors";
 import { formatWeiAsUsdPrice } from "@/app/_lib/format";
 import { waitForReceipt } from "@/app/_lib/txReceipt";
 import { writeWithGas } from "@/app/_lib/txGas";
+import Icon from "@/app/_components/Icon";
+import EthIcon from "@/app/_components/EthIcon";
+import Image from "next/image";
 
 const ONE_TOKEN = 10n ** 18n;
 
@@ -25,7 +28,7 @@ const ONE_TOKEN = 10n ** 18n;
 const BUY_PRESETS_ETH = ["0.01", "0.05", "0.1", "0.5"];
 
 /** Quick-tap fractions of the connected wallet's balance, for selling. */
-const SELL_PRESETS_PCT = [25, 50, 100];
+const SELL_PRESETS_PCT = [10, 25, 50, 100];
 
 /**
  * Gas units held back from a MAX buy, so the wallet can still pay for the
@@ -98,6 +101,8 @@ function applySlippage(amount: bigint, bps: bigint): bigint {
  */
 export default function SwapPanel({
   tokenAddress,
+  tokenSymbol,
+  tokenImageUrl,
   curveAddress,
   migrated,
   poolPriceWei,
@@ -106,6 +111,11 @@ export default function SwapPanel({
   initialMode,
 }: {
   tokenAddress: Address;
+  /** Ticker shown on the token side of both fields. */
+  tokenSymbol: string;
+  /** Token art for the token side of both fields, or null/undefined to fall
+   *  back to a lettered tile. */
+  tokenImageUrl?: string | null;
   curveAddress: Address | undefined;
   /** Once true, the curve is closed forever — trade via the pool instead. */
   migrated: boolean | undefined;
@@ -482,136 +492,188 @@ export default function SwapPanel({
     !busy &&
     (mode === "sell" ? amountWei <= maxSellable : true);
 
-  return (
-    <div
-      className={
-        // Mobile renders this inside a full-height sheet, where a fixed
-        // 288px column with a left border would be wrong. Same component,
-        // same logic -- only the container changes.
-        fill
-          ? "w-full flex-1 flex flex-col min-h-0"
-          : "w-72 shrink-0 flex flex-col border-l border-white/10"
-      }
-    >
-      {/* ---- Buy / Sell tabs ---- */}
-      <div className="grid grid-cols-2 border-b border-white/10 shrink-0">
-        <button
-          onClick={() => setMode("buy")}
-          className={`py-2.5 text-[12px] lowercase transition-colors ${
-            mode === "buy" ? "text-[#2ebd85]" : "text-white/35 hover:text-white"
-          }`}
-        >
-          {mode === "buy" ? "[ buy ]" : "  buy  "}
-        </button>
-        <button
-          onClick={() => setMode("sell")}
-          className={`py-2.5 text-[12px] lowercase transition-colors ${
-            mode === "sell" ? "text-[#e2444b]" : "text-white/35 hover:text-white"
-          }`}
-        >
-          {mode === "sell" ? "[ sell ]" : "  sell  "}
-        </button>
-      </div>
+  // Which asset sits in which field. The flip button swaps the direction,
+  // which is the same thing as switching between buy and sell — so there
+  // is one control where the old panel had two tabs.
+  const payingEth = mode === "buy";
+  const fromSymbol = payingEth ? "ETH" : tokenSymbol;
+  const toSymbol = payingEth ? tokenSymbol : "ETH";
+  const fromBalance = payingEth
+    ? Number(formatUnits(maxBuyable, 18)).toFixed(4)
+    : Number(formatUnits(maxSellable, TOKEN_DECIMALS)).toLocaleString(undefined, {
+        maximumFractionDigits: 2,
+      });
+  const toBalance = payingEth
+    ? Number(formatUnits(maxSellable, TOKEN_DECIMALS)).toLocaleString(undefined, {
+        maximumFractionDigits: 2,
+      })
+    : Number(formatUnits(maxBuyable, 18)).toFixed(4);
 
-      <div className="flex-1 flex flex-col gap-3 p-3 overflow-y-auto custom-scrollbar">
-        {/* ---- Amount input ---- */}
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <span className="ascii-label text-[10px]">
-              {mode === "buy" ? "pay (eth)" : "sell (tokens)"}
-            </span>
+  const receiveText =
+    estimatedOut !== null
+      ? payingEth
+        ? Number(formatUnits(estimatedOut, TOKEN_DECIMALS)).toLocaleString(undefined, {
+            maximumFractionDigits: 2,
+          })
+        : Number(formatUnits(estimatedOut, 18)).toFixed(5)
+      : "";
+
+  /** The pay/receive fields swap ETH and the token between them, so this
+   *  renders whichever the field currently holds — a real ETH mark, or the
+   *  token's own art with a lettered fallback. */
+  function AssetIcon({ symbol }: { symbol: string }) {
+    if (symbol === "ETH") {
+      return <EthIcon className="w-7 h-7 shrink-0 rounded-full" />;
+    }
+    return (
+      <span className="token-thumb relative grid place-items-center w-7 h-7 shrink-0 rounded-[var(--r-md)] overflow-hidden text-white text-[13px] font-bold">
+        {tokenImageUrl ? (
+          <Image src={tokenImageUrl} alt="" fill sizes="28px" className="object-cover" unoptimized />
+        ) : (
+          symbol.charAt(0)
+        )}
+      </span>
+    );
+  }
+
+  function applyPct(pct: number) {
+    if (payingEth) {
+      if (maxBuyable === 0n) return;
+      const portion = (maxBuyable * BigInt(pct)) / 100n;
+      setAmount(formatUnits(portion, 18));
+    } else {
+      applySellPreset(pct);
+    }
+  }
+
+  return (
+    <div className={fill ? "w-full flex-1 flex flex-col min-h-0" : "w-full flex flex-col"}>
+      <div className="flex-1 flex flex-col px-[18px] pb-[18px] overflow-y-auto custom-scrollbar">
+        {/* ---- You pay ---- */}
+        <div className="p-3 rounded-[var(--r-lg)] border border-[var(--line)] bg-[var(--surface-sunken)]">
+          <div className="flex items-center justify-between gap-2.5 text-[0.6875rem] font-semibold text-[var(--ink-faint)]">
+            <span>You pay</span>
             {account && (
-              <span className="text-[10px] text-white/30">
-                bal{" "}
-                {mode === "buy"
-                  ? `${Number(formatUnits(maxBuyable, 18)).toFixed(4)} ETH`
-                  : `${Number(formatUnits(maxSellable, TOKEN_DECIMALS)).toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+              <span>
+                Balance{" "}
+                <b className="font-bold text-[var(--ink-soft)] tabular-nums">{fromBalance}</b>
               </span>
             )}
           </div>
-          <input
-            type="number"
-            inputMode="decimal"
-            min="0"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="0.0"
-            className="pixel-frame pixel-input w-full px-3 py-2 text-sm bg-transparent focus:outline-none placeholder:text-white/20"
-          />
-          {usdValue && <p className="text-[10px] text-white/30 mt-1">~ {usdValue}</p>}
+
+          <div className="flex items-center gap-2.5 mt-2.5">
+            <span className="inline-flex items-center gap-2 shrink-0 max-w-[45%]">
+              <AssetIcon symbol={fromSymbol} />
+              <span className="text-[0.8125rem] font-bold text-[var(--ink)] truncate">
+                {fromSymbol}
+              </span>
+            </span>
+            <input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              placeholder="0.0"
+              aria-label="Amount to pay"
+              className="w-full min-w-0 border-0 bg-transparent text-right text-[1.0625rem] font-bold tabular-nums text-[var(--ink)] placeholder:font-semibold placeholder:text-[var(--ink-faint)] focus:outline-none"
+            />
+          </div>
+
+          <div className="flex gap-1.5 mt-2.5">
+            {SELL_PRESETS_PCT.map((pct) => (
+              <button
+                key={pct}
+                type="button"
+                onClick={() => applyPct(pct)}
+                className="flex-1 h-7 rounded-[var(--r-sm)] border border-[var(--line)] bg-[var(--surface)] text-[0.6875rem] font-bold text-[var(--ink-soft)] transition-colors hover:border-[var(--brand-soft)] hover:text-[var(--brand)]"
+              >
+                {pct === 100 ? "Max" : `${pct}%`}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* ---- Quick presets ---- */}
-        <div className="grid grid-cols-4 gap-1.5">
-          {mode === "buy"
-            ? BUY_PRESETS_ETH.map((p) => (
-                <button
-                  key={p}
-                  onClick={() => applyBuyPreset(p)}
-                  className="pixel-frame pixel-btn-ghost py-1.5 text-[10px] text-white/70 hover:text-white"
-                >
-                  {p}
-                </button>
-              ))
-            : SELL_PRESETS_PCT.map((p) => (
-                <button
-                  key={p}
-                  onClick={() => applySellPreset(p)}
-                  className="pixel-frame pixel-btn-ghost py-1.5 text-[10px] text-white/70 hover:text-white col-span-1"
-                >
-                  {p === 100 ? "max" : `${p}%`}
-                </button>
-              ))}
+        {/* ---- Flip ---- */}
+        <button
+          type="button"
+          onClick={() => {
+            setMode(payingEth ? "sell" : "buy");
+            setAmount("");
+          }}
+          aria-label="Switch swap direction"
+          className="relative z-[1] grid place-items-center w-8 h-8 mx-auto -my-2 rounded-[var(--r-md)] border border-[var(--line)] bg-[var(--surface)] text-[var(--ink-soft)] transition-colors hover:border-[var(--brand-soft)] hover:text-[var(--brand)]"
+        >
+          <Icon icon="pixelarticons:arrow-down" className="text-sm" />
+        </button>
+
+        {/* ---- You receive ---- */}
+        <div className="p-3 rounded-[var(--r-lg)] border border-[var(--line)] bg-[var(--surface-sunken)]">
+          <div className="flex items-center justify-between gap-2.5 text-[0.6875rem] font-semibold text-[var(--ink-faint)]">
+            <span>You receive</span>
+            {account && (
+              <span>
+                Balance <b className="font-bold text-[var(--ink-soft)] tabular-nums">{toBalance}</b>
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2.5 mt-2.5">
+            <span className="inline-flex items-center gap-2 shrink-0 max-w-[45%]">
+              <AssetIcon symbol={toSymbol} />
+              <span className="text-[0.8125rem] font-bold text-[var(--ink)] truncate">
+                {toSymbol}
+              </span>
+            </span>
+            {/* Read-only: the amount received is quoted from the chain, not
+                chosen. Left as an input purely so both fields share a shape. */}
+            <input
+              type="text"
+              readOnly
+              value={receiveText}
+              placeholder="0.0"
+              aria-label="Amount to receive"
+              className="w-full min-w-0 border-0 bg-transparent text-right text-[1.0625rem] font-bold tabular-nums text-[var(--ink)] placeholder:font-semibold placeholder:text-[var(--ink-faint)] focus:outline-none"
+            />
+          </div>
         </div>
 
-        {/* ---- Estimated output ---- */}
-        <div className="pixel-frame pixel-input px-3 py-2 flex items-center justify-between">
-          <span className="ascii-label text-[10px]">est. receive</span>
-          <span className="ascii-value text-[12px]">
-            {estimatedOut !== null
-              ? mode === "buy"
-                ? `${Number(formatUnits(estimatedOut, TOKEN_DECIMALS)).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-                : `${Number(formatUnits(estimatedOut, 18)).toFixed(5)} ETH`
-              : "-"}
-          </span>
-        </div>
-        {migrated === true && (
-          <p className="text-[9px] text-white/25 -mt-2">
-            Estimated from live pool price -- actual amount confirmed on-chain.
+        {usdValue && (
+          <p className="mt-2.5 text-[0.6875rem] font-semibold text-[var(--ink-faint)] text-right">
+            ≈ {usdValue}
           </p>
         )}
 
-        {error && <p className="text-[11px] text-[#e2444b] leading-snug">{error}</p>}
-        {success && <p className="text-[11px] text-[#2ebd85] leading-snug">{success}</p>}
+        {migrated === true && (
+          <p className="mt-2 text-[0.625rem] font-medium text-[var(--ink-faint)] leading-snug">
+            Estimated from the live pool price — the exact amount is confirmed on-chain.
+          </p>
+        )}
+
+        {error && (
+          <p className="mt-2.5 text-[0.6875rem] font-semibold leading-snug text-[var(--down)]">
+            {error}
+          </p>
+        )}
+        {success && (
+          <p className="mt-2.5 text-[0.6875rem] font-semibold leading-snug text-[var(--up)]">
+            {success}
+          </p>
+        )}
 
         {/* ---- Action ---- */}
-        <div className="mt-auto pt-1">
+        <div className="mt-3">
           {!account ? (
             <ConnectKitButton.Custom>
               {({ show }) => (
-                <button
-                  onClick={show}
-                  className="pixel-frame pixel-btn w-full text-white py-2.5 text-sm lowercase"
-                >
-                  [ connect wallet ]
+                <button onClick={show} className="btn btn-primary w-full">
+                  Connect wallet
                 </button>
               )}
             </ConnectKitButton.Custom>
           ) : (
-            <button
-              onClick={handleTrade}
-              disabled={!canSubmit}
-              className={`pixel-frame w-full py-2.5 text-sm text-white lowercase transition-opacity disabled:opacity-40 disabled:cursor-not-allowed ${
-                mode === "buy" ? "pixel-btn" : "bg-[#e2444b]"
-              }`}
-            >
-              {busy
-                ? mode === "buy"
-                  ? "buying..."
-                  : "selling..."
-                : mode === "buy"
-                  ? "[ buy ]"
-                  : "[ sell ]"}
+            <button onClick={handleTrade} disabled={!canSubmit} className="btn btn-primary w-full">
+              {busy ? (payingEth ? "Buying…" : "Selling…") : payingEth ? "Buy" : "Sell"}
             </button>
           )}
         </div>

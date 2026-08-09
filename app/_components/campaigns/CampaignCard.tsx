@@ -83,9 +83,9 @@ export default function CampaignCard({
   if (campaign.state === "invited") {
     return (
       <>
-        <div className="pixel-frame pixel-card p-4 flex flex-col gap-3">
+        <li className="camp-card gap-3">
           <CardHeader campaign={campaign} imageUrl={imageUrl} />
-          <p className="text-[11px] leading-snug text-[#cf38dd]">
+          <p className="text-[11px] leading-snug text-[var(--brand)]">
             You&apos;ve been invited to launch an InfoFi campaign for this
             token. Send the agreed supply to create the pool.
           </p>
@@ -95,7 +95,7 @@ export default function CampaignCard({
           >
             Send Supply
           </button>
-        </div>
+        </li>
         <SendSupplyModal
           open={sendSupplyOpen}
           onClose={() => setSendSupplyOpen(false)}
@@ -108,16 +108,16 @@ export default function CampaignCard({
 
   if (campaign.state === "awaiting_review") {
     return (
-      <div className="pixel-frame pixel-card p-4 flex flex-col gap-3">
+      <li className="camp-card gap-3">
         <CardHeader campaign={campaign} imageUrl={imageUrl} />
-        <p className="text-[11px] leading-snug text-white/40">
+        <p className="text-[11px] leading-snug text-[var(--ink-soft)]">
           Supply sent. Awaiting team confirmation before the pool goes live.
         </p>
         {campaign.title && (
           <div>
             <p className="text-xs font-bold">{campaign.title}</p>
             {campaign.description && (
-              <p className="text-[11px] text-white/40 leading-snug mt-0.5">
+              <p className="text-[11px] text-[var(--ink-soft)] leading-snug mt-0.5">
                 {campaign.description}
               </p>
             )}
@@ -127,7 +127,7 @@ export default function CampaignCard({
           <Stat label="Reported amount" value={`${formatTokens(campaign.reportedAmountRaw)} tokens`} />
           <Stat label="Airdrop winners" value={campaign.winnerCount ? String(campaign.winnerCount) : "N/A"} />
         </div>
-      </div>
+      </li>
     );
   }
 
@@ -176,10 +176,10 @@ export default function CampaignCard({
   const status = statusLine();
   const toneClass = status
     ? {
-        wait: "text-white/40",
-        action: "text-[#cf38dd]",
+        wait: "text-[var(--ink-soft)]",
+        action: "text-[var(--brand)]",
         live: "text-[var(--accent)]",
-        done: "text-white/30",
+        done: "text-[var(--ink-faint)]",
       }[status.tone]
     : "";
 
@@ -187,12 +187,16 @@ export default function CampaignCard({
     campaign.state === "eligible" && campaign.approvalStatus !== "pending" && !needsDetails;
 
   return (
-    <div className="pixel-frame pixel-card p-4 flex flex-col gap-3">
-      <div className="flex items-start gap-3">
+    <li className="camp-card gap-3">
+      <div className="camp-top">
         <CardHeader campaign={campaign} imageUrl={imageUrl} />
         <div className="text-right shrink-0">
-          <p className="text-[9px] uppercase tracking-wide text-white/30">Pool</p>
-          <p className="text-xs font-bold">{formatTokens(campaign.allocationRaw)}</p>
+          <p className="text-[0.5625rem] font-bold uppercase tracking-[0.04em] text-[var(--ink-faint)]">
+            Pool
+          </p>
+          <p className="text-[0.8125rem] font-bold tabular-nums">
+            {formatTokens(campaign.allocationRaw)}
+          </p>
         </div>
       </div>
 
@@ -202,7 +206,7 @@ export default function CampaignCard({
         <div>
           <p className="text-xs font-bold">{campaign.title}</p>
           {campaign.description && (
-            <p className="text-[11px] text-white/40 leading-snug mt-0.5">
+            <p className="text-[11px] text-[var(--ink-soft)] leading-snug mt-0.5">
               {campaign.description}
             </p>
           )}
@@ -219,7 +223,7 @@ export default function CampaignCard({
               value={title}
               maxLength={TITLE_MAX}
               onChange={(event) => setTitle(event.target.value)}
-              className="w-full bg-transparent text-sm focus:outline-none placeholder:text-white/30"
+              className="w-full bg-transparent text-sm focus:outline-none placeholder:text-[var(--ink-faint)]"
             />
           </div>
           <div className="pixel-frame pixel-input px-3 py-1.5">
@@ -229,7 +233,7 @@ export default function CampaignCard({
               value={description}
               maxLength={DESCRIPTION_MAX}
               onChange={(event) => setDescription(event.target.value)}
-              className="w-full bg-transparent text-sm resize-none focus:outline-none placeholder:text-white/30"
+              className="w-full bg-transparent text-sm resize-none focus:outline-none placeholder:text-[var(--ink-faint)]"
             />
           </div>
           <button
@@ -237,7 +241,7 @@ export default function CampaignCard({
               post({ title: title.trim(), description: description.trim() }, "details")
             }
             disabled={busy !== null || !title.trim() || !description.trim()}
-            className="pixel-frame pixel-btn-ghost w-full text-white/80 font-bold py-2 text-[11px] disabled:cursor-not-allowed disabled:opacity-40"
+            className="pixel-frame pixel-btn-ghost w-full text-[var(--ink)] font-bold py-2 text-[11px] disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy === "details" ? "Saving..." : "Save Details"}
           </button>
@@ -248,7 +252,7 @@ export default function CampaignCard({
           participants join on the strength of these odds. */}
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-wide text-white/30 mb-1">
+          <p className="text-[10px] uppercase tracking-wide text-[var(--ink-faint)] mb-1">
             Airdrop winners
           </p>
           {/* Locked once the campaign has opened OR once a count has already
@@ -259,7 +263,7 @@ export default function CampaignCard({
               {campaign.winnerCount != null ? (
                 <>
                   {campaign.winnerCount}{" "}
-                  <span className="font-normal text-white/40">winners</span>
+                  <span className="font-normal text-[var(--ink-soft)]">winners</span>
                 </>
               ) : (
                 "Not set"
@@ -295,8 +299,10 @@ export default function CampaignCard({
         )}
       </div>
 
-      {error && <p className="text-[10px] text-red-400 leading-snug">{error}</p>}
-    </div>
+      {error && (
+        <p className="text-[0.625rem] leading-snug text-[var(--down)]">{error}</p>
+      )}
+    </li>
   );
 }
 
@@ -308,41 +314,32 @@ function CardHeader({
   imageUrl: string | null;
 }) {
   return (
-    <div className="flex items-center gap-3 flex-1 min-w-0">
-      {imageUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={imageUrl}
-          alt={campaign.ticker ?? "Token"}
-          className="w-10 h-10 object-cover bg-white/5 shrink-0"
-        />
-      ) : (
-        <div className="w-10 h-10 bg-[var(--accent-tint)] flex items-center justify-center shrink-0">
-          <span className="text-sm font-black text-[var(--accent)]">
-            {(campaign.ticker ?? "?").charAt(0)}
+    <span className="camp-token">
+      <span className="camp-thumb" aria-hidden="true">
+        {imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <span className="text-base font-extrabold text-white">
+            {(campaign.ticker ?? "?").charAt(0).toUpperCase()}
           </span>
-        </div>
-      )}
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-bold uppercase tracking-tight truncate">
-            {campaign.ticker ?? truncateAddress(campaign.tokenAddress)}
-          </h3>
-        </div>
-        {campaign.name && (
-          <p className="text-[11px] text-white/40 truncate">{campaign.name}</p>
         )}
-      </div>
-    </div>
+      </span>
+      <span className="camp-id">
+        <span className="camp-name">
+          {campaign.name ?? campaign.ticker ?? truncateAddress(campaign.tokenAddress)}
+        </span>
+        {campaign.ticker && <span className="camp-ticker">${campaign.ticker}</span>}
+      </span>
+    </span>
   );
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[9px] uppercase tracking-wide text-white/30">{label}</p>
-      <p className="font-bold text-white/80 truncate">{value}</p>
+      <p className="text-[9px] uppercase tracking-wide text-[var(--ink-faint)]">{label}</p>
+      <p className="font-bold text-[var(--ink)] truncate">{value}</p>
     </div>
   );
 }

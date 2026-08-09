@@ -28,11 +28,11 @@ export default function ConnectWalletButton({
           disabled={isConnecting}
           className={
             size === "compact"
-              ? "pixel-frame pixel-btn h-7 flex items-center text-white font-bold px-2.5 text-[10px]"
-              : "pixel-frame pixel-btn h-9 flex items-center text-white font-bold px-4 text-xs"
+              ? "btn btn-primary !h-[30px] !px-3 !text-[0.6875rem] !tracking-[0.03em]"
+              : "btn btn-primary !h-[38px] !px-5 !text-[0.75rem] !tracking-[0.04em]"
           }
         >
-          {isConnecting ? "Connecting..." : "Connect Wallet"}
+          {isConnecting ? "Connecting…" : "Connect wallet"}
         </button>
       )}
     </ConnectKitButton.Custom>

@@ -1,20 +1,26 @@
 import type { Metadata } from "next";
-import { Archivo, Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Zen_Dots } from "next/font/google";
 import Web3Provider from "@/app/_providers/Web3Provider";
 import "./globals.css";
 
-const archivo = Archivo({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-archivo",
-});
-
 const inter = Inter({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700", "800"],
   variable: "--font-inter",
 });
 
+/**
+ * Display face, used only for page titles via `.font-display`. Single
+ * weight by design — Zen Dots ships one, and it is loud enough that
+ * anything beyond a heading starts to fight the copy.
+ */
+const zenDots = Zen_Dots({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-zen-dots",
+});
+
+/** Kept for addresses and hashes, which want fixed-width columns. */
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-jetbrains-mono",
@@ -31,7 +37,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${archivo.variable} ${inter.variable} ${jetbrainsMono.variable}`}>
+    <html lang="en" className={`${inter.variable} ${zenDots.variable} ${jetbrainsMono.variable}`}>
       {/* The iconify icon-font script used to load here. Every icon is now
           an ASCII text token rendered by app/_components/Icon.tsx, so the
           third-party script (and its render-blocking beforeInteractive
@@ -69,7 +75,7 @@ export default function RootLayout({
           />
         )}
       </head>
-      <body className="selection:bg-[var(--accent)]/30">
+      <body>
         <Web3Provider>{children}</Web3Provider>
       </body>
     </html>

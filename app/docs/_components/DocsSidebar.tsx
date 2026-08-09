@@ -8,11 +8,11 @@ export default function DocsSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 shrink-0 border-r border-white/10 overflow-y-auto pixel-scrollbar hidden md:block">
+    <aside className="w-64 shrink-0 border-r border-[var(--line)] overflow-y-auto hidden md:block">
       <nav className="p-4 flex flex-col gap-5">
         {DOCS_NAV.map((category) => (
           <div key={category.title}>
-            <h3 className="text-[10px] uppercase tracking-wide text-white/30 font-bold px-2 mb-1.5">
+            <h3 className="text-[0.625rem] font-bold uppercase tracking-[0.06em] text-[var(--ink-faint)] px-2 mb-1.5">
               {category.title}
             </h3>
             <ul className="flex flex-col gap-0.5">
@@ -23,10 +23,10 @@ export default function DocsSidebar() {
                   <li key={page.slug}>
                     <Link
                       href={href}
-                      className={`block px-2 py-1.5 rounded text-[12px] transition-colors ${
+                      className={`block px-2 py-1.5 rounded-[var(--r-sm)] text-[0.75rem] font-medium transition-colors ${
                         isActive
-                          ? "bg-[rgba(207,56,221,0.1)] text-[#cf38dd] font-bold"
-                          : "text-white/50 hover:text-white hover:bg-white/5"
+                          ? "bg-[var(--brand-tint)] text-[var(--brand)] font-bold"
+                          : "text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--surface-sunken)]"
                       }`}
                     >
                       {page.title}

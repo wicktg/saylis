@@ -19,7 +19,7 @@ import {
 import type { Address } from "viem";
 import Icon from "@/app/_components/Icon";
 import AsciiSlider from "@/app/_components/AsciiSlider";
-import AsciiSpinner from "@/app/_components/AsciiSpinner";
+import Spinner from "@/app/_components/Spinner";
 import { useIsMobile } from "@/app/_lib/useIsMobile";
 
 const DESCRIPTION_LIMIT = 280;
@@ -300,13 +300,13 @@ export default function CreateTokenModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/50">
-      <div className="mobile-sheet surface-circuit relative w-full max-w-sm mx-4 bg-[var(--bg-main)] border border-white/20 rounded-2xl p-6">
+    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-[rgba(20,18,34,0.28)]">
+      <div className="mobile-sheet surface-circuit relative w-full max-w-sm mx-4 bg-[var(--surface)] border border-[var(--line)] rounded-2xl p-6">
         <button
           onClick={handleClose}
           disabled={stage === "launching" || stage === "saving"}
           aria-label="Close"
-          className="absolute right-4 top-4 text-white/40 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="absolute right-4 top-4 text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
           <Icon icon="pixelarticons:close" className="text-base" />
         </button>
@@ -327,7 +327,7 @@ export default function CreateTokenModal({
                     on desktop and did nothing on mobile. */}
                 <label
                   htmlFor="token-image-input"
-                  className="w-20 h-20 rounded-xl border border-dashed border-white/20 bg-white/5 hover:border-[rgba(207,56,221,0.5)] focus-within:border-[rgba(207,56,221,0.5)] transition-colors flex items-center justify-center overflow-hidden shrink-0 cursor-pointer"
+                  className="w-20 h-20 rounded-xl border border-dashed border-[var(--line)] bg-[var(--surface-sunken)] hover:border-[rgba(207,56,221,0.5)] focus-within:border-[rgba(207,56,221,0.5)] transition-colors flex items-center justify-center overflow-hidden shrink-0 cursor-pointer"
                 >
                   {imagePreview ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -337,7 +337,7 @@ export default function CreateTokenModal({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <Icon icon="pixelarticons:image-plus" className="text-xl text-white/30" />
+                    <Icon icon="pixelarticons:image-plus" className="text-xl text-[var(--ink-faint)]" />
                   )}
                 </label>
 
@@ -346,7 +346,7 @@ export default function CreateTokenModal({
                   onClick={() => setAdvancedOpen((prev) => !prev)}
                   aria-label="Toggle advanced options"
                   aria-expanded={advancedOpen}
-                  className="flex items-center gap-1 text-white/40 hover:text-white transition-colors"
+                  className="flex items-center gap-1 text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors"
                 >
                   {/* Desktop leaves this a bare chevron, as it was — the
                       panel it opens flies out in plain sight beside the
@@ -389,7 +389,7 @@ export default function CreateTokenModal({
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 required
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[rgba(207,56,221,0.5)] placeholder:text-white/30"
+                className="w-full bg-[var(--surface-sunken)] border border-[var(--line)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[rgba(207,56,221,0.5)] placeholder:text-[var(--ink-faint)]"
               />
 
               <input
@@ -399,7 +399,7 @@ export default function CreateTokenModal({
                 onChange={(event) => setTicker(event.target.value)}
                 required
                 maxLength={10}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm uppercase focus:outline-none focus:border-[rgba(207,56,221,0.5)] placeholder:text-white/30 placeholder:normal-case"
+                className="w-full bg-[var(--surface-sunken)] border border-[var(--line)] rounded-lg px-3 py-2 text-sm uppercase focus:outline-none focus:border-[rgba(207,56,221,0.5)] placeholder:text-[var(--ink-faint)] placeholder:normal-case"
               />
 
               <div>
@@ -409,50 +409,50 @@ export default function CreateTokenModal({
                   maxLength={DESCRIPTION_LIMIT}
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-[rgba(207,56,221,0.5)] placeholder:text-white/30"
+                  className="w-full bg-[var(--surface-sunken)] border border-[var(--line)] rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-[rgba(207,56,221,0.5)] placeholder:text-[var(--ink-faint)]"
                 />
-                <div className="text-right text-[10px] text-white/30 mt-1">
+                <div className="text-right text-[10px] text-[var(--ink-faint)] mt-1">
                   {description.length}/{DESCRIPTION_LIMIT}
                 </div>
               </div>
 
               {error && (
                 <div className="py-3 text-center">
-                  <p className="text-sm font-bold text-white border border-white/20 rounded-lg px-3 py-2 inline-block">
+                  <p className="text-sm font-bold text-[var(--ink)] border border-[var(--line)] rounded-lg px-3 py-2 inline-block">
                     {error}
                   </p>
                 </div>
               )}
 
               <div className="flex items-center gap-2">
-                <div className="flex-1 flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-lg px-2.5 py-2">
-                  <Icon icon="ri:twitter-x-fill" className="text-white/40 text-xs shrink-0" />
+                <div className="flex-1 flex items-center gap-1.5 bg-[var(--surface-sunken)] border border-[var(--line)] rounded-lg px-2.5 py-2">
+                  <Icon icon="ri:twitter-x-fill" className="text-[var(--ink-soft)] text-xs shrink-0" />
                   <input
                     type="text"
                     placeholder="X"
                     value={xHandle}
                     onChange={(event) => setXHandle(event.target.value)}
-                    className="w-full bg-transparent text-xs focus:outline-none placeholder:text-white/30"
+                    className="w-full bg-transparent text-xs focus:outline-none placeholder:text-[var(--ink-faint)]"
                   />
                 </div>
-                <div className="flex-1 flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-lg px-2.5 py-2">
-                  <Icon icon="mdi:telegram" className="text-white/40 text-xs shrink-0" />
+                <div className="flex-1 flex items-center gap-1.5 bg-[var(--surface-sunken)] border border-[var(--line)] rounded-lg px-2.5 py-2">
+                  <Icon icon="mdi:telegram" className="text-[var(--ink-soft)] text-xs shrink-0" />
                   <input
                     type="text"
                     placeholder="Telegram"
                     value={telegram}
                     onChange={(event) => setTelegram(event.target.value)}
-                    className="w-full bg-transparent text-xs focus:outline-none placeholder:text-white/30"
+                    className="w-full bg-transparent text-xs focus:outline-none placeholder:text-[var(--ink-faint)]"
                   />
                 </div>
-                <div className="flex-1 flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-lg px-2.5 py-2">
-                  <Icon icon="pixelarticons:globe" className="text-white/40 text-xs shrink-0" />
+                <div className="flex-1 flex items-center gap-1.5 bg-[var(--surface-sunken)] border border-[var(--line)] rounded-lg px-2.5 py-2">
+                  <Icon icon="pixelarticons:globe" className="text-[var(--ink-soft)] text-xs shrink-0" />
                   <input
                     type="text"
                     placeholder="Website"
                     value={website}
                     onChange={(event) => setWebsite(event.target.value)}
-                    className="w-full bg-transparent text-xs focus:outline-none placeholder:text-white/30"
+                    className="w-full bg-transparent text-xs focus:outline-none placeholder:text-[var(--ink-faint)]"
                   />
                 </div>
               </div>
@@ -465,8 +465,8 @@ export default function CreateTokenModal({
                   controls are actually usable. Mounted only when open, so
                   nothing invisible sits in the tab order. */}
               {isMobile && advancedOpen && (
-                <div className="border-t border-white/10 pt-4">
-                  <p className="text-[10px] uppercase tracking-wider text-white/40 mb-3">
+                <div className="border-t border-[var(--line)] pt-4">
+                  <p className="text-[10px] uppercase tracking-wider text-[var(--ink-soft)] mb-3">
                     Advanced Settings
                   </p>
                   <AdvancedFields
@@ -486,12 +486,12 @@ export default function CreateTokenModal({
               )}
 
               {!account && (
-                <p className="text-[11px] text-white/40 leading-snug">
+                <p className="text-[11px] text-[var(--ink-soft)] leading-snug">
                   Connect a wallet to launch a token.
                 </p>
               )}
               {account && (!name.trim() || !ticker.trim() || !imageFile) && (
-                <p className="text-[11px] text-white/40 leading-snug">
+                <p className="text-[11px] text-[var(--ink-soft)] leading-snug">
                   Add an image, name, and ticker to launch.
                 </p>
               )}
@@ -499,7 +499,7 @@ export default function CreateTokenModal({
               <button
                 type="submit"
                 disabled={!account || !name.trim() || !ticker.trim() || !imageFile}
-                className="w-full bg-[var(--accent-fill)] text-white font-bold py-3 rounded-xl text-sm hover:bg-[var(--accent-fill-hover)] transition-colors mt-1 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[var(--accent-fill)]"
+                className="w-full bg-[var(--accent-fill)] text-[var(--ink)] font-bold py-3 rounded-xl text-sm hover:bg-[var(--accent-fill-hover)] transition-colors mt-1 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[var(--accent-fill)]"
               >
                 Launch Token
               </button>
@@ -512,7 +512,7 @@ export default function CreateTokenModal({
             {!isMobile && (
               <div
                 aria-hidden={!advancedOpen}
-                className={`surface-circuit absolute top-0 left-full ml-3 w-60 bg-[var(--bg-main)] border border-white/20 rounded-2xl p-5 origin-left transition-all duration-200 ease-out ${
+                className={`surface-circuit absolute top-0 left-full ml-3 w-60 bg-[var(--surface)] border border-[var(--line)] rounded-2xl p-5 origin-left transition-all duration-200 ease-out ${
                   advancedOpen
                     ? "opacity-100 scale-100"
                     : "opacity-0 scale-90 pointer-events-none"
@@ -538,10 +538,10 @@ export default function CreateTokenModal({
 
         {(stage === "launching" || stage === "saving") && (
           <div className="flex flex-col items-center justify-center py-10 gap-4">
-            <AsciiSpinner className="text-2xl text-[#cf38dd]" />
+            <Spinner className="text-2xl text-[var(--brand)]" />
             <p className="text-sm font-bold">Launching...</p>
             {stage === "launching" && (
-              <p className="text-[11px] text-white/40 text-center leading-relaxed">
+              <p className="text-[11px] text-[var(--ink-soft)] text-center leading-relaxed">
                 {status === "deploying-token"
                   ? "Deploying your token..."
                   : "Deploying the bonding curve..."}
@@ -618,12 +618,12 @@ function LaunchSuccess({
 
   return (
     <div className="flex flex-col items-center text-center py-4">
-      <div className="w-20 h-20 rounded-xl border border-white/10 bg-white/5 overflow-hidden flex items-center justify-center mb-4">
+      <div className="w-20 h-20 rounded-xl border border-[var(--line)] bg-[var(--surface-sunken)] overflow-hidden flex items-center justify-center mb-4">
         {imagePreview ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={imagePreview} alt={ticker} className="w-full h-full object-cover" />
         ) : (
-          <Icon icon="pixelarticons:coin" className="text-2xl text-[#cf38dd]" />
+          <Icon icon="pixelarticons:coin" className="text-2xl text-[var(--brand)]" />
         )}
       </div>
 
@@ -631,7 +631,7 @@ function LaunchSuccess({
 
       <button
         onClick={handleCopy}
-        className="flex items-center gap-1.5 text-[11px] text-white/50 hover:text-white/80 transition-colors mb-5"
+        className="flex items-center gap-1.5 text-[11px] text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors mb-5"
       >
         {truncateAddress(tokenAddress)}
         <Icon icon={copied ? "pixelarticons:check" : "pixelarticons:copy"} className="text-xs" />
@@ -645,20 +645,20 @@ function LaunchSuccess({
       )}
 
       <div className="w-full grid grid-cols-3 gap-2 mb-6">
-        <div className="bg-white/5 border border-white/10 rounded-lg py-2.5 px-2">
-          <div className="text-[9px] text-white/40 mb-1">Price</div>
+        <div className="bg-[var(--surface-sunken)] border border-[var(--line)] rounded-lg py-2.5 px-2">
+          <div className="text-[9px] text-[var(--ink-soft)] mb-1">Price</div>
           <div className="text-[11px] font-bold">
             {price !== undefined ? `${formatEthShort(price, 8)} ETH` : "..."}
           </div>
         </div>
-        <div className="bg-white/5 border border-white/10 rounded-lg py-2.5 px-2">
-          <div className="text-[9px] text-white/40 mb-1">ETH Reserve</div>
+        <div className="bg-[var(--surface-sunken)] border border-[var(--line)] rounded-lg py-2.5 px-2">
+          <div className="text-[9px] text-[var(--ink-soft)] mb-1">ETH Reserve</div>
           <div className="text-[11px] font-bold">
             {ethReserve !== undefined ? `${formatEthShort(ethReserve, 4)} ETH` : "..."}
           </div>
         </div>
-        <div className="bg-white/5 border border-white/10 rounded-lg py-2.5 px-2">
-          <div className="text-[9px] text-white/40 mb-1">Token Reserve</div>
+        <div className="bg-[var(--surface-sunken)] border border-[var(--line)] rounded-lg py-2.5 px-2">
+          <div className="text-[9px] text-[var(--ink-soft)] mb-1">Token Reserve</div>
           <div className="text-[11px] font-bold">
             {tokenReserve !== undefined
               ? Number(tokenReserve / 10n ** BigInt(TOKEN_DECIMALS)).toLocaleString()
@@ -669,7 +669,7 @@ function LaunchSuccess({
 
       <button
         onClick={onClose}
-        className="w-full bg-[var(--accent-fill)] text-white font-bold py-3 rounded-xl text-sm hover:bg-[var(--accent-fill-hover)] transition-colors"
+        className="w-full bg-[var(--accent-fill)] text-[var(--ink)] font-bold py-3 rounded-xl text-sm hover:bg-[var(--accent-fill-hover)] transition-colors"
       >
         Done
       </button>
@@ -722,8 +722,8 @@ function AdvancedFields({
     <>
       <div className="mb-5">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium text-white/70">Whale Sell Tax</span>
-          <span className="text-xs font-bold text-[#cf38dd]">{whaleSellTax.toFixed(1)}%</span>
+          <span className="text-xs font-medium text-[var(--ink)]">Whale Sell Tax</span>
+          <span className="text-xs font-bold text-[var(--brand)]">{whaleSellTax.toFixed(1)}%</span>
         </div>
         <AsciiSlider
           min={0}
@@ -738,7 +738,7 @@ function AdvancedFields({
 
       <div className="mb-5 space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-white/70">Redirect Creator Fees</span>
+          <span className="text-xs font-medium text-[var(--ink)]">Redirect Creator Fees</span>
           {feeRecipientTouched && feeRecipientError && (
             <span className="text-[9px] font-bold text-red-400">Invalid</span>
           )}
@@ -753,11 +753,11 @@ function AdvancedFields({
           onBlur={onFeeRecipientBlur}
           disabled={disabled}
           aria-invalid={feeRecipientTouched && Boolean(feeRecipientError)}
-          className={`w-full bg-white/5 border rounded-lg px-2.5 py-1.5 text-[11px] font-mono focus:outline-none focus:border-white/30 transition-colors placeholder:font-sans placeholder:text-white/25 ${
-            feeRecipientTouched && feeRecipientError ? "border-red-400/60" : "border-white/15"
+          className={`w-full bg-[var(--surface-sunken)] border rounded-lg px-2.5 py-1.5 text-[11px] font-mono focus:outline-none focus:border-[var(--line)] transition-colors placeholder:font-sans placeholder:text-[var(--ink-faint)] ${
+            feeRecipientTouched && feeRecipientError ? "border-red-400/60" : "border-[var(--line)]"
           }`}
         />
-        <p className="text-[10px] text-white/30 leading-snug">
+        <p className="text-[10px] text-[var(--ink-faint)] leading-snug">
           {feeRecipientTouched && feeRecipientError
             ? feeRecipientError
             : "Where trading fees are paid. Permanent, cannot be changed later."}
@@ -766,8 +766,8 @@ function AdvancedFields({
 
       <div className="space-y-2">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium text-white/70">InfoFi Allocation</span>
-          <span className="text-xs font-bold text-[#cf38dd]">{infoFiAllocation.toFixed(1)}%</span>
+          <span className="text-xs font-medium text-[var(--ink)]">InfoFi Allocation</span>
+          <span className="text-xs font-bold text-[var(--brand)]">{infoFiAllocation.toFixed(1)}%</span>
         </div>
         <AsciiSlider
           min={0}
@@ -778,7 +778,7 @@ function AdvancedFields({
           disabled={disabled}
           ariaLabel="InfoFi allocation percentage"
         />
-        <p className="text-[10px] text-white/30 leading-snug">
+        <p className="text-[10px] text-[var(--ink-faint)] leading-snug">
           {infoFiAllocation > 0
             ? `${infoFiTokens} tokens locked at launch for the campaign pool. Never sold on the curve; unclaimed tokens burn.`
             : "Reserve supply to reward people who post about your token."}

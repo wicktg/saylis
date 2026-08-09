@@ -12,7 +12,7 @@ import { formatCompactTokenAmount, truncateAddress } from "@/app/_lib/format";
 import { INFO_FI_CAMPAIGN_ABI } from "@/app/_lib/contracts/InfoFiCampaign";
 import { IMMUTABLE_LAUNCH_TOKEN_ABI } from "@/app/_lib/contracts/ImmutableLaunchToken";
 import Icon from "@/app/_components/Icon";
-import AsciiSpinner from "@/app/_components/AsciiSpinner";
+import Spinner from "@/app/_components/Spinner";
 import { waitForReceipt } from "@/app/_lib/txReceipt";
 import { getFriendlyErrorMessage } from "@/app/_lib/errors";
 import {
@@ -81,7 +81,7 @@ export default function AdminPage() {
 
   if (!isTeam) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-black">
+      <div className="h-screen w-full flex items-center justify-center bg-[var(--surface)]">
         <Empty
           icon="pixelarticons:shield"
           title="Not authorized"
@@ -92,8 +92,8 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="h-screen w-full flex flex-col overflow-hidden bg-black text-white text-sm">
-      <div className="flex items-center justify-center gap-1 px-6 pt-5 pb-3 border-b border-white/10 shrink-0">
+    <div className="h-screen w-full flex flex-col overflow-hidden bg-[var(--surface)] text-[var(--ink)] text-sm">
+      <div className="flex items-center justify-center gap-1 px-6 pt-5 pb-3 border-b border-[var(--line)] shrink-0">
         <TabButton active={tab === "campaigns"} onClick={() => setTab("campaigns")}>
           Campaigns
         </TabButton>
@@ -125,7 +125,7 @@ export default function AdminPage() {
 
 function CenteredConnect() {
   return (
-    <div className="h-screen w-full flex items-center justify-center bg-black text-white">
+    <div className="h-screen w-full flex items-center justify-center bg-[var(--surface)] text-[var(--ink)]">
       <div className="flex flex-col items-center gap-4 text-center">
         <ConnectKitButton.Custom>
           {({ show, isConnecting }) => (
@@ -157,8 +157,8 @@ function TabButton({
       onClick={onClick}
       className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors ${
         active
-          ? "bg-[rgba(207,56,221,0.1)] text-[#cf38dd]"
-          : "text-white/40 hover:text-white/70"
+          ? "bg-[rgba(207,56,221,0.1)] text-[var(--brand)]"
+          : "text-[var(--ink-soft)] hover:text-[var(--ink)]"
       }`}
     >
       {children}
@@ -360,7 +360,7 @@ function CampaignsTab({ account }: { account: string }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <AsciiSpinner className="text-xl text-[#cf38dd]" />
+        <Spinner className="text-xl text-[var(--brand)]" />
       </div>
     );
   }
@@ -372,7 +372,7 @@ function CampaignsTab({ account }: { account: string }) {
       <InviteSection account={account} onInvited={refresh} />
 
       <section>
-        <h2 className="text-[10px] uppercase tracking-wide text-white/30 mb-3">
+        <h2 className="text-[10px] uppercase tracking-wide text-[var(--ink-faint)] mb-3">
           Awaiting review ({awaitingReview.length})
         </h2>
         {awaitingReview.length === 0 ? (
@@ -396,7 +396,7 @@ function CampaignsTab({ account }: { account: string }) {
       </section>
 
       <section>
-        <h2 className="text-[10px] uppercase tracking-wide text-white/30 mb-3">
+        <h2 className="text-[10px] uppercase tracking-wide text-[var(--ink-faint)] mb-3">
           Pending approval ({pending.length})
         </h2>
         {pending.length === 0 ? (
@@ -425,7 +425,7 @@ function CampaignsTab({ account }: { account: string }) {
       </section>
 
       <section>
-        <h2 className="text-[10px] uppercase tracking-wide text-white/30 mb-3">
+        <h2 className="text-[10px] uppercase tracking-wide text-[var(--ink-faint)] mb-3">
           Approved ({approved.length})
         </h2>
         {approved.length === 0 ? (
@@ -496,11 +496,11 @@ function NotificationsTab({ account }: { account: string }) {
 
   return (
     <div className="p-6 max-w-lg">
-      <h2 className="text-[10px] uppercase tracking-wide text-white/30 mb-3">
+      <h2 className="text-[10px] uppercase tracking-wide text-[var(--ink-faint)] mb-3">
         Push a notification
       </h2>
       <div className="pixel-frame pixel-card p-4 flex flex-col gap-2.5">
-        <p className="text-[11px] text-white/40 leading-snug">
+        <p className="text-[11px] text-[var(--ink-soft)] leading-snug">
           Sends to every wallet that has ever connected to the app, right
           now. Wallets that connect for the first time afterward will not
           see it.
@@ -512,7 +512,7 @@ function NotificationsTab({ account }: { account: string }) {
             value={title}
             maxLength={TITLE_MAX}
             onChange={(event) => setTitle(event.target.value)}
-            className="w-full bg-transparent text-sm focus:outline-none placeholder:text-white/30"
+            className="w-full bg-transparent text-sm focus:outline-none placeholder:text-[var(--ink-faint)]"
           />
         </div>
         <div className="pixel-frame pixel-input px-3 py-1.5">
@@ -522,11 +522,11 @@ function NotificationsTab({ account }: { account: string }) {
             value={message}
             maxLength={BODY_MAX}
             onChange={(event) => setMessage(event.target.value)}
-            className="w-full bg-transparent text-sm resize-none focus:outline-none placeholder:text-white/30"
+            className="w-full bg-transparent text-sm resize-none focus:outline-none placeholder:text-[var(--ink-faint)]"
           />
         </div>
         {error && <p className="text-[10px] text-red-400">{error}</p>}
-        {success && <p className="text-[10px] text-[#cf38dd]">{success}</p>}
+        {success && <p className="text-[10px] text-[var(--brand)]">{success}</p>}
         <button
           onClick={handlePush}
           disabled={!canSubmit || busy}
@@ -578,10 +578,10 @@ function CampaignRow({
           <img
             src={imageUrl}
             alt={item.ticker ?? "Token"}
-            className="w-10 h-10 object-cover bg-white/5 shrink-0"
+            className="w-10 h-10 object-cover bg-[var(--surface-sunken)] shrink-0"
           />
         ) : (
-          <div className="w-10 h-10 bg-[var(--accent-tint)] flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-[var(--r-md)] bg-[var(--brand-tint)] text-[var(--brand)] flex items-center justify-center shrink-0">
             <span className="text-sm font-black text-[var(--accent)]">
               {(item.ticker ?? "?").charAt(0)}
             </span>
@@ -594,7 +594,7 @@ function CampaignRow({
               {item.ticker ?? truncateAddress(item.tokenAddress)}
             </h3>
             {readOnly && (
-              <span className="text-[9px] font-bold uppercase bg-[rgba(207,56,221,0.1)] text-[#cf38dd] px-1.5 py-0.5">
+              <span className="text-[9px] font-bold uppercase bg-[rgba(207,56,221,0.1)] text-[var(--brand)] px-1.5 py-0.5">
                 {item.state}
               </span>
             )}
@@ -604,20 +604,20 @@ function CampaignRow({
               </span>
             )}
           </div>
-          <p className="text-xs font-bold text-white/80 mt-0.5">{item.title}</p>
-          <p className="text-[11px] text-white/40 leading-snug mt-0.5">
+          <p className="text-xs font-bold text-[var(--ink)] mt-0.5">{item.title}</p>
+          <p className="text-[11px] text-[var(--ink-soft)] leading-snug mt-0.5">
             {item.description}
           </p>
         </div>
 
         <div className="text-right shrink-0">
-          <p className="text-[9px] uppercase tracking-wide text-white/30">Mcap</p>
+          <p className="text-[9px] uppercase tracking-wide text-[var(--ink-faint)]">Mcap</p>
           <p className="text-xs font-bold">{formatMcap(item.lastMcapUsd18)}</p>
           <MiniSparkline points={item.mcapHistory} />
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 border-t border-white/10 pt-3 text-[11px]">
+      <div className="grid grid-cols-3 gap-3 border-t border-[var(--line)] pt-3 text-[11px]">
         <Stat label="Pool" value={`${formatPool(item.allocationRaw)} tokens`} />
         <Stat label="Winners" value={item.winnerCount ? String(item.winnerCount) : "N/A"} />
         <Stat
@@ -631,24 +631,24 @@ function CampaignRow({
       </div>
 
       {!readOnly && item.approvalNote && item.approvalStatus === "rejected" && (
-        <p className="text-[10px] text-white/40 italic">
+        <p className="text-[10px] text-[var(--ink-soft)] italic">
           Previous note: {item.approvalNote}
         </p>
       )}
 
       {!readOnly && (
-        <div className="flex items-center gap-2 border-t border-white/10 pt-3">
+        <div className="flex items-center gap-2 border-t border-[var(--line)] pt-3">
           <input
             type="text"
             placeholder="Rejection note (optional)"
             value={rejectNote}
             onChange={(event) => onRejectNoteChange?.(event.target.value)}
-            className="pixel-frame pixel-input flex-1 bg-transparent text-[11px] px-2 py-1.5 focus:outline-none placeholder:text-white/25"
+            className="pixel-frame pixel-input flex-1 bg-transparent text-[11px] px-2 py-1.5 focus:outline-none placeholder:text-[var(--ink-faint)]"
           />
           <button
             onClick={onReject}
             disabled={busy}
-            className="pixel-frame pixel-btn-ghost text-white/70 font-bold px-3 py-2 text-[11px] shrink-0 disabled:cursor-not-allowed"
+            className="pixel-frame pixel-btn-ghost text-[var(--ink)] font-bold px-3 py-2 text-[11px] shrink-0 disabled:cursor-not-allowed"
           >
             Reject
           </button>
@@ -715,11 +715,11 @@ function InviteSection({
 
   return (
     <section>
-      <h2 className="text-[10px] uppercase tracking-wide text-white/30 mb-3">
+      <h2 className="text-[10px] uppercase tracking-wide text-[var(--ink-faint)] mb-3">
         Invite a campaign
       </h2>
       <div className="pixel-frame pixel-card p-4 flex flex-col gap-2.5">
-        <p className="text-[11px] text-white/40 leading-snug">
+        <p className="text-[11px] text-[var(--ink-soft)] leading-snug">
           Renders a campaign to a specific wallet after terms are agreed
           off-platform. Nothing moves on-chain until the creator sends
           supply and it's confirmed below.
@@ -730,18 +730,18 @@ function InviteSection({
             placeholder="Token contract address"
             value={tokenAddress}
             onChange={(event) => setTokenAddress(event.target.value)}
-            className="pixel-frame pixel-input bg-transparent text-[11px] font-mono px-2.5 py-2 focus:outline-none placeholder:font-sans placeholder:text-white/25"
+            className="pixel-frame pixel-input bg-transparent text-[11px] font-mono px-2.5 py-2 focus:outline-none placeholder:font-sans placeholder:text-[var(--ink-faint)]"
           />
           <input
             type="text"
             placeholder="Wallet address to invite"
             value={inviteWallet}
             onChange={(event) => setInviteWallet(event.target.value)}
-            className="pixel-frame pixel-input bg-transparent text-[11px] font-mono px-2.5 py-2 focus:outline-none placeholder:font-sans placeholder:text-white/25"
+            className="pixel-frame pixel-input bg-transparent text-[11px] font-mono px-2.5 py-2 focus:outline-none placeholder:font-sans placeholder:text-[var(--ink-faint)]"
           />
         </div>
         {error && <p className="text-[10px] text-red-400">{error}</p>}
-        {success && <p className="text-[10px] text-[#cf38dd]">{success}</p>}
+        {success && <p className="text-[10px] text-[var(--brand)]">{success}</p>}
         <button
           onClick={handleInvite}
           disabled={!canSubmit || busy}
@@ -883,10 +883,10 @@ function BurnSection({ account }: { account: string }) {
 
   return (
     <section>
-      <h2 className="text-[10px] uppercase tracking-wide text-white/30 mb-3">
+      <h2 className="text-[10px] uppercase tracking-wide text-[var(--ink-faint)] mb-3">
         Burnable ({burnableItems.length})
       </h2>
-      <p className="text-[10px] text-white/25 leading-snug mb-3">
+      <p className="text-[10px] text-[var(--ink-faint)] leading-snug mb-3">
         Campaigns whose claim window has closed with tokens still unclaimed.
         Burning only ever moves the unclaimed remainder to the burn address;
         already-claimed amounts are untouched, and this is the only
@@ -905,10 +905,10 @@ function BurnSection({ account }: { account: string }) {
                 <img
                   src={imageUrl}
                   alt={item.ticker ?? "Token"}
-                  className="w-9 h-9 object-cover bg-white/5 shrink-0"
+                  className="w-9 h-9 object-cover bg-[var(--surface-sunken)] shrink-0"
                 />
               ) : (
-                <div className="w-9 h-9 bg-[var(--accent-tint)] flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-[var(--r-md)] bg-[var(--brand-tint)] text-[var(--brand)] flex items-center justify-center shrink-0">
                   <span className="text-xs font-black text-[var(--accent)]">
                     {(item.ticker ?? "?").charAt(0)}
                   </span>
@@ -918,7 +918,7 @@ function BurnSection({ account }: { account: string }) {
                 <p className="text-sm font-bold truncate">
                   {item.ticker ?? truncateAddress(item.tokenAddress)}
                 </p>
-                <p className="text-[10px] text-white/40">
+                <p className="text-[10px] text-[var(--ink-soft)]">
                   {formatCompactTokenAmount(burnable[item.tokenAddress].toString())} tokens
                   will be burned
                 </p>
@@ -1004,10 +1004,10 @@ function ReviewRow({
           <img
             src={imageUrl}
             alt={item.ticker ?? "Token"}
-            className="w-10 h-10 object-cover bg-white/5 shrink-0"
+            className="w-10 h-10 object-cover bg-[var(--surface-sunken)] shrink-0"
           />
         ) : (
-          <div className="w-10 h-10 bg-[var(--accent-tint)] flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-[var(--r-md)] bg-[var(--brand-tint)] text-[var(--brand)] flex items-center justify-center shrink-0">
             <span className="text-sm font-black text-[var(--accent)]">
               {(item.ticker ?? "?").charAt(0)}
             </span>
@@ -1017,7 +1017,7 @@ function ReviewRow({
           <h3 className="text-sm font-bold uppercase tracking-tight">
             {item.ticker ?? truncateAddress(item.tokenAddress)}
           </h3>
-          {item.title && <p className="text-xs font-bold text-white/80 mt-0.5">{item.title}</p>}
+          {item.title && <p className="text-xs font-bold text-[var(--ink)] mt-0.5">{item.title}</p>}
         </div>
       </div>
 
@@ -1036,7 +1036,7 @@ function ReviewRow({
         </p>
       )}
 
-      <div className="flex items-center gap-2 border-t border-white/10 pt-3">
+      <div className="flex items-center gap-2 border-t border-[var(--line)] pt-3">
         <input
           type="text"
           inputMode="decimal"
@@ -1059,8 +1059,8 @@ function ReviewRow({
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[9px] uppercase tracking-wide text-white/30">{label}</p>
-      <p className="font-bold text-white/80 truncate">{value}</p>
+      <p className="text-[9px] uppercase tracking-wide text-[var(--ink-faint)]">{label}</p>
+      <p className="font-bold text-[var(--ink)] truncate">{value}</p>
     </div>
   );
 }
@@ -1068,11 +1068,11 @@ function Stat({ label, value }: { label: string; value: string }) {
 function Empty({ icon, title, body }: { icon: string; title: string; body: string }) {
   return (
     <div className="flex flex-col items-center justify-center text-center py-16 gap-2">
-      <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-1">
-        <Icon icon={icon} className="text-xl text-white/25" />
+      <div className="w-12 h-12 rounded-full bg-[var(--surface-sunken)] border border-[var(--line)] flex items-center justify-center mb-1">
+        <Icon icon={icon} className="text-xl text-[var(--ink-faint)]" />
       </div>
-      <h2 className="text-sm font-bold text-white/70">{title}</h2>
-      <p className="text-[11px] text-white/35 max-w-xs leading-relaxed">{body}</p>
+      <h2 className="text-sm font-bold text-[var(--ink-soft)]">{title}</h2>
+      <p className="text-[11px] text-[var(--ink-faint)] max-w-xs leading-relaxed">{body}</p>
     </div>
   );
 }

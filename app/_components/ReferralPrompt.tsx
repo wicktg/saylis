@@ -28,9 +28,9 @@ export default function ReferralPrompt({
         <WalletAvatar address={referrer} size={28} />
         <div className="min-w-0 flex-1">
           <p className="text-xs font-bold">You were referred</p>
-          <p className="text-[11px] text-white/45 leading-snug mt-0.5">
+          <p className="text-[11px] text-[var(--ink-soft)] leading-snug mt-0.5">
             Link{" "}
-            <span className="font-mono text-white/70">{truncateAddress(referrer)}</span> as your
+            <span className="font-mono text-[var(--ink)]">{truncateAddress(referrer)}</span> as your
             referrer permanently? This can only be set once.
           </p>
           {error && <p className="text-[10px] text-red-400 mt-1.5">{error}</p>}
@@ -45,7 +45,7 @@ export default function ReferralPrompt({
             <button
               onClick={onDismiss}
               disabled={confirming}
-              className="text-[11px] text-white/40 hover:text-white/70 transition-colors disabled:cursor-not-allowed"
+              className="text-[11px] text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors disabled:cursor-not-allowed"
             >
               Not now
             </button>

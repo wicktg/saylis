@@ -41,7 +41,7 @@ export default function TokenSocialLinks({ socials }: { socials: TokenSocials | 
           target="_blank"
           rel="noopener noreferrer"
           aria-label={SOCIAL_LABELS[kind]}
-          className="w-4 h-4 flex items-center justify-center shrink-0 self-center text-white/40 hover:text-white transition-colors"
+          className="w-4 h-4 flex items-center justify-center shrink-0 self-center text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors"
         >
           <Icon
             icon={SOCIAL_ICONS[kind]}

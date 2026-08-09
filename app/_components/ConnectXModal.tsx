@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Address } from "viem";
 import { useWalletAuth } from "@/app/_lib/useWalletAuth";
 import Icon from "@/app/_components/Icon";
+import Portal from "@/app/_components/Portal";
 
 type Step = "input" | "code" | "confirming" | "success";
 
@@ -108,32 +109,33 @@ export default function ConnectXModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/50">
-      <div className="mobile-sheet pixel-frame pixel-panel relative w-full max-w-sm mx-4 p-6">
+    <Portal>
+    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-[rgba(20,18,34,0.28)]">
+      <div className="mobile-sheet pixel-frame pixel-panel !shadow-none relative w-full max-w-sm mx-4 p-6">
         <button
           onClick={onClose}
           disabled={step === "confirming"}
           aria-label="Close"
-          className="absolute right-4 top-4 text-white/40 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="absolute right-4 top-4 text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
           <Icon icon="pixelarticons:close" className="text-base" />
         </button>
 
         <div className="flex items-center gap-2 mb-5">
-          <Icon icon="ri:twitter-x-fill" className="text-white text-lg" />
+          <Icon icon="ri:twitter-x-fill" className="text-[var(--ink)] text-lg" />
           <h2 className="text-base font-bold">Connect X</h2>
         </div>
 
         {step === "input" && (
           <form onSubmit={handleGenerateCode} className="flex flex-col gap-3">
-            <p className="text-[11px] text-white/50 leading-relaxed">
+            <p className="text-[11px] text-[var(--ink-soft)] leading-relaxed">
               Enter your X username. We&apos;ll give you a code to paste into your bio to prove
               it&apos;s really you. No password, no login required.
             </p>
 
             <div className="pixel-frame pixel-input px-3 py-1.5">
               <div className="flex items-center gap-1.5">
-                <span className="text-sm text-white/30">@</span>
+                <span className="text-sm text-[var(--ink-faint)]">@</span>
                 <input
                   type="text"
                   value={username}
@@ -141,12 +143,12 @@ export default function ConnectXModal({
                   placeholder="username"
                   autoFocus
                   maxLength={15}
-                  className="w-full bg-transparent text-sm focus:outline-none placeholder:text-white/30"
+                  className="w-full bg-transparent text-sm focus:outline-none placeholder:text-[var(--ink-faint)]"
                 />
               </div>
             </div>
 
-            {error && <p className="text-[11px] font-bold text-white">{error}</p>}
+            {error && <p className="text-[11px] font-bold text-[var(--ink)]">{error}</p>}
 
             <button
               type="submit"
@@ -160,9 +162,9 @@ export default function ConnectXModal({
 
         {(step === "code" || step === "confirming") && (
           <div className="flex flex-col gap-3">
-            <p className="text-[11px] text-white/50 leading-relaxed">
+            <p className="text-[11px] text-[var(--ink-soft)] leading-relaxed">
               Paste this code anywhere in your X bio for{" "}
-              <span className="text-white font-bold">@{username.trim()}</span>, save it, then hit
+              <span className="text-[var(--ink)] font-bold">@{username.trim()}</span>, save it, then hit
               Confirm.
             </p>
 
@@ -175,17 +177,17 @@ export default function ConnectXModal({
               </span>
               <Icon
                 icon="pixelarticons:copy"
-                className="text-white/40 group-hover:text-white text-sm"
+                className="text-[var(--ink-soft)] group-hover:text-[var(--ink)] text-sm"
               />
             </button>
 
-            {error && <p className="text-[11px] font-bold text-white">{error}</p>}
+            {error && <p className="text-[11px] font-bold text-[var(--ink)]">{error}</p>}
 
             <div className="flex gap-2 mt-1">
               <button
                 onClick={() => setStep("input")}
                 disabled={step === "confirming"}
-                className="pixel-frame pixel-btn-ghost flex-1 text-white/70 font-bold py-2.5 text-sm disabled:cursor-not-allowed"
+                className="pixel-frame pixel-btn-ghost flex-1 text-[var(--ink)] font-bold py-2.5 text-sm disabled:cursor-not-allowed"
               >
                 Back
               </button>
@@ -204,7 +206,7 @@ export default function ConnectXModal({
           <div className="flex flex-col items-center text-center py-4 gap-3">
             <Icon icon="pixelarticons:check" className="text-3xl text-[var(--accent)]" />
             <p className="text-sm font-bold">@{linkedUsername} linked.</p>
-            <p className="text-[11px] text-white/40 leading-relaxed">
+            <p className="text-[11px] text-[var(--ink-soft)] leading-relaxed">
               You can remove the code from your bio now.
             </p>
             <button
@@ -217,5 +219,6 @@ export default function ConnectXModal({
         )}
       </div>
     </div>
+    </Portal>
   );
 }

@@ -12,8 +12,8 @@ import ChatPanel from "@/app/_components/ChatPanel";
  */
 export default function Sidebar() {
   return (
-    <aside className="w-72 flex flex-col border-r border-white/10 shrink-0">
-      <div className="px-3 py-2 border-b border-white/10 text-[11px] text-white/35 lowercase">
+    <aside className="w-72 flex flex-col border-r border-[var(--line)] shrink-0">
+      <div className="px-3 py-2 border-b border-[var(--line)] text-[11px] text-[var(--ink-faint)] lowercase">
         ./chat
       </div>
       <ChatPanel />
