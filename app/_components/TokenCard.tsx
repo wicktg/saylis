@@ -87,6 +87,15 @@ export default function TokenCard({
             {formatTimeAgo(token.created_at)}
           </p>
 
+          {/* Desktop only: a phone card is already the full width of the
+              screen, and a third line of prose there pushes the figures
+              below the fold of the row. Clamped to two lines so one
+              long-winded bio cannot make its card taller than its
+              neighbours and break the grid's rhythm. */}
+          {token.description?.trim() ? (
+            <p className="token-bio">{token.description.trim()}</p>
+          ) : null}
+
           <div className="mt-2 flex items-baseline gap-3 flex-wrap">
             <span className="text-[0.8125rem] font-bold text-[var(--up)] tabular-nums">
               {marketData ? formatUsdCompact(marketData.marketCapWei, ethUsdPrice) : "-"}

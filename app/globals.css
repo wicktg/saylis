@@ -1450,6 +1450,87 @@ button {
   }
 }
 
+/*
+ * Token bio on a board card. Desktop only: a phone card is already the full
+ * width of the screen, and a third line of prose there pushes the figures
+ * out of the row.
+ *
+ * The breakpoint lives here rather than as `hidden md:block` on the element
+ * because the clamp needs `display: -webkit-box`, and a `display` in this
+ * file loads after Tailwind's utilities and silently beats `.hidden`. One
+ * owner of the property, no race. 768px matches the app's real mobile
+ * split (see useIsMobile), not Tailwind's narrower `sm`.
+ *
+ * Two lines hard, so one verbose description cannot make its card taller
+ * than the rest of the row.
+ */
+.token-bio {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .token-bio {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin: 7px 0 0;
+    color: var(--ink-soft);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1.5;
+  }
+}
+
+/* =================================================================
+ * DESKTOP-MODE NOTICE
+ * ================================================================= */
+
+.viewport-note {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: max-content;
+  max-width: calc(100vw - 28px);
+  padding: 11px 13px;
+  border: 1px solid var(--ink);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.viewport-note p {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.viewport-note b {
+  font-weight: 700;
+}
+
+.viewport-note button {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-sm);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background 0.18s var(--ease), color 0.18s var(--ease);
+}
+.viewport-note button:hover {
+  background: var(--surface-sunken);
+  color: var(--ink);
+}
+
 /* =================================================================
  * MISC
  * ================================================================= */

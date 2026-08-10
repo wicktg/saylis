@@ -3,6 +3,7 @@
 import { useAccount } from "wagmi";
 import TopNav from "@/app/_components/TopNav";
 import ChatLauncher from "@/app/_components/ChatLauncher";
+import DesktopModeNotice from "@/app/_components/DesktopModeNotice";
 import ReferralPrompt from "@/app/_components/ReferralPrompt";
 import BottomTabBar from "@/app/_components/mobile/BottomTabBar";
 import MobileHeader from "@/app/_components/mobile/MobileHeader";
@@ -85,6 +86,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <TopNav />
       <main className="flex-1 flex flex-col">{children}</main>
       <ChatLauncher />
+      <DesktopModeNotice />
       {referralPrompt}
     </div>
   );

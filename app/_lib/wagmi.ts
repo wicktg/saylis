@@ -32,6 +32,20 @@ export const wagmiConfig = createConfig(
       // The proxy already handles array bodies.
       [robinhood.id]: http("/api/rpc", { batch: { wait: 16 } }),
     },
+    // WHY `ssr: true`
+    //
+    // Without it wagmi reads its stored connection during the very first
+    // render, which on an SSR framework is a render the server also
+    // performed with no storage at all. The two disagree, React discards
+    // the client tree, and the restored connection goes with it — which is
+    // the "connect, refresh, connect again" loop seen in the in-app
+    // browsers of mobile wallets, where a refresh is the normal way to get
+    // back to the app.
+    //
+    // With it, wagmi renders disconnected first and rehydrates from
+    // storage in an effect, so server and client agree and the reconnect
+    // survives.
+    ssr: true,
     walletConnectProjectId,
     appName: "saylis.wtf",
     appDescription: "saylis.wtf token launchpad",
