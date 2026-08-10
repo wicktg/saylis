@@ -1483,52 +1483,32 @@ button {
 }
 
 /* =================================================================
- * DESKTOP-MODE NOTICE
- * ================================================================= */
-
-.viewport-note {
+ * DESKTOP-MODE BLOCK
+ * =================================================================
+ *
+ * Covers the whole app, opaque, above everything including the chat
+ * launcher and the ConnectKit modal. See DesktopModeNotice for why this
+ * blocks rather than suggests.
+ */
+.viewport-block {
   position: fixed;
-  left: 50%;
-  bottom: 18px;
-  transform: translateX(-50%);
-  z-index: 60;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: max-content;
-  max-width: calc(100vw - 28px);
-  padding: 11px 13px;
-  border: 1px solid var(--ink);
-  border-radius: var(--r-md);
-  background: var(--surface);
-  box-shadow: var(--shadow-md);
-}
-
-.viewport-note p {
-  margin: 0;
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1.45;
-  color: var(--ink);
-}
-.viewport-note b {
-  font-weight: 700;
-}
-
-.viewport-note button {
-  flex: 0 0 auto;
+  inset: 0;
+  z-index: 200;
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: var(--r-sm);
-  color: var(--ink-soft);
-  cursor: pointer;
-  transition: background 0.18s var(--ease), color 0.18s var(--ease);
+  padding: 32px;
+  background: var(--surface);
 }
-.viewport-note button:hover {
-  background: var(--surface-sunken);
+
+.viewport-block p {
+  margin: 0;
+  max-width: 22ch;
+  text-align: center;
+  text-wrap: balance;
   color: var(--ink);
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.45;
 }
 
 /* =================================================================
