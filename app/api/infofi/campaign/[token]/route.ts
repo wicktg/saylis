@@ -14,7 +14,6 @@ import { NextResponse } from "next/server";
 import { isAddress } from "viem";
 import { getSupabaseAdmin } from "@/app/_lib/supabaseAdmin";
 import { withDailyDelta, type ScoredParticipant } from "@/app/_lib/infofi/mindshare";
-import { DEV_MOCKS, MOCK_CAMPAIGN_DETAIL, MOCK_OPEN_TOKEN } from "@/app/_lib/devMocks";
 
 export const dynamic = "force-dynamic";
 
@@ -71,11 +70,6 @@ export async function GET(
     return NextResponse.json({ error: "Could not load the campaign." }, { status: 500 });
   }
   if (!campaign) {
-    // Scoped to the one fixture address, so a genuinely missing campaign
-    // still 404s in dev rather than silently resolving to sample data.
-    if (DEV_MOCKS && tokenAddress === MOCK_OPEN_TOKEN.toLowerCase()) {
-      return NextResponse.json(MOCK_CAMPAIGN_DETAIL);
-    }
     return NextResponse.json({ error: "No InfoFi campaign for this token." }, { status: 404 });
   }
 

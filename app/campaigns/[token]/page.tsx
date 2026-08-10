@@ -16,7 +16,6 @@ import type { TokenRecord } from "@/app/_lib/types";
 import { getFriendlyErrorMessage } from "@/app/_lib/errors";
 import Icon from "@/app/_components/Icon";
 import Spinner from "@/app/_components/Spinner";
-import { DEV_MOCKS, MOCK_OPEN_TOKEN, MOCK_TOKEN_RECORD } from "@/app/_lib/devMocks";
 
 type LeaderboardRow = {
   walletAddress: string;
@@ -79,9 +78,6 @@ export default function CampaignDetailPage() {
       if (cancelled) return;
       if (data) {
         setToken(data as TokenRecord);
-        setTokenLookup("found");
-      } else if (DEV_MOCKS && tokenAddress === MOCK_OPEN_TOKEN.toLowerCase()) {
-        setToken(MOCK_TOKEN_RECORD as TokenRecord);
         setTokenLookup("found");
       } else {
         setTokenLookup("missing");

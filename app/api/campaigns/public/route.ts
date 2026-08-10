@@ -11,7 +11,6 @@
  */
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/app/_lib/supabaseAdmin";
-import { DEV_MOCKS, MOCK_PUBLIC_CAMPAIGNS } from "@/app/_lib/devMocks";
 
 export const dynamic = "force-dynamic";
 
@@ -64,12 +63,6 @@ export async function GET() {
     const bLive = b.state === "open" ? 0 : 1;
     return aLive - bLive;
   });
-
-  // Appended, never substituted, so real local rows still render beside
-  // the fixture and this can't mask a bug in the query above.
-  if (DEV_MOCKS) {
-    return NextResponse.json({ campaigns: [...items, ...MOCK_PUBLIC_CAMPAIGNS] });
-  }
 
   return NextResponse.json({ campaigns: items });
 }

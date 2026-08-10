@@ -19,7 +19,6 @@
 import { NextResponse } from "next/server";
 import { isAddress } from "viem";
 import { getSupabaseAdmin } from "@/app/_lib/supabaseAdmin";
-import { DEV_MOCKS, MOCK_MY_CAMPAIGNS } from "@/app/_lib/devMocks";
 
 export const dynamic = "force-dynamic";
 
@@ -85,13 +84,6 @@ export async function GET(request: Request) {
       reportedAmountRaw: c.reported_amount_raw,
     };
   });
-
-  if (DEV_MOCKS) {
-    return NextResponse.json({
-      campaigns: [...items, ...MOCK_MY_CAMPAIGNS],
-      requests: [],
-    });
-  }
 
   return NextResponse.json({ campaigns: items, requests: [] });
 }
