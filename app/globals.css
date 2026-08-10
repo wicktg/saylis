@@ -670,42 +670,19 @@ button {
   line-height: 1.5;
 }
 
-.camp-figures {
-  display: flex;
-  gap: 8px;
+/* Pool, winners and time as one line of running text. Wraps naturally on
+   a narrow card, which the three fixed-width tiles it replaced did not. */
+.camp-facts {
   margin: 12px 0 0;
+  color: var(--ink-soft);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.5;
 }
-
-.camp-figures > div {
-  flex: 1 1 0;
-  min-width: 0;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-}
-
-.camp-figures dt {
-  color: var(--ink-faint);
-  font-size: 0.5625rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.camp-figures dd {
-  margin: 3px 0 0;
+.camp-facts strong {
   color: var(--ink);
-  font-size: 0.8125rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.camp-figures dd span {
-  color: var(--ink-faint);
-  font-size: 0.625rem;
-  font-weight: 600;
 }
 
 .camp-cta {
@@ -1274,6 +1251,202 @@ button {
     opacity: 1;
     transform: none;
     stroke-dashoffset: 0;
+  }
+}
+
+/* Three small figures under a campaign's title. */
+.camp-meta {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.camp-meta dt {
+  margin: 0;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.camp-meta dd {
+  margin: 3px 0 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* =================================================================
+ * CAMPAIGN LEADERBOARD
+ * =================================================================
+ *
+ * A list, not a table: three facts per row, one of which is a bar. Table
+ * semantics would buy column alignment that the grid below already gives,
+ * and cost a layout that has to be rebuilt for a phone.
+ */
+.lb {
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.lb-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.lb-title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+.lb-count {
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+
+.lb-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* rank | who | bar | score — the bar takes the slack, so the score column
+   stays put no matter how long a truncated address renders. */
+.lb-row {
+  display: grid;
+  grid-template-columns: 26px minmax(0, max-content) 1fr max-content;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  border-top: 1px solid var(--line);
+}
+.lb-row:first-child {
+  border-top: 0;
+}
+
+.lb-rank {
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+  text-align: right;
+}
+/* Top three carry full-strength ink instead of a medal colour: the order
+   already says who is winning, and three extra hues would not. */
+.lb-row.is-podium .lb-rank {
+  color: var(--ink);
+}
+
+.lb-who {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.lb-pfp {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--surface-sunken);
+}
+.lb-pfp-fallback {
+  display: grid;
+  place-items: center;
+  background: var(--brand-tint);
+  color: var(--brand);
+  font-family: var(--font-inter), sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+.lb-addr {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lb-you {
+  padding: 2px 6px;
+  border-radius: var(--r-xs);
+  background: var(--brand-tint);
+  color: var(--brand);
+  font-family: var(--font-inter), sans-serif;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.lb-bar {
+  display: block;
+  height: 6px;
+  min-width: 40px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+.lb-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--brand-soft);
+}
+.lb-row.is-podium .lb-bar-fill {
+  background: var(--brand);
+}
+
+.lb-score {
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.lb-row.is-you {
+  background: var(--brand-tint);
+}
+
+/*
+ * On a phone the bar is the first thing to go: it is the only element here
+ * that is decorative once the score is already printed beside it, and
+ * dropping it buys the address and the score enough room to stay on one
+ * line.
+ */
+@media (max-width: 599px) {
+  .lb-row {
+    grid-template-columns: 22px minmax(0, 1fr) max-content;
+    gap: 10px;
+    padding: 11px 13px;
+  }
+  .lb-bar {
+    display: none;
+  }
+  .lb-addr {
+    font-size: 0.625rem;
+  }
+  .lb-head {
+    padding: 12px 13px;
   }
 }
 

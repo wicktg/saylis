@@ -14,6 +14,7 @@ import { NextResponse } from "next/server";
 import { isAddress } from "viem";
 import { getSupabaseAdmin } from "@/app/_lib/supabaseAdmin";
 import { withDailyDelta, type ScoredParticipant } from "@/app/_lib/infofi/mindshare";
+import { DEV_MOCKS, MOCK_CAMPAIGN_DETAIL, MOCK_OPEN_TOKEN } from "@/app/_lib/devMocks";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,11 @@ export async function GET(
     return NextResponse.json({ error: "Could not load the campaign." }, { status: 500 });
   }
   if (!campaign) {
+    // Scoped to the one fixture address, so a genuinely missing campaign
+    // still 404s in dev rather than silently resolving to sample data.
+    if (DEV_MOCKS && tokenAddress === MOCK_OPEN_TOKEN.toLowerCase()) {
+      return NextResponse.json(MOCK_CAMPAIGN_DETAIL);
+    }
     return NextResponse.json({ error: "No InfoFi campaign for this token." }, { status: 404 });
   }
 
@@ -83,7 +89,9 @@ export async function GET(
     .limit(1)
     .maybeSingle();
 
-  let leaderboard: ReturnType<typeof withDailyDelta> = [];
+  let leaderboard: (ReturnType<typeof withDailyDelta>[number] & {
+    xAvatarUrl?: string | null;
+  })[] = [];
 
   if (latest?.snapshot_date) {
     const today = latest.snapshot_date as string;
@@ -119,6 +127,32 @@ export async function GET(
         rank: r.rank,
       }))
     );
+  }
+
+  // Avatars live in `x_accounts`, keyed by wallet, while the board comes
+  // from `infofi_mindshare_history`, which stores the handle but not the
+  // picture. One batched lookup joins them rather than a query per row.
+  //
+  // A missing row is normal, not an error: the binding is optional and the
+  // column is nullable, so the UI has to render a fallback regardless.
+  if (leaderboard.length > 0) {
+    const wallets = leaderboard.map((row) => row.walletAddress.toLowerCase());
+    const { data: avatarRows } = await admin
+      .from("x_accounts")
+      .select("wallet_address, avatar_url")
+      .in("wallet_address", wallets);
+
+    const avatarByWallet = new Map(
+      (avatarRows ?? []).map((r) => [
+        (r.wallet_address as string).toLowerCase(),
+        r.avatar_url as string | null,
+      ])
+    );
+
+    leaderboard = leaderboard.map((row) => ({
+      ...row,
+      xAvatarUrl: avatarByWallet.get(row.walletAddress.toLowerCase()) ?? null,
+    }));
   }
 
   // The caller's own participation + claim, only when they identify a wallet.

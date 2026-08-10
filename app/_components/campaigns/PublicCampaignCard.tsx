@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { resolveIpfsUrl } from "@/app/_lib/ipfs";
 import { formatCompactTokenAmount, truncateAddress } from "@/app/_lib/format";
-import { formatTimeAgo } from "@/app/_lib/time";
+import { formatTimeLeft } from "@/app/_lib/time";
 
 export type PublicCampaign = {
   tokenAddress: string;
@@ -27,6 +27,17 @@ export type PublicCampaign = {
 export default function PublicCampaignCard({ campaign }: { campaign: PublicCampaign }) {
   const imageUrl = campaign.imageUrl ? resolveIpfsUrl(campaign.imageUrl) : null;
   const isEnded = campaign.state !== "open";
+
+  // The pool is the hook, so it keeps full-strength ink; the rest is
+  // supporting detail and stays quiet.
+  const pool = `${formatCompactTokenAmount(campaign.allocationRaw)}${
+    campaign.ticker ? ` ${campaign.ticker}` : ""
+  }`;
+  const timing = isEnded
+    ? "Ended"
+    : campaign.windowEndsAt
+      ? formatTimeLeft(campaign.windowEndsAt)
+      : null;
 
   return (
     <li className="camp-card">
@@ -60,22 +71,16 @@ export default function PublicCampaignCard({ campaign }: { campaign: PublicCampa
           {campaign.description ?? campaign.title ?? "Post about this token to earn a share."}
         </p>
 
-        <dl className="camp-figures">
-          <div>
-            <dt>Pool</dt>
-            <dd>{formatCompactTokenAmount(campaign.allocationRaw)}</dd>
-          </div>
-          <div>
-            <dt>Winners</dt>
-            <dd>{campaign.winnerCount ?? "-"}</dd>
-          </div>
-          <div>
-            <dt>{isEnded ? "Ended" : "Opened"}</dt>
-            <dd>
-              {campaign.openedAt ? formatTimeAgo(campaign.openedAt) : "-"}
-            </dd>
-          </div>
-        </dl>
+        {/* One quiet line instead of three bordered tiles. Boxing each
+            figure inside an already-bordered card drew three more
+            rectangles to say what the words alone say, and the labels
+            ("Pool", "Winners") were redundant once the unit is written
+            out beside the number. */}
+        <p className="camp-facts">
+          <strong>{pool}</strong> pool
+          {campaign.winnerCount ? <> &middot; {campaign.winnerCount} winners</> : null}
+          {timing ? <> &middot; {timing}</> : null}
+        </p>
       </Link>
     </li>
   );

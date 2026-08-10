@@ -65,11 +65,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <div className="relative z-[1] flex flex-col min-h-dvh w-full">
         <MobileHeader />
         <main className="flex-1 flex flex-col">{children}</main>
-        {/* Spacer matching the fixed tab bar, so the last item in a
-            scrolling list is never trapped underneath it. */}
+        {/* Spacer matching the fixed tab bar PLUS the chat launcher that
+            floats above it, so the last item in a scrolling list is never
+            trapped under either one. */}
         <div
           aria-hidden="true"
-          className="shrink-0 h-14"
+          className="shrink-0 h-[7.5rem]"
           style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
         />
         <ChatLauncher />

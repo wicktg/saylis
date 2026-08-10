@@ -28,6 +28,7 @@ import { robinhood } from "viem/chains";
 import { getSupabaseAdmin } from "@/app/_lib/supabaseAdmin";
 import { REFERRAL_VAULT_ADDRESS } from "@/app/_lib/contracts/config";
 import { REFERRAL_VAULT_ABI } from "@/app/_lib/contracts/ReferralVault";
+import { DEV_MOCKS, MOCK_REFERRALS } from "@/app/_lib/devMocks";
 
 export const dynamic = "force-dynamic";
 
@@ -117,12 +118,25 @@ export async function GET(
   }
 
   try {
-    return await buildResponse(wallet);
+    const response = await buildResponse(wallet);
+    // Substituted rather than merged, and only when there is genuinely
+    // nothing to show: blending fixture balances into real ones would
+    // produce totals that mean nothing. A wallet with real referrals keeps
+    // seeing them.
+    if (DEV_MOCKS) {
+      const body = await response.clone().json();
+      if (!body.referred?.length) return NextResponse.json(MOCK_REFERRALS);
+    }
+    return response;
   } catch (error) {
     // Anything escaping here previously produced a 500 with an empty body,
     // which the browser reported as a JSON parse error rather than as a
     // server failure. Always emit a JSON body so the client's
     // `payload?.error` path has something real to show.
+    // A dev box usually has no vault deployed and no archive node, so the
+    // read above throws long before it can report "no referrals".
+    if (DEV_MOCKS) return NextResponse.json(MOCK_REFERRALS);
+
     console.error("[referral] failed for", wallet, error);
     return NextResponse.json(
       { error: "Could not load referral data. Please try again." },
